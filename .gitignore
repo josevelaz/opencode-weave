@@ -12,3 +12,4 @@ reference/
 # Weave runtime state (execution state, not plans)
 .weave/*
 !.weave/plans/
+!.weave/designs/
