@@ -11,7 +11,48 @@
 
 ## Context
 
-This document captures research into two open-source projects that tackle AI-assisted software development workflows, and how their ideas relate to Weave's architecture.
+This document captures research into two open-source projects that tackle AI-assisted software development workflows, and how their ideas relate to Weave's architecture. The key discovery: **Attractor is a harness (same layer as OpenCode), while Spec-Kit is a planning methodology (same layer as Pattern)**. Understanding which layer each tool operates at clarifies exactly what's worth borrowing.
+
+---
+
+## 0. The Key Insight: Where Each Tool Sits in the Stack
+
+These three projects aren't competing — they operate at **completely different layers**:
+
+| Tool | What it actually is | Layer | Analogy |
+|------|-------------------|-------|---------|
+| **Attractor** | A harness — the agent loop, tools, orchestration | **Runtime/execution** | The factory floor |
+| **Spec-Kit** | A planning methodology — structured thinking before code | **Pre-execution planning** | The architect's process manual |
+| **OpenCode** | A harness (same layer as Attractor) | **Runtime/execution** | The factory floor |
+| **Weave** | Team structure + orchestration on top of OpenCode | **Runtime/execution + roles** | The managed team |
+
+### Attractor ≈ OpenCode (they're the same thing)
+
+Attractor is a **spec you hand to a raw LLM** to bootstrap an entire harness from scratch — the agent loop, tool use, file management, error recovery. If you already use OpenCode, you already *have* what Attractor builds. Its bottom two layers (unified LLM client + coding agent loop) are literally reimplementing what OpenCode gives you for free.
+
+The only novel layer is the **pipeline orchestration** on top — and even that overlaps heavily with what Weave's Fleet API already does (spawn parallel sessions, callbacks, worktrees). The interesting bits that survive this realization are narrow: goal gates, context fidelity modes, deterministic edge selection, structured retry policies.
+
+### Spec-Kit ≈ A More Structured Pattern
+
+Spec-Kit doesn't execute anything. It's a CLI that helps you write structured documents — constitutions, specs, plans — in a specific order. It's a **workflow for humans and AI to think clearly** before implementation begins.
+
+The closest analog in Weave is **Pattern**. Pattern does the "think before you code" step. But Pattern is freeform, while Spec-Kit enforces a rigid pipeline:
+
+```
+Constitution → Specify → Clarify → Plan → Tasks → Implement
+```
+
+The real question becomes: **should Pattern adopt Spec-Kit's structured stages?** Right now Pattern produces a plan in one shot. Spec-Kit would say that's skipping steps — you should first write a spec (the *what*), then clarify ambiguities, *then* plan (the *how*).
+
+The most practical pieces to borrow: `[NEEDS CLARIFICATION]` markers (flag unknowns instead of guessing) and the constitution concept (persistent architectural guardrails that constrain planning).
+
+### What This Means for Weave
+
+Given this framing, the borrowable ideas are much narrower than they first appear:
+
+- **From Attractor**: Only the orchestration *concepts* matter (goal gates, retry policies, context fidelity) — not the implementation, since OpenCode already provides the runtime.
+- **From Spec-Kit**: The planning *methodology* matters (constitutions, spec/plan separation, clarification markers) — not the CLI or template system.
+- **Weave's unique value**: The team structure (specialized agents with roles and permissions) is something neither Attractor nor Spec-Kit provides. This is where Weave should double down.
 
 ---
 
@@ -19,7 +60,7 @@ This document captures research into two open-source projects that tackle AI-ass
 
 ### What It Is
 
-Attractor is a set of three **Natural Language Specifications (NLSpecs)** — not a tool or library, but spec documents designed to be handed to a coding agent with "implement this." It defines a three-layer stack for AI-powered software workflows.
+Attractor is a set of three **Natural Language Specifications (NLSpecs)** — not a tool or library, but spec documents designed to be handed to a coding agent with "implement this." It defines a three-layer stack for AI-powered software workflows. **In practice, it's building a harness — the same thing OpenCode already is.**
 
 ### Three-Layer Architecture
 
@@ -142,11 +183,11 @@ specs/
 
 ### Core Philosophies
 
-| | Philosophy | Analogy |
-|---|---|---|
-| **Spec-Kit** | Structure the *thinking*. Rigorous methodology before code. | Architect's process manual |
-| **Attractor** | Structure the *execution*. Deterministic, visual pipeline. | Factory assembly line blueprint |
-| **Weave** | Structure the *team*. Specialists collaborate with governance. | Managed team with roles and permissions |
+See **Section 0** for the architectural framing. In summary:
+
+- **Attractor** ≈ OpenCode (both are harnesses — Attractor reimplements what OpenCode already provides)
+- **Spec-Kit** ≈ Pattern (both are planning methodologies — Spec-Kit is more structured)
+- **Weave** adds the team layer (specialized agents with roles) that neither provides
 
 ### Feature Comparison
 
