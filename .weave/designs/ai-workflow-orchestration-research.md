@@ -268,13 +268,14 @@ Fleet already supports child sessions. Attractor adds join policies (wait_all, k
 
 ### Near-Term (Low Effort, High Value)
 1. **Add constitution support** — Pattern reads `.weave/constitution.md` if present, validates plans against it
-2. **Add `[NEEDS CLARIFICATION]` convention** — Pattern flags uncertainties instead of guessing
+2. **Add `[NEEDS CLARIFICATION]` convention** — Pattern flags uncertainties instead of guessing; Loom resolves with user before re-delegating
 3. **Add goal gate markers to plans** — `- [ ] [GATE] Run full test suite` syntax that Tapestry enforces
+4. **Structured spec handoff from Loom to Pattern** — Loom builds a requirements spec through user conversation before delegating to Pattern (see Section 8, Option B)
 
 ### Medium-Term (Moderate Effort)
-4. **Structured retry syntax in plans** — `- [ ] Run tests (max_retries: 3)` parsed by Tapestry
-5. **Failure paths in plans** — "If step N fails → jump to step M" notation
-6. **Spec-then-plan workflow** — Pattern generates spec first, then plan referencing it
+5. **Structured retry syntax in plans** — `- [ ] Run tests (max_retries: 3)` parsed by Tapestry
+6. **Failure paths in plans** — "If step N fails → jump to step M" notation
+7. **Two-layer clarification system** — Loom catches obvious questions upfront; Pattern catches technical questions during research and escalates back (see Section 8)
 
 ### Long-Term (Exploratory)
 7. **Context fidelity per task** — Tapestry manages context window proactively based on task annotations
@@ -291,7 +292,7 @@ Fleet already supports child sessions. Attractor adds join policies (wait_all, k
 
 3. **Markdown remains the right format for Weave.** DOT is powerful but adds complexity. The lesson is to enrich markdown plans with structured semantics (gates, retries, failure paths) rather than switching formats.
 
-4. **Spec-Kit's separation of "what" from "how"** is an underappreciated insight that could significantly improve Pattern's output quality.
+4. **Spec-Kit's separation of "what" from "how"** maps naturally onto Weave's existing agent boundaries: Loom owns the "what" (through user conversation), Pattern owns the "how" (through codebase research and planning). The gap is that Loom currently passes freeform prompts instead of structured specs. See Section 8 for the recommended approach.
 
 5. **StrongDM's "validation replaces code review"** claim is aspirational but directionally correct. Weave's Weft/Warp review agents are already a step in this direction — they could evolve toward scenario-based validation.
 
@@ -433,3 +434,140 @@ Amendments require documented rationale and maintainer agreement.
 | **Versioning** | Semantic versioning with amendment tracking | Simple version + date |
 | **Propagation** | Updates trigger sync across all templates | Only Pattern references it |
 | **Governance** | Formal amendment procedures | Lightweight — documented rationale + approval |
+
+---
+
+## 8. Deep Dive: Mapping Spec-Kit's Stages onto Weave
+
+### Pattern's Current Goal
+
+Pattern has a narrow, well-defined goal: **research the codebase, then produce a concrete implementation plan.** It never writes code. It never delegates. It's a planner-only agent.
+
+Its current workflow is essentially **one stage**:
+
+```
+[Loom delegates with freeform prompt] → Pattern researches → Pattern writes plan → done
+```
+
+This is effective but skips the structured thinking that Spec-Kit enforces *before* planning begins.
+
+### Where Each Spec-Kit Stage Lives in Weave
+
+| Spec-Kit Stage | What it does | Natural home in Weave | Current state |
+|---|---|---|---|
+| **Constitution** | Define immutable project principles | **Repo artifact** (`.weave/constitution.md`). Pattern *reads* it, doesn't create it. | Does not exist yet |
+| **Specify** | Write user stories, requirements, acceptance criteria — the *what* | **Loom ↔ User conversation.** This is what Loom gives Pattern in the delegation prompt. | Freeform — no structure |
+| **Clarify** | Flag and resolve `[NEEDS CLARIFICATION]` markers | **Pattern → Loom roundtrip.** Pattern flags unknowns, Loom resolves with the user, sends Pattern back in. | Pattern guesses instead of flagging |
+| **Plan** | Architecture, tech decisions, task breakdown — the *how* | **Pattern.** This is its current job. | Works well — structured template with validation |
+| **Tasks** | Ordered task list with dependencies | **Embedded in Pattern's plan** (`## TODOs` section with `- [ ]` checkboxes). | Works well — Tapestry consumes these |
+| **Implement** | Execute tasks | **Tapestry.** Not Pattern at all. | Works well — drives `/start-work` execution |
+
+### The Gap: Specify + Clarify
+
+Today's flow has a missing step. Loom hands Pattern a vague prompt like:
+
+> "Create a plan for adding OAuth2 support"
+
+Pattern then *guesses* the requirements — scope, acceptance criteria, constraints — and bakes those guesses into the plan. If the guesses are wrong, the plan is wrong, and Tapestry executes the wrong thing.
+
+Spec-Kit says: **before you plan, you must specify what you're building and clarify what you don't know.** These are two distinct activities:
+
+1. **Specify**: What are the user stories? What are the acceptance criteria? What's in scope vs. out of scope? No tech decisions yet.
+2. **Clarify**: What assumptions are we making? What's ambiguous? Flag with `[NEEDS CLARIFICATION]` and resolve before proceeding.
+
+### Three Options for Filling the Gap
+
+#### Option A: Pattern Does It Internally
+
+Add a "spec phase" to Pattern's workflow. Before writing the plan, Pattern first writes a spec (`.weave/specs/{slug}.md`), flags uncertainties, and only proceeds to planning once the spec is clean.
+
+**Pros**: Self-contained, no workflow changes.
+**Cons**: Pattern can't resolve clarifications — it doesn't talk to the user. It would have to guess anyway, defeating the purpose. Also increases Pattern's token consumption and scope.
+
+#### Option B: Loom Owns Spec/Clarify, Pattern Receives Clean Specs ⭐
+
+Loom structures its conversation with the user *before* delegating to Pattern. Instead of passing a vague prompt, Loom builds a structured spec through dialogue:
+
+```
+User: "Add OAuth2 support"
+Loom: "Let me clarify a few things before planning:
+       - Which OAuth2 flows? (auth code, client credentials, device?)
+       - Which providers? (Google, GitHub, custom?)
+       - Do we need token refresh?
+       - Should this replace the existing auth or augment it?"
+User: "Auth code flow, Google + GitHub, yes refresh, augment existing"
+Loom → Pattern: [structured spec with requirements, scope, acceptance criteria]
+```
+
+Pattern then receives a clean, unambiguous input and produces a plan against it.
+
+**Pros**: Leverages Loom's existing role (user-facing orchestrator). Clarification happens through natural conversation. Pattern gets better input → produces better plans. No new agents needed.
+**Cons**: Requires Loom to be more disciplined about structuring its delegation. Could add conversational overhead for simple tasks.
+
+#### Option C: New Lightweight "Specify" Agent
+
+A dedicated agent that produces structured specs. Loom delegates to it before Pattern.
+
+**Pros**: Clean separation of concerns.
+**Cons**: Another agent = more complexity, more token cost, more orchestration. Overkill when Loom can do this conversationally.
+
+### Recommendation: Option B
+
+**Loom should own the spec/clarify loop.** This is the natural fit because:
+
+1. **Loom already talks to the user.** Spec-Kit's clarify step is fundamentally a *conversation*, and Loom is Weave's conversational agent.
+2. **Pattern should receive, not discover, requirements.** Pattern's strength is translating clear requirements into concrete plans. Making it also discover requirements dilutes its focus.
+3. **No new agents needed.** This is a behavioral enhancement to Loom's delegation protocol, not a new system component.
+4. **Graceful degradation.** For simple tasks, Loom skips the spec step and delegates directly (as it does today). For complex tasks, Loom asks clarifying questions first. The trigger could be the same as the plan workflow trigger: "5+ steps or architectural decisions."
+
+### What This Changes in Practice
+
+**Loom's delegation to Pattern would evolve from:**
+
+```
+"Create a plan for adding OAuth2 support"
+```
+
+**To a structured handoff:**
+
+```markdown
+## Spec: OAuth2 Support
+
+### Requirements
+- Add OAuth2 authorization code flow alongside existing session auth
+- Support Google and GitHub as identity providers
+- Implement token refresh with configurable expiry
+- Existing auth must continue to work (augment, don't replace)
+
+### Acceptance Criteria
+- User can log in via Google OAuth2
+- User can log in via GitHub OAuth2
+- Tokens auto-refresh before expiry
+- Existing session-based auth is unaffected
+
+### Out of Scope
+- Client credentials flow
+- Custom OAuth2 providers
+- PKCE (future consideration)
+
+### Open Questions
+(none — all clarified)
+```
+
+Pattern then plans against this spec, and has clear guardrails for what to include and what to exclude.
+
+### Impact on `[NEEDS CLARIFICATION]` Markers
+
+Even with Loom doing upfront spec work, Pattern should still support `[NEEDS CLARIFICATION]` as a safety net. If Pattern discovers an ambiguity during codebase research that Loom didn't anticipate, it should flag it rather than guess:
+
+```markdown
+- [ ] 3. Add token refresh middleware
+  **What**: Intercept expired tokens and refresh before request proceeds
+  **Files**: `src/auth/middleware.ts` (modify)
+  **[NEEDS CLARIFICATION]**: Should refresh happen synchronously (blocking the request)
+  or asynchronously (queue refresh, retry request)? This affects the middleware architecture.
+```
+
+This creates a **two-layer clarification system**:
+1. **Loom catches the obvious questions** before delegation (user-facing)
+2. **Pattern catches the technical questions** discovered during research (escalated back to Loom → user)
