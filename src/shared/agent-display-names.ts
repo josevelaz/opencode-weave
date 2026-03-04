@@ -5,6 +5,9 @@
  *
  * OpenCode uses the agent key in config.agent as the display name in the UI,
  * so we remap lowercase config keys to descriptive display names.
+ *
+ * This map is mutable — custom agents can register display names via
+ * registerAgentDisplayName().
  */
 export const AGENT_DISPLAY_NAMES: Record<string, string> = {
   loom: "Loom (Main Orchestrator)",
@@ -15,6 +18,27 @@ export const AGENT_DISPLAY_NAMES: Record<string, string> = {
   spindle: "spindle",
   warp: "warp",
   weft: "weft",
+}
+
+/** Lazily-computed reverse lookup (display name → config key). Invalidated on registration. */
+let reverseDisplayNames: Record<string, string> | null = null
+
+function getReverseDisplayNames(): Record<string, string> {
+  if (reverseDisplayNames === null) {
+    reverseDisplayNames = Object.fromEntries(
+      Object.entries(AGENT_DISPLAY_NAMES).map(([key, displayName]) => [displayName.toLowerCase(), key]),
+    )
+  }
+  return reverseDisplayNames
+}
+
+/**
+ * Register a display name for an agent config key.
+ * Custom agents call this so getAgentDisplayName/getAgentConfigKey work for them.
+ */
+export function registerAgentDisplayName(configKey: string, displayName: string): void {
+  AGENT_DISPLAY_NAMES[configKey] = displayName
+  reverseDisplayNames = null // invalidate cache
 }
 
 /**
@@ -37,17 +61,14 @@ export function getAgentDisplayName(configKey: string): string {
   return configKey
 }
 
-const REVERSE_DISPLAY_NAMES: Record<string, string> = Object.fromEntries(
-  Object.entries(AGENT_DISPLAY_NAMES).map(([key, displayName]) => [displayName.toLowerCase(), key]),
-)
-
 /**
  * Resolve an agent name (display name or config key) to its lowercase config key.
  * "Loom (Main Orchestrator)" → "loom", "loom" → "loom", "unknown" → "unknown"
  */
 export function getAgentConfigKey(agentName: string): string {
   const lower = agentName.toLowerCase()
-  const reversed = REVERSE_DISPLAY_NAMES[lower]
+  const reverse = getReverseDisplayNames()
+  const reversed = reverse[lower]
   if (reversed !== undefined) return reversed
   if (AGENT_DISPLAY_NAMES[lower] !== undefined) return lower
   return lower

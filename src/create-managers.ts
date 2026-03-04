@@ -6,6 +6,8 @@ import { ConfigHandler } from "./managers/config-handler"
 import { BackgroundManager } from "./managers/background-manager"
 import { SkillMcpManager } from "./managers/skill-mcp-manager"
 import { createBuiltinAgents } from "./agents/builtin-agents"
+import { buildCustomAgent, buildCustomAgentMetadata } from "./agents/custom-agent-factory"
+import { AGENT_METADATA } from "./agents/builtin-agents"
 
 export interface WeaveManagers {
   configHandler: ConfigHandler
@@ -26,6 +28,26 @@ export function createManagers(options: {
     agentOverrides: pluginConfig.agents,
     resolveSkills,
   })
+
+  // Register custom agents from config
+  if (pluginConfig.custom_agents) {
+    const disabledSet = new Set(pluginConfig.disabled_agents ?? [])
+    for (const [name, customConfig] of Object.entries(pluginConfig.custom_agents)) {
+      // Skip disabled custom agents
+      if (disabledSet.has(name)) continue
+      // Prevent custom agents from overriding built-in agents
+      if (agents[name] !== undefined) continue
+
+      agents[name] = buildCustomAgent(name, customConfig, {
+        resolveSkills,
+        disabledSkills: pluginConfig.disabled_skills ? new Set(pluginConfig.disabled_skills) : undefined,
+      })
+
+      // Register metadata for Loom's dynamic prompt integration
+      const metadata = buildCustomAgentMetadata(name, customConfig)
+      ;(AGENT_METADATA as Record<string, typeof metadata>)[name] = metadata
+    }
+  }
 
   const configHandler = new ConfigHandler({ pluginConfig })
   const backgroundManager = new BackgroundManager({

@@ -1,8 +1,9 @@
-import { describe, it, expect } from "bun:test"
+import { describe, it, expect, afterEach } from "bun:test"
 import {
   AGENT_DISPLAY_NAMES,
   getAgentDisplayName,
   getAgentConfigKey,
+  registerAgentDisplayName,
 } from "./agent-display-names"
 
 describe("getAgentDisplayName", () => {
@@ -56,6 +57,38 @@ describe("AGENT_DISPLAY_NAMES", () => {
     for (const key of expectedKeys) {
       expect(AGENT_DISPLAY_NAMES[key]).toBeDefined()
     }
-    expect(Object.keys(AGENT_DISPLAY_NAMES)).toHaveLength(8)
+    // At least the 8 built-in agents (may be more if custom agents registered in other tests)
+    expect(Object.keys(AGENT_DISPLAY_NAMES).length).toBeGreaterThanOrEqual(8)
+  })
+})
+
+describe("registerAgentDisplayName", () => {
+  afterEach(() => {
+    // Clean up registered custom agents
+    delete AGENT_DISPLAY_NAMES["custom-test-agent"]
+    delete AGENT_DISPLAY_NAMES["another-custom"]
+  })
+
+  it("registers a new display name", () => {
+    registerAgentDisplayName("custom-test-agent", "Custom Test Agent")
+    expect(getAgentDisplayName("custom-test-agent")).toBe("Custom Test Agent")
+  })
+
+  it("registered agent is resolvable via getAgentConfigKey", () => {
+    registerAgentDisplayName("custom-test-agent", "Custom Test Agent")
+    expect(getAgentConfigKey("Custom Test Agent")).toBe("custom-test-agent")
+  })
+
+  it("overwrites existing display name", () => {
+    registerAgentDisplayName("custom-test-agent", "First Name")
+    registerAgentDisplayName("custom-test-agent", "Second Name")
+    expect(getAgentDisplayName("custom-test-agent")).toBe("Second Name")
+  })
+
+  it("multiple custom agents can be registered", () => {
+    registerAgentDisplayName("custom-test-agent", "Agent A")
+    registerAgentDisplayName("another-custom", "Agent B")
+    expect(getAgentDisplayName("custom-test-agent")).toBe("Agent A")
+    expect(getAgentDisplayName("another-custom")).toBe("Agent B")
   })
 })

@@ -5,4 +5,5 @@ export {
   AGENT_DISPLAY_NAMES,
   getAgentDisplayName,
   getAgentConfigKey,
+  registerAgentDisplayName,
 } from "./agent-display-names"

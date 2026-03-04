@@ -97,4 +97,27 @@ describe("mergeConfigs", () => {
     const result = mergeConfigs({ background: { defaultConcurrency: 3 } }, {})
     expect(result.background?.defaultConcurrency).toBe(3)
   })
+
+  it("deep merges custom_agents from user and project", () => {
+    const result = mergeConfigs(
+      { custom_agents: { "my-agent": { prompt: "User prompt", model: "model-a" } } },
+      { custom_agents: { "my-agent": { model: "model-b" } } },
+    )
+    expect(result.custom_agents?.["my-agent"]?.model).toBe("model-b")
+    expect(result.custom_agents?.["my-agent"]?.prompt).toBe("User prompt")
+  })
+
+  it("unions custom_agents from both configs", () => {
+    const result = mergeConfigs(
+      { custom_agents: { "agent-a": { prompt: "A" } } },
+      { custom_agents: { "agent-b": { prompt: "B" } } },
+    )
+    expect(result.custom_agents?.["agent-a"]?.prompt).toBe("A")
+    expect(result.custom_agents?.["agent-b"]?.prompt).toBe("B")
+  })
+
+  it("returns undefined for custom_agents when both are absent", () => {
+    const result = mergeConfigs({}, {})
+    expect(result.custom_agents).toBeUndefined()
+  })
 })
