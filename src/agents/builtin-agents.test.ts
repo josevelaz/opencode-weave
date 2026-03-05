@@ -180,4 +180,90 @@ describe("AGENT_METADATA", () => {
   it("loom has keyTrigger for ultrawork", () => {
     expect(AGENT_METADATA.loom.keyTrigger).toContain("ultrawork")
   })
+
+  it("warp can be disabled like any other agent", () => {
+    const agents = createBuiltinAgents({ disabledAgents: ["warp"] })
+    expect(agents["warp"]).toBeUndefined()
+    expect(Object.keys(agents)).toHaveLength(7)
+  })
+
+  it("any agent can be disabled via disabledAgents", () => {
+    const agents = createBuiltinAgents({ disabledAgents: ["spindle"] })
+    expect(agents["spindle"]).toBeUndefined()
+  })
+
+  it("loom prompt strips references to disabled agents", () => {
+    const agents = createBuiltinAgents({ disabledAgents: ["spindle", "thread"] })
+    const prompt = agents["loom"]?.prompt ?? ""
+    expect(prompt).not.toContain("Use spindle")
+    expect(prompt).not.toContain("Use thread")
+    // Warp references should still be present (not disabled in this test)
+    expect(prompt).toContain("MUST use Warp")
+  })
+
+  it("tapestry prompt adapts PostExecutionReview when weft disabled", () => {
+    const agents = createBuiltinAgents({ disabledAgents: ["weft"] })
+    const prompt = agents["tapestry"]?.prompt ?? ""
+    const reviewSection = prompt.slice(
+      prompt.indexOf("<PostExecutionReview>"),
+      prompt.indexOf("</PostExecutionReview>"),
+    )
+    // Should have Warp (not disabled in this test) but not Weft
+    expect(reviewSection).toContain("Warp")
+    expect(reviewSection).not.toContain("Weft")
+  })
+
+  it("tapestry PlanExecution section omits Weft reference when weft disabled", () => {
+    const agents = createBuiltinAgents({ disabledAgents: ["weft"] })
+    const prompt = agents["tapestry"]?.prompt ?? ""
+    const planSection = prompt.slice(
+      prompt.indexOf("<PlanExecution>"),
+      prompt.indexOf("</PlanExecution>"),
+    )
+    expect(planSection).not.toContain("Weft")
+    expect(planSection).toContain("Verification")
+  })
+
+  it("tapestry PlanExecution section mentions Weft by default", () => {
+    const agents = createBuiltinAgents()
+    const prompt = agents["tapestry"]?.prompt ?? ""
+    const planSection = prompt.slice(
+      prompt.indexOf("<PlanExecution>"),
+      prompt.indexOf("</PlanExecution>"),
+    )
+    expect(planSection).toContain("Weft")
+  })
+
+  it("pattern prompt strips thread reference when thread disabled", () => {
+    const agents = createBuiltinAgents({ disabledAgents: ["thread"] })
+    const prompt = agents["pattern"]?.prompt ?? ""
+    expect(prompt).not.toContain("thread")
+    expect(prompt).not.toContain("Thread")
+    // spindle should still be present
+    expect(prompt).toContain("spindle")
+  })
+
+  it("pattern prompt strips spindle reference when spindle disabled", () => {
+    const agents = createBuiltinAgents({ disabledAgents: ["spindle"] })
+    const prompt = agents["pattern"]?.prompt ?? ""
+    expect(prompt).not.toContain("spindle")
+    expect(prompt).not.toContain("Spindle")
+    // thread should still be present
+    expect(prompt).toContain("thread")
+  })
+
+  it("weft prompt strips pattern reference when pattern disabled", () => {
+    const agents = createBuiltinAgents({ disabledAgents: ["pattern"] })
+    const prompt = agents["weft"]?.prompt ?? ""
+    expect(prompt).not.toContain("Pattern")
+    expect(prompt).not.toContain("pattern")
+  })
+
+  it("all agent prompts are unmodified when no agents disabled", () => {
+    const withDisabled = createBuiltinAgents({ disabledAgents: [] })
+    const withoutDisabled = createBuiltinAgents()
+    for (const name of ALL_AGENT_NAMES) {
+      expect(withDisabled[name]?.prompt).toBe(withoutDisabled[name]?.prompt)
+    }
+  })
 })

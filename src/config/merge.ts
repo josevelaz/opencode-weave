@@ -50,6 +50,13 @@ export function mergeConfigs(
             (project.agents ?? {}) as Record<string, unknown>,
           ) as DeepPartial<WeaveConfig>["agents"])
         : undefined,
+    custom_agents:
+      user.custom_agents || project.custom_agents
+        ? (deepMergeObjects(
+            (user.custom_agents ?? {}) as Record<string, unknown>,
+            (project.custom_agents ?? {}) as Record<string, unknown>,
+          ) as DeepPartial<WeaveConfig>["custom_agents"])
+        : undefined,
     categories:
       user.categories || project.categories
         ? (deepMergeObjects(

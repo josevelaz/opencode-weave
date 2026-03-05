@@ -122,4 +122,52 @@ describe("resolveAgentModel", () => {
     })
     expect(result).toBe("anthropic/claude-sonnet-4")
   })
+
+  it("resolves custom agent with explicit override model", () => {
+    const result = resolveAgentModel("my-custom-agent", {
+      availableModels: new Set(),
+      agentMode: "subagent",
+      overrideModel: "custom/model-v1",
+    })
+    expect(result).toBe("custom/model-v1")
+  })
+
+  it("resolves custom agent with customFallbackChain", () => {
+    const result = resolveAgentModel("my-custom-agent", {
+      availableModels: new Set(["anthropic/claude-sonnet-4"]),
+      agentMode: "subagent",
+      customFallbackChain: [
+        { providers: ["anthropic"], model: "claude-sonnet-4" },
+      ],
+    })
+    expect(result).toBe("anthropic/claude-sonnet-4")
+  })
+
+  it("custom agent falls to system default when no fallback chain matches", () => {
+    const result = resolveAgentModel("my-custom-agent", {
+      availableModels: new Set(),
+      agentMode: "subagent",
+      systemDefaultModel: "fallback/model",
+    })
+    expect(result).toBe("fallback/model")
+  })
+
+  it("custom agent uses hardcoded default when nothing matches", () => {
+    const result = resolveAgentModel("my-custom-agent", {
+      availableModels: new Set(),
+      agentMode: "subagent",
+    })
+    expect(result).toBe("github-copilot/claude-opus-4.6")
+  })
+
+  it("custom agent best-guess uses first fallback entry when offline", () => {
+    const result = resolveAgentModel("my-custom-agent", {
+      availableModels: new Set(),
+      agentMode: "subagent",
+      customFallbackChain: [
+        { providers: ["google"], model: "gemini-3-pro" },
+      ],
+    })
+    expect(result).toBe("google/gemini-3-pro")
+  })
 })

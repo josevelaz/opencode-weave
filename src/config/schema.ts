@@ -54,24 +54,74 @@ export const ExperimentalConfigSchema = z.object({
   context_window_critical_threshold: z.number().min(0).max(1).optional(),
 })
 
+export const DelegationTriggerSchema = z.object({
+  domain: z.string(),
+  trigger: z.string(),
+})
+
+export const CustomAgentConfigSchema = z.object({
+  /** System prompt — either inline text or path to a .md file (resolved relative to config) */
+  prompt: z.string().optional(),
+  /** Path to a .md file containing the system prompt */
+  prompt_file: z.string().optional(),
+  /** Model to use (required for custom agents with no fallback chain) */
+  model: z.string().optional(),
+  /** Display name shown in UI */
+  display_name: z.string().optional(),
+  /** Agent mode: subagent (default), primary, or all */
+  mode: z.enum(["subagent", "primary", "all"]).optional(),
+  /** Fallback model chain for model resolution */
+  fallback_models: z.array(z.string()).optional(),
+  /** Agent category for grouping */
+  category: z.enum(["exploration", "specialist", "advisor", "utility"]).optional(),
+  /** Cost classification for tool selection table */
+  cost: z.enum(["FREE", "CHEAP", "EXPENSIVE"]).optional(),
+  /** Sampling temperature */
+  temperature: z.number().min(0).max(2).optional(),
+  /** Top-p sampling */
+  top_p: z.number().min(0).max(1).optional(),
+  /** Max tokens */
+  maxTokens: z.number().optional(),
+  /** Tool permissions (true = enabled, false = denied) */
+  tools: z.record(z.string(), z.boolean()).optional(),
+  /** Skills to load for this agent */
+  skills: z.array(z.string()).optional(),
+  /** Delegation triggers for Loom prompt integration */
+  triggers: z.array(DelegationTriggerSchema).optional(),
+  /** Description shown alongside the agent name */
+  description: z.string().optional(),
+})
+
+export const CustomAgentsConfigSchema = z.record(z.string(), CustomAgentConfigSchema)
+
+export const AnalyticsConfigSchema = z.object({
+  /** Whether analytics is enabled. Defaults to false (opt-in). */
+  enabled: z.boolean().optional(),
+})
+
 export const WeaveConfigSchema = z.object({
   $schema: z.string().optional(),
   agents: AgentOverridesSchema.optional(),
+  custom_agents: CustomAgentsConfigSchema.optional(),
   categories: CategoriesConfigSchema.optional(),
   disabled_hooks: z.array(z.string()).optional(),
   disabled_tools: z.array(z.string()).optional(),
   disabled_agents: z.array(z.string()).optional(),
   disabled_skills: z.array(z.string()).optional(),
   background: BackgroundConfigSchema.optional(),
+  analytics: AnalyticsConfigSchema.optional(),
   tmux: TmuxConfigSchema.optional(),
   experimental: ExperimentalConfigSchema.optional(),
 })
 
 export type AgentOverrideConfig = z.infer<typeof AgentOverrideConfigSchema>
 export type AgentOverrides = z.infer<typeof AgentOverridesSchema>
+export type CustomAgentConfig = z.infer<typeof CustomAgentConfigSchema>
+export type CustomAgentsConfig = z.infer<typeof CustomAgentsConfigSchema>
 export type CategoryConfig = z.infer<typeof CategoryConfigSchema>
 export type CategoriesConfig = z.infer<typeof CategoriesConfigSchema>
 export type BackgroundConfig = z.infer<typeof BackgroundConfigSchema>
+export type AnalyticsConfig = z.infer<typeof AnalyticsConfigSchema>
 export type TmuxConfig = z.infer<typeof TmuxConfigSchema>
 export type ExperimentalConfig = z.infer<typeof ExperimentalConfigSchema>
 export type WeaveConfig = z.infer<typeof WeaveConfigSchema>

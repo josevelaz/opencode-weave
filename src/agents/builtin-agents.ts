@@ -1,6 +1,6 @@
 import type { AgentConfig } from "@opencode-ai/sdk"
-import { createLoomAgent } from "./loom"
-import { createTapestryAgent } from "./tapestry"
+import { createLoomAgent, createLoomAgentWithOptions } from "./loom"
+import { createTapestryAgent, createTapestryAgentWithOptions } from "./tapestry"
 import { createShuttleAgent } from "./shuttle"
 import { createPatternAgent } from "./pattern"
 import { createThreadAgent } from "./thread"
@@ -12,6 +12,7 @@ import { buildAgent } from "./agent-builder"
 import type { AgentFactory, AgentPromptMetadata, WeaveAgentName } from "./types"
 import type { CategoriesConfig, AgentOverrideConfig } from "../config/schema"
 import type { ResolveSkillsFn } from "./agent-builder"
+import type { ProjectFingerprint } from "../features/analytics/types"
 
 export interface CreateBuiltinAgentsOptions {
   disabledAgents?: string[]
@@ -22,6 +23,8 @@ export interface CreateBuiltinAgentsOptions {
   availableModels?: Set<string>
   disabledSkills?: Set<string>
   resolveSkills?: ResolveSkillsFn
+  /** Project fingerprint for injecting project context into agent prompts */
+  fingerprint?: ProjectFingerprint | null
 }
 
 const AGENT_FACTORIES: Record<WeaveAgentName, AgentFactory> = {
@@ -141,6 +144,28 @@ export const AGENT_METADATA: Record<WeaveAgentName, AgentPromptMetadata> = {
   },
 }
 
+/**
+ * Separate map for custom agent metadata — avoids unsafe mutation of the
+ * strongly-typed AGENT_METADATA record.
+ */
+const CUSTOM_AGENT_METADATA: Record<string, AgentPromptMetadata> = {}
+
+/**
+ * Register metadata for a custom agent. Used by create-managers.ts
+ * to integrate custom agents into Loom's dynamic prompt builder.
+ */
+export function registerCustomAgentMetadata(name: string, metadata: AgentPromptMetadata): void {
+  CUSTOM_AGENT_METADATA[name] = metadata
+}
+
+/**
+ * Get all agent metadata — builtins + registered custom agents.
+ * Returns a new merged record on each call.
+ */
+export function getAllAgentMetadata(): Record<string, AgentPromptMetadata> {
+  return { ...AGENT_METADATA, ...CUSTOM_AGENT_METADATA }
+}
+
 export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): Record<string, AgentConfig> {
   const {
     disabledAgents = [],
@@ -151,9 +176,11 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
     availableModels = new Set<string>(),
     disabledSkills,
     resolveSkills,
+    fingerprint,
   } = options
 
   const disabledSet = new Set(disabledAgents)
+
   const result: Record<string, AgentConfig> = {}
 
   for (const [name, factory] of Object.entries(AGENT_FACTORIES) as [WeaveAgentName, AgentFactory][]) {
@@ -170,11 +197,21 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
       overrideModel,
     })
 
-    const built = buildAgent(factory, resolvedModel, {
-      categories,
-      disabledSkills,
-      resolveSkills,
-    })
+    // Use prompt-composer-aware constructors for loom and tapestry
+    // so their prompts conditionally omit references to disabled agents
+    let built: AgentConfig
+    if (name === "loom") {
+      built = createLoomAgentWithOptions(resolvedModel, disabledSet, fingerprint)
+    } else if (name === "tapestry") {
+      built = createTapestryAgentWithOptions(resolvedModel, disabledSet)
+    } else {
+      built = buildAgent(factory, resolvedModel, {
+        categories,
+        disabledSkills,
+        resolveSkills,
+        disabledAgents: disabledSet,
+      })
+    }
 
     if (override) {
       if (override.skills?.length && resolveSkills) {

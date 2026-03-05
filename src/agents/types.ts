@@ -69,6 +69,7 @@ export interface AgentPromptMetadata {
 
   /** Key trigger that should appear in Phase 0 quick checks */
   keyTrigger?: string
+
 }
 
 /**
