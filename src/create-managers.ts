@@ -21,8 +21,9 @@ export function createManagers(options: {
   pluginConfig: WeaveConfig
   resolveSkills?: ResolveSkillsFn
   fingerprint?: ProjectFingerprint | null
+  configDir?: string
 }): WeaveManagers {
-  const { pluginConfig, resolveSkills, fingerprint } = options
+  const { pluginConfig, resolveSkills, fingerprint, configDir } = options
 
   const agents = createBuiltinAgents({
     disabledAgents: pluginConfig.disabled_agents,
@@ -43,6 +44,7 @@ export function createManagers(options: {
       agents[name] = buildCustomAgent(name, customConfig, {
         resolveSkills,
         disabledSkills: pluginConfig.disabled_skills ? new Set(pluginConfig.disabled_skills) : undefined,
+        configDir,
       })
 
       // Register metadata for Loom's dynamic prompt integration

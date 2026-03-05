@@ -3,15 +3,16 @@ import { join } from "path"
 import type { SessionSummary, ProjectFingerprint } from "./types"
 import { ANALYTICS_DIR, SESSION_SUMMARIES_FILE, FINGERPRINT_FILE } from "./types"
 
+/** Maximum number of session summary entries to keep in the JSONL file */
+export const MAX_SESSION_ENTRIES = 1000
+
 /**
  * Ensure the analytics directory exists, creating it if needed.
  * Returns the absolute path to the analytics directory.
  */
 export function ensureAnalyticsDir(directory: string): string {
   const dir = join(directory, ANALYTICS_DIR)
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true, mode: 0o700 })
-  }
+  mkdirSync(dir, { recursive: true, mode: 0o700 })
   return dir
 }
 
@@ -25,6 +26,19 @@ export function appendSessionSummary(directory: string, summary: SessionSummary)
     const filePath = join(dir, SESSION_SUMMARIES_FILE)
     const line = JSON.stringify(summary) + "\n"
     appendFileSync(filePath, line, "utf-8")
+
+    // Rotate if needed — trim to MAX_SESSION_ENTRIES
+    try {
+      const content = readFileSync(filePath, "utf-8")
+      const lines = content.split("\n").filter((l) => l.trim().length > 0)
+      if (lines.length > MAX_SESSION_ENTRIES) {
+        const trimmed = lines.slice(-MAX_SESSION_ENTRIES).join("\n") + "\n"
+        writeFileSync(filePath, trimmed, "utf-8")
+      }
+    } catch {
+      // rotation failure is non-fatal
+    }
+
     return true
   } catch {
     return false

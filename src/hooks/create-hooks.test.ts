@@ -23,7 +23,7 @@ beforeEach(() => {
 
 describe("createHooks", () => {
   it("returns all hook keys when all enabled", () => {
-    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled })
+    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
 
     expect(hooks).toHaveProperty("checkContextWindow")
     expect(hooks).toHaveProperty("writeGuard")
@@ -38,6 +38,7 @@ describe("createHooks", () => {
     const hooks = createHooks({
       pluginConfig: baseConfig,
       isHookEnabled: disableHook("context-window-monitor"),
+      directory: "",
     })
 
     expect(hooks.checkContextWindow).toBeNull()
@@ -47,6 +48,7 @@ describe("createHooks", () => {
     const hooks = createHooks({
       pluginConfig: baseConfig,
       isHookEnabled: disableHook("rules-injector"),
+      directory: "",
     })
 
     expect(hooks.shouldInjectRules).toBeNull()
@@ -54,7 +56,7 @@ describe("createHooks", () => {
   })
 
   it("enabled hooks return non-null values", () => {
-    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled })
+    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
 
     expect(hooks.checkContextWindow).not.toBeNull()
     expect(hooks.writeGuard).not.toBeNull()
@@ -68,13 +70,14 @@ describe("createHooks", () => {
     const hooks = createHooks({
       pluginConfig: baseConfig,
       isHookEnabled: disableHook("write-existing-file-guard"),
+      directory: "",
     })
 
     expect(hooks.writeGuard).toBeNull()
   })
 
   it("all hooks null when none enabled", () => {
-    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: noneEnabled })
+    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: noneEnabled, directory: "" })
 
     expect(hooks.checkContextWindow).toBeNull()
     expect(hooks.writeGuard).toBeNull()
@@ -88,13 +91,14 @@ describe("createHooks", () => {
     const hooks = createHooks({
       pluginConfig: baseConfig,
       isHookEnabled: disableHook("first-message-variant"),
+      directory: "",
     })
 
     expect(hooks.firstMessageVariant).toBeNull()
   })
 
   it("checkContextWindow calls through correctly when enabled", () => {
-    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled })
+    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
 
     const result = hooks.checkContextWindow!({
       sessionId: "test-session",
@@ -107,7 +111,7 @@ describe("createHooks", () => {
   })
 
   it("verificationReminder exists in returned hooks when all enabled", () => {
-    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled })
+    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
     expect(hooks).toHaveProperty("verificationReminder")
   })
 
@@ -115,12 +119,13 @@ describe("createHooks", () => {
     const hooks = createHooks({
       pluginConfig: baseConfig,
       isHookEnabled: disableHook("verification-reminder"),
+      directory: "",
     })
     expect(hooks.verificationReminder).toBeNull()
   })
 
   it("verificationReminder is non-null when enabled", () => {
-    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled })
+    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
     expect(hooks.verificationReminder).not.toBeNull()
   })
 
@@ -182,5 +187,29 @@ describe("createHooks", () => {
       maxTokens: 100_000,
     })
     expect(result.action).toBe("recover")
+  })
+
+  it("analyticsEnabled defaults to false when not passed", () => {
+    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
+    expect(hooks.analyticsEnabled).toBe(false)
+  })
+
+  it("analyticsEnabled is true when explicitly passed", () => {
+    const hooks = createHooks({
+      pluginConfig: baseConfig,
+      isHookEnabled: allEnabled,
+      directory: "",
+      analyticsEnabled: true,
+    })
+    expect(hooks.analyticsEnabled).toBe(true)
+  })
+
+  it("analyticsEnabled is false even when all hooks enabled", () => {
+    const hooks = createHooks({
+      pluginConfig: baseConfig,
+      isHookEnabled: allEnabled,
+      directory: "",
+    })
+    expect(hooks.analyticsEnabled).toBe(false)
   })
 })

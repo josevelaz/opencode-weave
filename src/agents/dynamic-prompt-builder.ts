@@ -322,6 +322,12 @@ export function buildProjectContextSection(fingerprint: ProjectFingerprint | nul
     parts.push("Monorepo structure detected.")
   }
 
+  // Platform info
+  if (fingerprint.os) {
+    const archSuffix = fingerprint.arch ? ` (${fingerprint.arch})` : ""
+    parts.push(`Platform: ${fingerprint.os}${archSuffix}.`)
+  }
+
   if (parts.length === 0) return ""
 
   return `<ProjectContext>

@@ -6,13 +6,11 @@
  * hardcoded TAPESTRY_DEFAULTS.prompt string.
  */
 
+import { isAgentEnabled } from "../prompt-utils"
+
 export interface TapestryPromptOptions {
   /** Set of disabled agent names (lowercase config keys) */
   disabledAgents?: Set<string>
-}
-
-function isEnabled(name: string, disabled: Set<string>): boolean {
-  return !disabled.has(name)
 }
 
 export function buildTapestryRoleSection(): string {
@@ -69,7 +67,7 @@ FORMAT RULES:
 }
 
 export function buildTapestryPlanExecutionSection(disabled: Set<string> = new Set()): string {
-  const hasWeft = isEnabled("weft", disabled)
+  const hasWeft = isAgentEnabled("weft", disabled)
   const verifySuffix = hasWeft
     ? " If uncertain about quality, note that Loom should invoke Weft for formal review."
     : ""
@@ -115,8 +113,8 @@ After completing work for each task — BEFORE marking \`- [ ]\` → \`- [x]\`:
 }
 
 export function buildTapestryPostExecutionReviewSection(disabled: Set<string>): string {
-  const hasWeft = isEnabled("weft", disabled)
-  const hasWarp = isEnabled("warp", disabled)
+  const hasWeft = isAgentEnabled("weft", disabled)
+  const hasWarp = isAgentEnabled("warp", disabled)
 
   if (!hasWeft && !hasWarp) {
     return `<PostExecutionReview>

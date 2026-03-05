@@ -94,6 +94,11 @@ export const CustomAgentConfigSchema = z.object({
 
 export const CustomAgentsConfigSchema = z.record(z.string(), CustomAgentConfigSchema)
 
+export const AnalyticsConfigSchema = z.object({
+  /** Whether analytics is enabled. Defaults to false (opt-in). */
+  enabled: z.boolean().optional(),
+})
+
 export const WeaveConfigSchema = z.object({
   $schema: z.string().optional(),
   agents: AgentOverridesSchema.optional(),
@@ -104,6 +109,7 @@ export const WeaveConfigSchema = z.object({
   disabled_agents: z.array(z.string()).optional(),
   disabled_skills: z.array(z.string()).optional(),
   background: BackgroundConfigSchema.optional(),
+  analytics: AnalyticsConfigSchema.optional(),
   tmux: TmuxConfigSchema.optional(),
   experimental: ExperimentalConfigSchema.optional(),
 })
@@ -115,6 +121,7 @@ export type CustomAgentsConfig = z.infer<typeof CustomAgentsConfigSchema>
 export type CategoryConfig = z.infer<typeof CategoryConfigSchema>
 export type CategoriesConfig = z.infer<typeof CategoriesConfigSchema>
 export type BackgroundConfig = z.infer<typeof BackgroundConfigSchema>
+export type AnalyticsConfig = z.infer<typeof AnalyticsConfigSchema>
 export type TmuxConfig = z.infer<typeof TmuxConfigSchema>
 export type ExperimentalConfig = z.infer<typeof ExperimentalConfigSchema>
 export type WeaveConfig = z.infer<typeof WeaveConfigSchema>

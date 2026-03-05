@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from "fs"
+import { existsSync, readFileSync, readdirSync } from "fs"
 import { join } from "path"
+import { arch } from "os"
 import type { ProjectFingerprint, DetectedStack } from "./types"
 import { writeFingerprint, readFingerprint } from "./storage"
 import { log } from "../../shared/log"
@@ -49,6 +50,7 @@ const STACK_MARKERS: Array<{
   },
   {
     name: "react",
+    // Detection handled specially below via package.json dependency parsing
     files: [],
     confidence: "medium",
     evidence: () => "react in package.json dependencies",
@@ -79,9 +81,9 @@ const STACK_MARKERS: Array<{
   },
   {
     name: "dotnet",
-    files: [],
+    files: ["global.json", "Directory.Build.props", "Directory.Packages.props"],
     confidence: "high",
-    evidence: () => ".csproj/.fsproj file found",
+    evidence: (f) => `${f} exists`,
   },
   {
     name: "docker",
@@ -137,6 +139,25 @@ export function detectStack(directory: string): DetectedStack[] {
     }
   } catch {
     // ignore parse errors
+  }
+
+  // Check for .NET projects by scanning for .csproj/.fsproj/.sln files
+  if (!detected.some((d) => d.name === "dotnet")) {
+    try {
+      const entries = readdirSync(directory)
+      const dotnetFile = entries.find(
+        (e) => e.endsWith(".csproj") || e.endsWith(".fsproj") || e.endsWith(".sln"),
+      )
+      if (dotnetFile) {
+        detected.push({
+          name: "dotnet",
+          confidence: "high",
+          evidence: `${dotnetFile} found`,
+        })
+      }
+    } catch {
+      // ignore read errors
+    }
   }
 
   // Deduplicate by name (keep first — highest confidence match wins)
@@ -204,6 +225,8 @@ export function generateFingerprint(directory: string): ProjectFingerprint {
     isMonorepo: detectMonorepo(directory),
     packageManager: detectPackageManager(directory),
     primaryLanguage: detectPrimaryLanguage(stack),
+    os: process.platform,
+    arch: arch(),
   }
 }
 

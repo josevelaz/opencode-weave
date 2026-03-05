@@ -47,11 +47,12 @@ export interface Analytics {
 
 /**
  * Create all analytics services for a project.
- * Instantiates the session tracker and generates/loads the project fingerprint.
+ * Instantiates the session tracker and optionally generates/loads the project fingerprint.
+ * If a fingerprint is provided, it is reused; otherwise one is generated.
  * This is the single entry point called from the plugin's main init.
  */
-export function createAnalytics(directory: string): Analytics {
+export function createAnalytics(directory: string, fingerprint?: ProjectFingerprint | null): Analytics {
   const tracker = createSessionTracker(directory)
-  const fingerprint = getOrCreateFingerprint(directory)
-  return { tracker, fingerprint }
+  const resolvedFingerprint = fingerprint ?? getOrCreateFingerprint(directory)
+  return { tracker, fingerprint: resolvedFingerprint }
 }

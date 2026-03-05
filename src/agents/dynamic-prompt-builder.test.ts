@@ -319,4 +319,41 @@ describe("buildProjectContextSection", () => {
     const result = buildProjectContextSection(fp)
     expect(result).toBe("")
   })
+
+  it("includes platform when os is present", () => {
+    const fp: ProjectFingerprint = {
+      generatedAt: new Date().toISOString(),
+      stack: [],
+      isMonorepo: false,
+      primaryLanguage: "typescript",
+      os: "darwin",
+      arch: "arm64",
+    }
+    const result = buildProjectContextSection(fp)
+    expect(result).toContain("Platform: darwin (arm64).")
+  })
+
+  it("includes platform without arch", () => {
+    const fp: ProjectFingerprint = {
+      generatedAt: new Date().toISOString(),
+      stack: [],
+      isMonorepo: false,
+      primaryLanguage: "typescript",
+      os: "linux",
+    }
+    const result = buildProjectContextSection(fp)
+    expect(result).toContain("Platform: linux.")
+    expect(result).not.toContain("(")
+  })
+
+  it("omits platform when os is not present", () => {
+    const fp: ProjectFingerprint = {
+      generatedAt: new Date().toISOString(),
+      stack: [],
+      isMonorepo: false,
+      primaryLanguage: "typescript",
+    }
+    const result = buildProjectContextSection(fp)
+    expect(result).not.toContain("Platform")
+  })
 })

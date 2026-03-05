@@ -1,4 +1,5 @@
 import type { Plugin } from "@opencode-ai/plugin"
+import { join } from "path"
 import { loadWeaveConfig } from "./config/loader"
 import { createManagers } from "./create-managers"
 import { createTools } from "./create-tools"
@@ -11,16 +12,18 @@ const WeavePlugin: Plugin = async (ctx) => {
   const pluginConfig = loadWeaveConfig(ctx.directory, ctx)
   const disabledHooks = new Set(pluginConfig.disabled_hooks ?? [])
   const isHookEnabled = (name: string) => !disabledHooks.has(name)
+  const analyticsEnabled = pluginConfig.analytics?.enabled === true
 
   // Generate fingerprint early so it can be injected into agent prompts
-  const fingerprint = isHookEnabled("analytics") ? getOrCreateFingerprint(ctx.directory) : null
+  const fingerprint = analyticsEnabled ? getOrCreateFingerprint(ctx.directory) : null
 
+  const configDir = join(ctx.directory, ".opencode")
   const toolsResult = await createTools({ ctx, pluginConfig })
-  const managers = createManagers({ ctx, pluginConfig, resolveSkills: toolsResult.resolveSkillsFn, fingerprint })
-  const hooks = createHooks({ pluginConfig, isHookEnabled, directory: ctx.directory })
+  const managers = createManagers({ ctx, pluginConfig, resolveSkills: toolsResult.resolveSkillsFn, fingerprint, configDir })
+  const hooks = createHooks({ pluginConfig, isHookEnabled, directory: ctx.directory, analyticsEnabled })
 
   // Analytics: session tracking + project fingerprinting (fire-and-forget)
-  const analytics = isHookEnabled("analytics") ? createAnalytics(ctx.directory) : null
+  const analytics = analyticsEnabled ? createAnalytics(ctx.directory, fingerprint) : null
 
   return createPluginInterface({
     pluginConfig,

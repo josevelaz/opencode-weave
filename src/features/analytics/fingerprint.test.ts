@@ -79,6 +79,33 @@ describe("detectStack", () => {
     expect(stack).toEqual([])
   })
 
+  it("detects dotnet from global.json", () => {
+    writeFileSync(join(tempDir, "global.json"), '{"sdk":{}}', "utf-8")
+    const stack = detectStack(tempDir)
+    expect(stack.some((s) => s.name === "dotnet")).toBe(true)
+  })
+
+  it("detects dotnet from .csproj file", () => {
+    writeFileSync(join(tempDir, "MyApp.csproj"), "<Project/>", "utf-8")
+    const stack = detectStack(tempDir)
+    expect(stack.some((s) => s.name === "dotnet")).toBe(true)
+    expect(stack.find((s) => s.name === "dotnet")!.evidence).toContain("MyApp.csproj")
+  })
+
+  it("detects dotnet from .sln file", () => {
+    writeFileSync(join(tempDir, "MyApp.sln"), "", "utf-8")
+    const stack = detectStack(tempDir)
+    expect(stack.some((s) => s.name === "dotnet")).toBe(true)
+  })
+
+  it("does not duplicate dotnet when both global.json and .csproj exist", () => {
+    writeFileSync(join(tempDir, "global.json"), '{"sdk":{}}', "utf-8")
+    writeFileSync(join(tempDir, "MyApp.csproj"), "<Project/>", "utf-8")
+    const stack = detectStack(tempDir)
+    const dotnetEntries = stack.filter((s) => s.name === "dotnet")
+    expect(dotnetEntries.length).toBe(1)
+  })
+
   it("deduplicates entries by name", () => {
     writeFileSync(join(tempDir, "tsconfig.json"), "{}", "utf-8")
     writeFileSync(join(tempDir, "tsconfig.build.json"), "{}", "utf-8")
@@ -201,6 +228,13 @@ describe("generateFingerprint", () => {
     expect(fp.isMonorepo).toBe(false)
     expect(fp.packageManager).toBeUndefined()
     expect(fp.primaryLanguage).toBeUndefined()
+  })
+
+  it("includes os and arch fields", () => {
+    const fp = generateFingerprint(tempDir)
+    expect(fp.os).toBe(process.platform)
+    expect(typeof fp.arch).toBe("string")
+    expect(fp.arch!.length).toBeGreaterThan(0)
   })
 })
 

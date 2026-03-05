@@ -8,6 +8,7 @@ import {
   readSessionSummaries,
   writeFingerprint,
   readFingerprint,
+  MAX_SESSION_ENTRIES,
 } from "./storage"
 import { ANALYTICS_DIR, SESSION_SUMMARIES_FILE, FINGERPRINT_FILE } from "./types"
 import type { SessionSummary, ProjectFingerprint } from "./types"
@@ -109,6 +110,19 @@ describe("appendSessionSummary / readSessionSummaries", () => {
     expect(existsSync(join(tempDir, ANALYTICS_DIR))).toBe(false)
     appendSessionSummary(tempDir, makeSummary())
     expect(existsSync(join(tempDir, ANALYTICS_DIR))).toBe(true)
+  })
+
+  it("rotates entries when exceeding MAX_SESSION_ENTRIES", () => {
+    const overshoot = 5
+    const total = MAX_SESSION_ENTRIES + overshoot
+    for (let i = 0; i < total; i++) {
+      appendSessionSummary(tempDir, makeSummary({ sessionId: `s-${i}` }))
+    }
+    const summaries = readSessionSummaries(tempDir)
+    expect(summaries.length).toBe(MAX_SESSION_ENTRIES)
+    // Should keep the most recent entries (last MAX_SESSION_ENTRIES)
+    expect(summaries[0].sessionId).toBe(`s-${overshoot}`)
+    expect(summaries[summaries.length - 1].sessionId).toBe(`s-${total - 1}`)
   })
 })
 

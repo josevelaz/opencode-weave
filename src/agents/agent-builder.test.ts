@@ -1,7 +1,7 @@
 import { describe, it, expect, mock } from "bun:test"
 import type { AgentConfig } from "@opencode-ai/sdk"
 import type { AgentFactory } from "./types"
-import { buildAgent, stripDisabledAgentReferences } from "./agent-builder"
+import { buildAgent, stripDisabledAgentReferences, registerAgentNameVariants } from "./agent-builder"
 import type { CategoriesConfig } from "../config/schema"
 
 function makeFactory(baseConfig: Partial<AgentConfig> = {}): AgentFactory {
@@ -190,5 +190,33 @@ describe("stripDisabledAgentReferences", () => {
     const prompt = "Line 1\n\nLine 3"
     const result = stripDisabledAgentReferences(prompt, new Set(["thread"]))
     expect(result).toBe("Line 1\n\nLine 3")
+  })
+})
+
+describe("registerAgentNameVariants", () => {
+  it("registers custom agent and strips its references when disabled", () => {
+    registerAgentNameVariants("my-bot", ["my-bot", "MyBot"])
+    const prompt = "Use my-bot for custom tasks\nUse MyBot for stuff\nKeep this"
+    const result = stripDisabledAgentReferences(prompt, new Set(["my-bot"]))
+    expect(result).not.toContain("my-bot")
+    expect(result).not.toContain("MyBot")
+    expect(result).toContain("Keep this")
+  })
+
+  it("auto-generates title-case variant when no variants provided", () => {
+    registerAgentNameVariants("helper")
+    const prompt = "Use helper for tasks\nUse Helper for tasks\nKeep this"
+    const result = stripDisabledAgentReferences(prompt, new Set(["helper"]))
+    expect(result).not.toContain("helper")
+    expect(result).not.toContain("Helper")
+    expect(result).toContain("Keep this")
+  })
+
+  it("does not override builtin agent variants", () => {
+    registerAgentNameVariants("thread", ["custom-thread"])
+    // The builtin "Thread" variant should still work
+    const prompt = "Use Thread for exploration"
+    const result = stripDisabledAgentReferences(prompt, new Set(["thread"]))
+    expect(result).not.toContain("Thread")
   })
 })

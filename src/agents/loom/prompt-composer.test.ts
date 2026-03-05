@@ -229,6 +229,18 @@ describe("individual section builders", () => {
     expect(buildDelegationNarrationSection()).toContain("DURATION HINTS")
   })
 
+  it("buildDelegationNarrationSection omits Pattern hint when disabled", () => {
+    const section = buildDelegationNarrationSection(new Set(["pattern"]))
+    expect(section).not.toContain("Pattern (planning)")
+    expect(section).toContain("Spindle")
+    expect(section).toContain("Thread")
+  })
+
+  it("buildDelegationNarrationSection omits all duration hints when all agents disabled", () => {
+    const section = buildDelegationNarrationSection(new Set(["pattern", "spindle", "weft", "warp", "thread"]))
+    expect(section).not.toContain("DURATION HINTS")
+  })
+
   it("buildStyleSection contains Dense > verbose", () => {
     expect(buildStyleSection()).toContain("Dense > verbose")
   })

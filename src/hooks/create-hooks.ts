@@ -16,8 +16,9 @@ export function createHooks(args: {
   pluginConfig: WeaveConfig
   isHookEnabled: (hookName: string) => boolean
   directory: string
+  analyticsEnabled?: boolean
 }) {
-  const { pluginConfig, isHookEnabled, directory } = args
+  const { pluginConfig, isHookEnabled, directory, analyticsEnabled = false } = args
 
   const writeGuardState = createWriteGuardState()
   const writeGuard = createWriteGuard(writeGuardState)
@@ -61,6 +62,6 @@ export function createHooks(args: {
       ? buildVerificationReminder
       : null,
 
-    analyticsEnabled: isHookEnabled("analytics"),
+    analyticsEnabled,
   }
 }

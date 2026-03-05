@@ -227,10 +227,10 @@ export function createPluginInterface(args: {
     },
 
     "tool.execute.before": async (input, _output) => {
-      const args = _output.args as Record<string, unknown> | null | undefined
+      const toolArgs = _output.args as Record<string, unknown> | null | undefined
       const filePath =
-        (args?.file_path as string | undefined) ??
-        (args?.path as string | undefined) ??
+        (toolArgs?.file_path as string | undefined) ??
+        (toolArgs?.path as string | undefined) ??
         ""
 
       if (filePath && hooks.shouldInjectRules && hooks.getRulesForFile) {
@@ -258,10 +258,10 @@ export function createPluginInterface(args: {
       }
 
       // Log delegation starts when the task tool is invoked
-      if (input.tool === "task" && args) {
+      if (input.tool === "task" && toolArgs) {
         const agentArg =
-          (args.subagent_type as string | undefined) ??
-          (args.description as string | undefined) ??
+          (toolArgs.subagent_type as string | undefined) ??
+          (toolArgs.description as string | undefined) ??
           "unknown"
         logDelegation({
           phase: "start",
@@ -273,9 +273,9 @@ export function createPluginInterface(args: {
 
       // Analytics: track tool execution start
       if (tracker && hooks.analyticsEnabled) {
-        const agentArg = input.tool === "task" && args
-          ? ((args.subagent_type as string | undefined) ??
-             (args.description as string | undefined) ??
+        const agentArg = input.tool === "task" && toolArgs
+          ? ((toolArgs.subagent_type as string | undefined) ??
+             (toolArgs.description as string | undefined) ??
              "unknown")
           : undefined
         tracker.trackToolStart(input.sessionID, input.tool, input.callID, agentArg)

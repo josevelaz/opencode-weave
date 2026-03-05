@@ -35,6 +35,17 @@ const AGENT_NAME_VARIANTS: Record<string, string[]> = {
 }
 
 /**
+ * Register name variants for a custom agent so that
+ * `stripDisabledAgentReferences` can strip its references from prompts.
+ * Does not override existing (builtin) entries.
+ */
+export function registerAgentNameVariants(name: string, variants?: string[]): void {
+  if (AGENT_NAME_VARIANTS[name]) return // don't override builtins
+  const titleCase = name.charAt(0).toUpperCase() + name.slice(1)
+  AGENT_NAME_VARIANTS[name] = variants ?? [name, titleCase]
+}
+
+/**
  * Remove lines from a prompt that reference disabled agents.
  * Only strips lines where an agent name appears as a standalone concept
  * (e.g. "Use thread (codebase explorer)"), not incidental word matches.

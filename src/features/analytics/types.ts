@@ -76,6 +76,10 @@ export interface ProjectFingerprint {
   packageManager?: string
   /** Primary language detected */
   primaryLanguage?: string
+  /** Operating system (e.g., "darwin", "win32", "linux") */
+  os?: string
+  /** CPU architecture (e.g., "arm64", "x64") */
+  arch?: string
 }
 
 // ── Suggestions ──────────────────────────────────────────────────

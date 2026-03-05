@@ -6,6 +6,7 @@ import { loadPromptFile } from "./prompt-loader"
 import { resolveAgentModel } from "./model-resolution"
 import type { FallbackEntry } from "./model-resolution"
 import { registerAgentDisplayName } from "../shared/agent-display-names"
+import { registerAgentNameVariants } from "./agent-builder"
 
 /** Known tool names that can be granted/denied via config */
 const KNOWN_TOOL_NAMES = new Set([
@@ -103,6 +104,7 @@ export function buildCustomAgent(
   // Register display name
   const displayName = config.display_name ?? name
   registerAgentDisplayName(name, displayName)
+  registerAgentNameVariants(name, displayName !== name ? [name, displayName] : undefined)
 
   // Build the agent config
   const agentConfig: AgentConfig = {
