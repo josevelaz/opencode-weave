@@ -1,5 +1,5 @@
 import { readFileSync, existsSync } from "fs"
-import { resolve, isAbsolute, normalize } from "path"
+import { resolve, isAbsolute, normalize, sep } from "path"
 
 /**
  * Load a prompt from a file path. Supports .md and .txt files.
@@ -18,8 +18,9 @@ export function loadPromptFile(promptFilePath: string, basePath?: string): strin
   const base = resolve(basePath ?? process.cwd())
   const resolvedPath = normalize(resolve(base, promptFilePath))
 
-  // Ensure the resolved path stays within the base directory (prevent traversal)
-  if (!resolvedPath.startsWith(base + "/") && resolvedPath !== base) {
+  // Ensure the resolved path stays within the base directory (prevent traversal).
+  // Use path.sep so this works correctly on both POSIX (/) and Windows (\).
+  if (!resolvedPath.startsWith(base + sep) && resolvedPath !== base) {
     return null
   }
 
