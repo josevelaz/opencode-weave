@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, appendFileSync, readFileSync, writeFileSync } from "fs"
+import { existsSync, mkdirSync, appendFileSync, readFileSync, writeFileSync, statSync } from "fs"
 import { join } from "path"
 import type { SessionSummary, ProjectFingerprint, MetricsReport } from "./types"
 import { ANALYTICS_DIR, SESSION_SUMMARIES_FILE, FINGERPRINT_FILE, METRICS_REPORTS_FILE, MAX_METRICS_ENTRIES } from "./types"
@@ -19,6 +19,7 @@ export function ensureAnalyticsDir(directory: string): string {
 /**
  * Append a session summary to the JSONL file.
  * Auto-creates the analytics directory if needed.
+ * Rotates the file to at most MAX_SESSION_ENTRIES when the threshold is exceeded.
  */
 export function appendSessionSummary(directory: string, summary: SessionSummary): boolean {
   try {
@@ -27,13 +28,21 @@ export function appendSessionSummary(directory: string, summary: SessionSummary)
     const line = JSON.stringify(summary) + "\n"
     appendFileSync(filePath, line, { encoding: "utf-8", mode: 0o600 })
 
-    // Rotate if needed — trim to MAX_SESSION_ENTRIES
+    // Rotation check: use file size as a cheap gate before reading the file.
+    // The gate is set to 90% of (MAX_SESSION_ENTRIES × typical entry size) to avoid
+    // reading the file on every write in the common (well-below-limit) case.
+    // A typical session summary JSONL line is ~200–400 bytes.
     try {
-      const content = readFileSync(filePath, "utf-8")
-      const lines = content.split("\n").filter((l) => l.trim().length > 0)
-      if (lines.length > MAX_SESSION_ENTRIES) {
-        const trimmed = lines.slice(-MAX_SESSION_ENTRIES).join("\n") + "\n"
-        writeFileSync(filePath, trimmed, { encoding: "utf-8", mode: 0o600 })
+      const TYPICAL_ENTRY_BYTES = 200
+      const rotationSizeThreshold = MAX_SESSION_ENTRIES * TYPICAL_ENTRY_BYTES * 0.9
+      const { size } = statSync(filePath)
+      if (size > rotationSizeThreshold) {
+        const content = readFileSync(filePath, "utf-8")
+        const lines = content.split("\n").filter((l) => l.trim().length > 0)
+        if (lines.length > MAX_SESSION_ENTRIES) {
+          const trimmed = lines.slice(-MAX_SESSION_ENTRIES).join("\n") + "\n"
+          writeFileSync(filePath, trimmed, { encoding: "utf-8", mode: 0o600 })
+        }
       }
     } catch {
       // rotation failure is non-fatal
@@ -115,13 +124,18 @@ export function writeMetricsReport(directory: string, report: MetricsReport): bo
     const line = JSON.stringify(report) + "\n"
     appendFileSync(filePath, line, { encoding: "utf-8", mode: 0o600 })
 
-    // Rotate if needed — trim to MAX_METRICS_ENTRIES
+    // Rotation check: use file size as a cheap gate before reading the file.
     try {
-      const content = readFileSync(filePath, "utf-8")
-      const lines = content.split("\n").filter((l) => l.trim().length > 0)
-      if (lines.length > MAX_METRICS_ENTRIES) {
-        const trimmed = lines.slice(-MAX_METRICS_ENTRIES).join("\n") + "\n"
-        writeFileSync(filePath, trimmed, { encoding: "utf-8", mode: 0o600 })
+      const TYPICAL_ENTRY_BYTES = 200
+      const rotationSizeThreshold = MAX_METRICS_ENTRIES * TYPICAL_ENTRY_BYTES * 0.9
+      const { size } = statSync(filePath)
+      if (size > rotationSizeThreshold) {
+        const content = readFileSync(filePath, "utf-8")
+        const lines = content.split("\n").filter((l) => l.trim().length > 0)
+        if (lines.length > MAX_METRICS_ENTRIES) {
+          const trimmed = lines.slice(-MAX_METRICS_ENTRIES).join("\n") + "\n"
+          writeFileSync(filePath, trimmed, { encoding: "utf-8", mode: 0o600 })
+        }
       }
     } catch {
       // rotation failure is non-fatal
