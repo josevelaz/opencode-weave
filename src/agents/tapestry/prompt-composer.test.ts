@@ -101,6 +101,13 @@ describe("individual tapestry section builders", () => {
     expect(buildTapestrySidebarTodosSection()).toContain("35 chars")
   })
 
+  it("buildTapestrySidebarTodosSection contains BEFORE FINISHING mandatory block", () => {
+    const section = buildTapestrySidebarTodosSection()
+    expect(section).toContain("BEFORE FINISHING (MANDATORY)")
+    expect(section).toContain("NON-NEGOTIABLE")
+    expect(section).toContain("final todowrite")
+  })
+
   it("buildTapestryPlanExecutionSection references Verification and PostExecutionReview", () => {
     const section = buildTapestryPlanExecutionSection()
     expect(section).toContain("Verification")

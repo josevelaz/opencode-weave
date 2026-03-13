@@ -1717,4 +1717,193 @@ describe("workflow integration in plugin-interface", () => {
     //   4. Work-continuation then gets its turn and can resume if work-state is not paused
     //   → No cross-contamination between the two systems.
   })
+
+  describe("todo finalization safety net", () => {
+    function makeClientWithTodos(todos: Array<{ content: string; status: string; priority: string }>) {
+      const promptAsyncCalls: Array<{ path: { id: string }; body: { parts: Array<{ type: string; text: string }> } }> =
+        []
+      const mockClient = {
+        session: {
+          todo: async (_opts: { path: { id: string } }) => ({ data: todos }),
+          promptAsync: async (opts: { path: { id: string }; body: { parts: Array<{ type: string; text: string }> } }) => {
+            promptAsyncCalls.push(opts)
+          },
+        },
+      } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+      return { mockClient, promptAsyncCalls }
+    }
+
+    const idleEvent = (sessionId: string) => ({
+      type: "session.idle" as const,
+      properties: { sessionID: sessionId },
+    })
+
+    it("injects finalize prompt when session.idle fires with in_progress todos and no continuation", async () => {
+      const { mockClient, promptAsyncCalls } = makeClientWithTodos([
+        { content: "Task 1", status: "in_progress", priority: "medium" },
+      ])
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+      })
+
+      const evt = idleEvent("sess-finalize-1")
+      await iface.event({ event: evt as Parameters<typeof iface.event>[0]["event"] })
+
+      expect(promptAsyncCalls.length).toBe(1)
+      expect(promptAsyncCalls[0].path.id).toBe("sess-finalize-1")
+      expect(promptAsyncCalls[0].body.parts[0].text).toContain("<!-- weave:finalize-todos -->")
+      expect(promptAsyncCalls[0].body.parts[0].text).toContain('"Task 1"')
+    })
+
+    it("does not inject finalize prompt when session has no in_progress todos", async () => {
+      const { mockClient, promptAsyncCalls } = makeClientWithTodos([
+        { content: "Done", status: "completed", priority: "medium" },
+      ])
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+      })
+
+      const evt = idleEvent("sess-finalize-2")
+      await iface.event({ event: evt as Parameters<typeof iface.event>[0]["event"] })
+
+      expect(promptAsyncCalls.length).toBe(0)
+    })
+
+    it("does not inject finalize prompt twice for same session", async () => {
+      const { mockClient, promptAsyncCalls } = makeClientWithTodos([
+        { content: "Task 1", status: "in_progress", priority: "medium" },
+      ])
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+      })
+
+      const evt = idleEvent("sess-finalize-3")
+      await iface.event({ event: evt as Parameters<typeof iface.event>[0]["event"] })
+      await iface.event({ event: evt as Parameters<typeof iface.event>[0]["event"] })
+
+      expect(promptAsyncCalls.length).toBe(1)
+    })
+
+    it("re-arms finalize after new user message", async () => {
+      const { mockClient, promptAsyncCalls } = makeClientWithTodos([
+        { content: "Task 1", status: "in_progress", priority: "medium" },
+      ])
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+      })
+
+      const evt = idleEvent("sess-finalize-4")
+      // First idle — finalize fires
+      await iface.event({ event: evt as Parameters<typeof iface.event>[0]["event"] })
+      expect(promptAsyncCalls.length).toBe(1)
+
+      // New user message — resets the finalized set
+      await iface["chat.message"](
+        { sessionID: "sess-finalize-4" },
+        { message: {} as never, parts: [{ type: "text", text: "hello" }] },
+      )
+
+      // Second idle — finalize fires again
+      await iface.event({ event: evt as Parameters<typeof iface.event>[0]["event"] })
+      expect(promptAsyncCalls.length).toBe(2)
+    })
+
+    it("does not inject finalize prompt when workContinuation fires", async () => {
+      const { mockClient, promptAsyncCalls } = makeClientWithTodos([
+        { content: "Task 1", status: "in_progress", priority: "medium" },
+      ])
+
+      const hooks = makeHooks({
+        workContinuation: (_sessionId: string) => ({
+          continuationPrompt: "Continue working on your plan.",
+        }),
+      })
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks,
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+      })
+
+      const evt = idleEvent("sess-finalize-5")
+      await iface.event({ event: evt as Parameters<typeof iface.event>[0]["event"] })
+
+      // Only one prompt injected — the continuation prompt, not the finalize prompt
+      expect(promptAsyncCalls.length).toBe(1)
+      expect(promptAsyncCalls[0].body.parts[0].text).toBe("Continue working on your plan.")
+      expect(promptAsyncCalls[0].body.parts[0].text).not.toContain("<!-- weave:finalize-todos -->")
+    })
+
+    it("does not inject finalize prompt when client is absent", async () => {
+      // No client — should not throw
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        // no client
+      })
+
+      const evt = idleEvent("sess-finalize-6")
+      await expect(iface.event({ event: evt as Parameters<typeof iface.event>[0]["event"] })).resolves.toBeUndefined()
+    })
+
+    it("handles session.todo() errors gracefully", async () => {
+      const promptAsyncCalls: Array<{ path: { id: string }; body: { parts: Array<{ type: string; text: string }> } }> =
+        []
+      const mockClient = {
+        session: {
+          todo: async (_opts: { path: { id: string } }) => {
+            throw new Error("SDK error")
+          },
+          promptAsync: async (opts: { path: { id: string }; body: { parts: Array<{ type: string; text: string }> } }) => {
+            promptAsyncCalls.push(opts)
+          },
+        },
+      } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+      })
+
+      const evt = idleEvent("sess-finalize-7")
+      // Should not throw
+      await expect(iface.event({ event: evt as Parameters<typeof iface.event>[0]["event"] })).resolves.toBeUndefined()
+      // No prompt injected since todo() threw
+      expect(promptAsyncCalls.length).toBe(0)
+    })
+  })
 })

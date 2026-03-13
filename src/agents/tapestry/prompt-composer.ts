@@ -63,6 +63,12 @@ FORMAT RULES:
 - Summary todo always present during execution
 - Max 5 visible todos (1 summary + 1 in_progress + 2-3 pending)
 - in_progress = yellow highlight — use for CURRENT task only
+
+BEFORE FINISHING (MANDATORY):
+- ALWAYS issue a final todowrite before your last response
+- Mark ALL in_progress items → "completed" (or "cancelled")
+- Never leave in_progress items when done
+- This is NON-NEGOTIABLE — skipping it breaks the UI
 </SidebarTodos>`
 }
 

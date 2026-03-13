@@ -63,7 +63,12 @@ FORMAT RULES:
 - Max 5 visible todos at any time
 - in_progress = yellow highlight — use for ACTIVE work only
 - Prefix delegations with agent name
-- After all work done: mark everything completed (sidebar hides)
+
+BEFORE FINISHING (MANDATORY):
+- ALWAYS issue a final todowrite before your last response
+- Mark ALL in_progress items → "completed" (or "cancelled")
+- Never leave in_progress items when done
+- This is NON-NEGOTIABLE — skipping it breaks the UI
 </SidebarTodos>`
 }
 

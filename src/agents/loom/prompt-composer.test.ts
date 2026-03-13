@@ -227,6 +227,14 @@ describe("individual section builders", () => {
     expect(buildSidebarTodosSection()).toContain("35 chars")
   })
 
+  it("buildSidebarTodosSection contains BEFORE FINISHING mandatory block", () => {
+    const section = buildSidebarTodosSection()
+    expect(section).toContain("BEFORE FINISHING (MANDATORY)")
+    expect(section).toContain("NON-NEGOTIABLE")
+    expect(section).toContain("final todowrite")
+    expect(section).not.toContain("sidebar hides")
+  })
+
   it("buildDelegationNarrationSection contains duration hints", () => {
     expect(buildDelegationNarrationSection()).toContain("DURATION HINTS")
   })
