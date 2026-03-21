@@ -35,4 +35,46 @@ describe("eval schemas", () => {
     })
     expect(result.success).toBe(true)
   })
+
+  it("validates section-contains-all evaluator", () => {
+    const result = EvalCaseSchema.safeParse({
+      id: "loom-role-scope",
+      title: "Loom role scoped contains",
+      phase: "phase1",
+      target: { kind: "builtin-agent-prompt", agent: "loom" },
+      executor: { kind: "prompt-render" },
+      evaluators: [{ kind: "section-contains-all", section: "Role", patterns: ["Loom"] }],
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it("validates llm-judge evaluator with phrase checks", () => {
+    const result = EvalCaseSchema.safeParse({
+      id: "loom-phase2-judge",
+      title: "Loom phase2 judge",
+      phase: "phase2",
+      target: { kind: "builtin-agent-prompt", agent: "loom" },
+      executor: { kind: "model-response", provider: "openai", model: "gpt-5", input: "test" },
+      evaluators: [
+        {
+          kind: "llm-judge",
+          rubricRef: "evals/rubrics/loom-routing-rubric.md",
+          expectedContains: ["delegate"],
+        },
+      ],
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it("rejects invalid model-response executor missing provider", () => {
+    const result = EvalCaseSchema.safeParse({
+      id: "phase2-invalid",
+      title: "Invalid phase2",
+      phase: "phase2",
+      target: { kind: "builtin-agent-prompt", agent: "loom" },
+      executor: { kind: "model-response", model: "gpt-5", input: "test" },
+      evaluators: [{ kind: "llm-judge" }],
+    })
+    expect(result.success).toBe(false)
+  })
 })

@@ -6,8 +6,10 @@ function formatCaseLine(result: EvalCaseResult): string {
 }
 
 export function formatEvalSummary(result: EvalRunResult): string {
+  const suiteRole = result.suiteId === "pr-smoke" ? "PR smoke" : result.suiteId === "phase1-core" ? "full deterministic" : "custom"
   const lines = [
     `Suite ${result.suiteId} (${result.phase})`,
+    `- Suite role: ${suiteRole}`,
     `- Cases: ${result.summary.totalCases}`,
     `- Passed: ${result.summary.passedCases}`,
     `- Failed: ${result.summary.failedCases}`,

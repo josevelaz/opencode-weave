@@ -27,6 +27,9 @@ jobs:
       - name: Run tests
         run: bun test
 
+      - name: Run deterministic PR smoke evals
+        run: bun run eval:smoke
+
       - name: Audit dependencies for known vulnerabilities
         run: bunx audit-ci --low
         continue-on-error: true

@@ -18,6 +18,7 @@ export const EVALUATOR_KINDS = [
   "contains-all",
   "contains-any",
   "excludes-all",
+  "section-contains-all",
   "ordered-contains",
   "xml-sections-present",
   "tool-policy",
@@ -100,6 +101,12 @@ export interface ExcludesAllEvaluator extends WeightedEvaluatorSpec {
   patterns: string[]
 }
 
+export interface SectionContainsAllEvaluator extends WeightedEvaluatorSpec {
+  kind: "section-contains-all"
+  section: string
+  patterns: string[]
+}
+
 export interface OrderedContainsEvaluator extends WeightedEvaluatorSpec {
   kind: "ordered-contains"
   patterns: string[]
@@ -123,6 +130,8 @@ export interface MinLengthEvaluator extends WeightedEvaluatorSpec {
 export interface LlmJudgeEvaluator extends WeightedEvaluatorSpec {
   kind: "llm-judge"
   rubricRef?: string
+  expectedContains?: string[]
+  forbiddenContains?: string[]
 }
 
 export interface BaselineDiffEvaluator extends WeightedEvaluatorSpec {
@@ -139,6 +148,7 @@ export type EvaluatorSpec =
   | ContainsAllEvaluator
   | ContainsAnyEvaluator
   | ExcludesAllEvaluator
+  | SectionContainsAllEvaluator
   | OrderedContainsEvaluator
   | XmlSectionsPresentEvaluator
   | ToolPolicyEvaluator
@@ -261,4 +271,32 @@ export interface RunEvalSuiteOptions {
 export interface EvalLoadErrorContext {
   filePath: string
   detail: string
+}
+
+export interface DeterministicBaselineCase {
+  caseId: string
+  status: EvalCaseResult["status"]
+  normalizedScore: number
+  assertionPassed: number
+  assertionFailed: number
+  errorCount: number
+}
+
+export interface DeterministicBaseline {
+  version: 1
+  suiteId: string
+  phase: EvalPhase
+  generatedAt: string
+  normalizedScore: number
+  cases: DeterministicBaselineCase[]
+}
+
+export interface BaselineComparisonOptions {
+  scoreDropTolerance?: number
+}
+
+export interface BaselineComparison {
+  outcome: "no-regression" | "informational-diff" | "regression"
+  regressions: string[]
+  informational: string[]
 }

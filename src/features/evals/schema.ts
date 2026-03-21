@@ -85,6 +85,12 @@ export const ExcludesAllEvaluatorSchema = WeightedEvaluatorSchema.extend({
   patterns: z.array(NonEmptyString).min(1),
 })
 
+export const SectionContainsAllEvaluatorSchema = WeightedEvaluatorSchema.extend({
+  kind: z.literal("section-contains-all"),
+  section: NonEmptyString,
+  patterns: z.array(NonEmptyString).min(1),
+})
+
 export const OrderedContainsEvaluatorSchema = WeightedEvaluatorSchema.extend({
   kind: z.literal("ordered-contains"),
   patterns: z.array(NonEmptyString).min(1),
@@ -108,6 +114,8 @@ export const MinLengthEvaluatorSchema = WeightedEvaluatorSchema.extend({
 export const LlmJudgeEvaluatorSchema = WeightedEvaluatorSchema.extend({
   kind: z.literal("llm-judge"),
   rubricRef: NonEmptyString.optional(),
+  expectedContains: z.array(NonEmptyString).optional(),
+  forbiddenContains: z.array(NonEmptyString).optional(),
 })
 
 export const BaselineDiffEvaluatorSchema = WeightedEvaluatorSchema.extend({
@@ -124,6 +132,7 @@ export const EvaluatorSpecSchema = z.discriminatedUnion("kind", [
   ContainsAllEvaluatorSchema,
   ContainsAnyEvaluatorSchema,
   ExcludesAllEvaluatorSchema,
+  SectionContainsAllEvaluatorSchema,
   OrderedContainsEvaluatorSchema,
   XmlSectionsPresentEvaluatorSchema,
   ToolPolicyEvaluatorSchema,

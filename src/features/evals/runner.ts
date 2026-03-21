@@ -1,7 +1,9 @@
 import { randomBytes } from "node:crypto"
 import { loadEvalCasesForSuite, loadEvalSuiteManifest } from "./loader"
+import { executeModelResponse } from "./executors/model-response"
 import { executePromptRender } from "./executors/prompt-renderer"
 import { runDeterministicEvaluator } from "./evaluators/deterministic"
+import { runLlmJudgeEvaluator } from "./evaluators/llm-judge"
 import { formatEvalSummary } from "./reporter"
 import { ensureEvalStorageDir, writeEvalRunResult } from "./storage"
 import { resolveBuiltinAgentTarget } from "./targets/builtin-agent-target"
@@ -62,16 +64,23 @@ function executeCase(evalCase: LoadedEvalCase, context: ExecutionContext): EvalC
     const resolvedTarget = resolveTarget(evalCase)
     let artifacts: EvalArtifacts
 
-    switch (evalCase.executor.kind) {
-      case "prompt-render":
-        artifacts = executePromptRender(resolvedTarget, evalCase.executor, context)
-        break
-      case "model-response":
-      case "trajectory-run":
-        throw new Error(`Executor ${evalCase.executor.kind} is not implemented in Phase 1`)
-    }
+      switch (evalCase.executor.kind) {
+        case "prompt-render":
+          artifacts = executePromptRender(resolvedTarget, evalCase.executor, context)
+          break
+        case "model-response":
+          artifacts = executeModelResponse(resolvedTarget, evalCase.executor, context)
+          break
+        case "trajectory-run":
+          throw new Error(`Executor ${evalCase.executor.kind} is reserved for a later phase and is not implemented yet`)
+      }
 
-    const assertionResults = evalCase.evaluators.flatMap((evaluator) => runDeterministicEvaluator(evaluator, artifacts))
+    const assertionResults = evalCase.evaluators.flatMap((evaluator) => {
+      if (evaluator.kind === "llm-judge") {
+        return runLlmJudgeEvaluator(evaluator, artifacts)
+      }
+      return runDeterministicEvaluator(evaluator, artifacts)
+    })
     const rawScore = assertionResults.reduce((sum, result) => sum + result.score, 0)
     const maxScore = assertionResults.reduce((sum, result) => sum + result.maxScore, 0)
     const normalizedScore = maxScore > 0 ? rawScore / maxScore : 0

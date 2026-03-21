@@ -27,6 +27,7 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "eval": "bun run script/eval.ts",
+    "eval:smoke": "bun run script/eval.ts --suite pr-smoke",
     "eval:coverage": "bun run script/verify-eval-coverage.ts"
   },
   "keywords": [

@@ -12,7 +12,8 @@
   },
   "evaluators": [
     { "kind": "xml-sections-present", "sections": ["Role", "Delegation", "PlanWorkflow", "ReviewWorkflow"] },
-    { "kind": "contains-all", "patterns": ["/start-work", "Delegate aggressively", "MUST use Warp"] },
+    { "kind": "section-contains-all", "section": "Delegation", "patterns": ["Delegate aggressively", "MUST use Warp"] },
+    { "kind": "section-contains-all", "section": "PlanWorkflow", "patterns": ["/start-work", "Delegate to Pattern"] },
     { "kind": "ordered-contains", "patterns": ["<Role>", "<Delegation>", "<PlanWorkflow>", "<ReviewWorkflow>", "<Style>"] },
     { "kind": "min-length", "min": 4000 }
   ]

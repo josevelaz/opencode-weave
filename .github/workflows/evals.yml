@@ -5,10 +5,20 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_phase2_pilot:
+        description: "Run non-blocking Phase 2 Loom pilot"
+        required: false
+        default: "false"
+      phase2_mock_responses:
+        description: "JSON mapping for WEAVE_EVAL_MOCK_RESPONSES (optional)"
+        required: false
+        default: ""
 
 jobs:
   deterministic-evals:
-    name: Deterministic Eval Suite
+    name: Full Deterministic Eval Suite
     runs-on: ubuntu-latest
 
     steps:
@@ -21,8 +31,11 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Run deterministic eval suite
-        run: bun run eval --suite phase1-core
+      - name: Run full deterministic eval suite
+        run: bun run eval --suite phase1-core --baseline evals/baselines/phase1-core.json --fail-on-regression
+
+      - name: Run smoke baseline comparison
+        run: bun run eval --suite pr-smoke --baseline evals/baselines/pr-smoke.json --fail-on-regression
 
       - name: Verify eval coverage
         run: bun run eval:coverage
@@ -32,5 +45,34 @@ jobs:
         if: always()
         with:
           name: eval-artifacts
+          path: .weave/evals/
+          if-no-files-found: ignore
+
+  phase2-loom-pilot:
+    name: Phase2 Loom Pilot (manual/non-blocking)
+    if: github.event_name == 'workflow_dispatch' && inputs.run_phase2_pilot == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run phase2 loom pilot (mocked)
+        env:
+          WEAVE_EVAL_MOCK_RESPONSES: ${{ inputs.phase2_mock_responses != '' && inputs.phase2_mock_responses || '{"openai/gpt-5":"I will delegate to thread for exploration, use pattern for planning with /start-work, and run warp for security-sensitive review."}' }}
+        run: bun run eval --suite phase2-loom-pilot
+
+      - name: Upload phase2 pilot artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase2-loom-pilot-artifacts
           path: .weave/evals/
           if-no-files-found: ignore

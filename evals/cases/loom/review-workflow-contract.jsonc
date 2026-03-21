@@ -1,0 +1,18 @@
+{
+  "id": "loom-review-workflow-contract",
+  "title": "Loom review workflow remains mandatory when reviewers are enabled",
+  "phase": "phase1",
+  "tags": ["phase1", "composer", "loom", "review"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom"
+  },
+  "executor": {
+    "kind": "prompt-render"
+  },
+  "evaluators": [
+    { "kind": "xml-sections-present", "sections": ["ReviewWorkflow"] },
+    { "kind": "section-contains-all", "section": "ReviewWorkflow", "patterns": ["MUST run Warp", "NOT optional", "Ad-Hoc Review"] },
+    { "kind": "section-contains-all", "section": "PlanWorkflow", "patterns": ["Delegate to Pattern", "Weft review is mandatory", "/start-work"] }
+  ]
+}

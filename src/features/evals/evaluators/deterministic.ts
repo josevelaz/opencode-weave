@@ -4,6 +4,7 @@ import type {
   EvaluatorSpec,
   ContainsAllEvaluator,
   ExcludesAllEvaluator,
+  SectionContainsAllEvaluator,
   OrderedContainsEvaluator,
   XmlSectionsPresentEvaluator,
   ToolPolicyEvaluator,
@@ -62,6 +63,38 @@ function excludesAll(prompt: string, spec: ExcludesAllEvaluator): AssertionResul
       score: passed ? perItem : 0,
       maxScore: perItem,
       message: passed ? `Excluded forbidden pattern: ${pattern}` : `Forbidden pattern present: ${pattern}`,
+    }
+  })
+}
+
+function sectionContainsAll(prompt: string, spec: SectionContainsAllEvaluator): AssertionResult[] {
+  const openTag = `<${spec.section}>`
+  const closeTag = `</${spec.section}>`
+  const start = prompt.indexOf(openTag)
+  const end = prompt.indexOf(closeTag)
+  const perItem = distributeWeight(getWeight(spec), spec.patterns.length)
+
+  if (start < 0 || end < 0 || end <= start) {
+    return spec.patterns.map((pattern) => ({
+      evaluatorKind: spec.kind,
+      passed: false,
+      score: 0,
+      maxScore: perItem,
+      message: `Missing section ${spec.section} for required pattern: ${pattern}`,
+    }))
+  }
+
+  const sectionContent = prompt.slice(start, end + closeTag.length)
+  return spec.patterns.map((pattern) => {
+    const passed = sectionContent.includes(pattern)
+    return {
+      evaluatorKind: spec.kind,
+      passed,
+      score: passed ? perItem : 0,
+      maxScore: perItem,
+      message: passed
+        ? `Found required pattern in section ${spec.section}: ${pattern}`
+        : `Missing required pattern in section ${spec.section}: ${pattern}`,
     }
   })
 }
@@ -150,6 +183,8 @@ export function runDeterministicEvaluator(spec: EvaluatorSpec, artifacts: EvalAr
       return containsAny(prompt, spec)
     case "excludes-all":
       return excludesAll(prompt, spec)
+    case "section-contains-all":
+      return sectionContainsAll(prompt, spec)
     case "ordered-contains":
       return orderedContains(prompt, spec)
     case "xml-sections-present":
@@ -159,6 +194,7 @@ export function runDeterministicEvaluator(spec: EvaluatorSpec, artifacts: EvalAr
     case "min-length":
       return minLength(prompt, spec)
     case "llm-judge":
+      throw new Error("Evaluator llm-judge is handled by llm-judge evaluator path")
     case "baseline-diff":
     case "trajectory-assertion":
       throw new Error(`Evaluator ${spec.kind} is reserved for a later phase and is not implemented yet`)

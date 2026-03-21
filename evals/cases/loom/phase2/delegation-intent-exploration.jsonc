@@ -1,0 +1,24 @@
+{
+  "id": "loom-phase2-delegation-intent-exploration",
+  "title": "Loom model response prefers Thread for exploration asks",
+  "phase": "phase2",
+  "tags": ["phase2", "loom", "pilot", "routing"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "openai",
+    "model": "gpt-5",
+    "input": "Find all authentication-related files and summarize their responsibilities."
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "rubricRef": "evals/rubrics/loom-routing-rubric.md",
+      "expectedContains": ["thread"],
+      "forbiddenContains": ["implement directly"]
+    }
+  ]
+}

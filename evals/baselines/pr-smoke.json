@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "suiteId": "pr-smoke",
+  "phase": "phase1",
+  "generatedAt": "2026-03-21T11:56:50.988Z",
+  "normalizedScore": 1,
+  "cases": [
+    {
+      "caseId": "loom-default-contract",
+      "status": "passed",
+      "normalizedScore": 1,
+      "assertionPassed": 14,
+      "assertionFailed": 0,
+      "errorCount": 0
+    },
+    {
+      "caseId": "tapestry-default-contract",
+      "status": "passed",
+      "normalizedScore": 1,
+      "assertionPassed": 12,
+      "assertionFailed": 0,
+      "errorCount": 0
+    },
+    {
+      "caseId": "thread-read-only-contract",
+      "status": "passed",
+      "normalizedScore": 1,
+      "assertionPassed": 10,
+      "assertionFailed": 0,
+      "errorCount": 0
+    },
+    {
+      "caseId": "warp-security-audit-contract",
+      "status": "passed",
+      "normalizedScore": 1,
+      "assertionPassed": 14,
+      "assertionFailed": 0,
+      "errorCount": 0
+    }
+  ]
+}

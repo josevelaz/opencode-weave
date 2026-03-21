@@ -25,10 +25,30 @@ Shuttle is intentionally deferred because its behavior is category/config driven
 - `.weave/evals/runs/*.json` - local run artifacts
 - `.weave/evals/latest.json` - latest run convenience copy
 
+## Suite Roles
+
+- `phase1-core`: full deterministic contract suite used for deeper validation in the dedicated eval workflow.
+- `pr-smoke`: intentionally tiny deterministic subset for fast PR feedback.
+
+Current `pr-smoke` composition:
+
+- Loom default contract
+- Tapestry default contract
+- Thread read-only contract
+- Warp security-audit contract
+
+Keep deterministic smoke coverage and Fleet end-to-end smoke coverage separate:
+
+- Deterministic eval smoke (this folder) validates prompt-contract behavior quickly and without providers.
+- Fleet E2E smoke tests are tracked separately in `.weave/plans/workflow-smoke-tests.md` and validate runtime session behavior.
+
 ## Running Evals
 
 ```bash
 bun run eval --suite phase1-core
+
+# Fast deterministic smoke suite (PR-focused)
+bun run eval:smoke
 ```
 
 Useful filters:
@@ -38,6 +58,19 @@ bun run eval --suite phase1-core --agent loom
 bun run eval --suite phase1-core --case loom-default-contract
 bun run eval --suite phase1-core --tag composer --json
 bun run eval --suite phase1-core --output /tmp/weave-evals.json
+
+# Compare against baseline (defaults to evals/baselines/{suite}.json when present)
+bun run eval --suite phase1-core --baseline evals/baselines/phase1-core.json
+
+# Smoke suite baseline comparison
+bun run eval --suite pr-smoke --baseline evals/baselines/pr-smoke.json
+
+# Fail command when baseline comparison reports regression
+bun run eval --suite phase1-core --baseline evals/baselines/phase1-core.json --fail-on-regression
+
+# Refresh baseline intentionally
+bun run eval --suite phase1-core --update-baseline
+bun run eval --suite pr-smoke --update-baseline
 ```
 
 Filter precedence and behavior:
@@ -83,9 +116,19 @@ bun run eval:coverage
 
 ## CI Strategy
 
-- Fast deterministic suites belong in PR/main CI
+- `ci.yml` runs only the tiny deterministic `pr-smoke` suite for fast blocking feedback
+- `evals.yml` runs full deterministic suites with baseline comparison (`phase1-core` + `pr-smoke`), eval coverage, and artifact upload
 - Provider-backed judge runs belong in dedicated manual or scheduled workflows later
 - Expensive eval classes should not become accidental always-on blockers
+
+### Phase 2 Loom Pilot Trigger (manual)
+
+`evals.yml` includes a manual `workflow_dispatch` path for `phase2-loom-pilot`.
+
+- Set `run_phase2_pilot=true` to run the pilot.
+- Optional input `phase2_mock_responses` can override `WEAVE_EVAL_MOCK_RESPONSES` JSON.
+- Pilot job is intentionally **non-blocking** (`continue-on-error: true`) and is not part of default PR gating.
+- Pilot artifacts are uploaded as `phase2-loom-pilot-artifacts`.
 
 ## Future Phases
 
@@ -94,3 +137,10 @@ bun run eval:coverage
 - `evaluator.kind` is ready for `llm-judge`, `baseline-diff`, and `trajectory-assertion`
 - Promptfoo, if adopted later, should be an adapter behind executor/judge layers rather than the canonical schema owner
 - Provider-backed evals must use env-only secrets and must never persist raw tokens, keys, or auth headers in artifacts
+
+## Phase 2 Pilot Guardrails
+
+- Phase 2 pilot uses `model-response` + `llm-judge` in a tightly scoped Loom-only suite.
+- Current pilot path is intentionally mock-driven via `WEAVE_EVAL_MOCK_RESPONSES` and manual workflow execution.
+- Never store provider secrets in case files, suite files, or committed baselines.
+- Artifacts must not include auth headers, API keys, bearer tokens, or raw provider secret values.

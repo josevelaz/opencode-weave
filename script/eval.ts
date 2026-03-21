@@ -1,12 +1,17 @@
 #!/usr/bin/env bun
 
 import {
+  compareDeterministicBaseline,
+  deriveDeterministicBaseline,
   runEvalSuite,
   EvalConfigError,
   loadEvalCasesForSuite,
   loadEvalSuiteManifest,
+  readDeterministicBaseline,
 } from "../src/features/evals"
 import type { LoadedEvalCase } from "../src/features/evals"
+import { existsSync, mkdirSync, writeFileSync } from "fs"
+import { dirname, join } from "path"
 
 interface CliOptions {
   suite: string
@@ -15,12 +20,27 @@ interface CliOptions {
   tags?: string[]
   json: boolean
   outputPath?: string
+  baselinePath?: string
+  updateBaseline: boolean
+  failOnRegression: boolean
 }
 
 function printUsage(): void {
   console.error(
-    "Usage: bun run eval [--suite phase1-core] [--case id] [--agent loom] [--tag contract] [--json] [--output path]",
+    "Usage: bun run eval [--suite phase1-core] [--case id] [--agent loom] [--tag contract] [--json] [--output path] [--baseline path] [--update-baseline] [--fail-on-regression]",
   )
+}
+
+function getDefaultBaselinePath(directory: string, suite: string): string {
+  return join(directory, "evals", "baselines", `${suite}.json`)
+}
+
+function writeBaseline(path: string, baseline: ReturnType<typeof deriveDeterministicBaseline>): void {
+  const dir = dirname(path)
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true, mode: 0o700 })
+  }
+  writeFileSync(path, JSON.stringify(baseline, null, 2) + "\n", { encoding: "utf-8", mode: 0o600 })
 }
 
 function parseMultiValue(value: string | undefined, flag: string): string {
@@ -34,6 +54,8 @@ function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
     suite: "phase1-core",
     json: false,
+    updateBaseline: false,
+    failOnRegression: false,
   }
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -57,9 +79,22 @@ function parseArgs(argv: string[]): CliOptions {
       case "--output":
         options.outputPath = parseMultiValue(argv[++index], "--output")
         break
+      case "--baseline":
+        options.baselinePath = parseMultiValue(argv[++index], "--baseline")
+        break
+      case "--update-baseline":
+        options.updateBaseline = true
+        break
+      case "--fail-on-regression":
+        options.failOnRegression = true
+        break
       default:
         throw new Error(`Unknown flag: ${arg}`)
     }
+  }
+
+  if (options.updateBaseline && options.caseIds && options.caseIds.length > 0) {
+    throw new Error("--update-baseline is not supported with --case filters")
   }
 
   return options
@@ -130,6 +165,8 @@ function main(): void {
   try {
     validateSelectors(options)
 
+    const baselinePath = options.baselinePath ?? getDefaultBaselinePath(process.cwd(), options.suite)
+
     const output = runEvalSuite({
       directory: process.cwd(),
       suite: options.suite,
@@ -142,6 +179,27 @@ function main(): void {
       mode: process.env.CI ? "ci" : "local",
     })
 
+    const baseline = deriveDeterministicBaseline(output.result)
+    let baselineComparisonText = ""
+    let baselineRegression = false
+
+    if (options.updateBaseline) {
+      writeBaseline(baselinePath, baseline)
+      baselineComparisonText = `Baseline updated: ${baselinePath}`
+    } else if (existsSync(baselinePath)) {
+      const comparison = compareDeterministicBaseline(readDeterministicBaseline(baselinePath), output.result)
+      baselineComparisonText = `Baseline comparison (${baselinePath}): ${comparison.outcome}`
+      if (comparison.regressions.length > 0) {
+        baselineComparisonText += `\n- Regressions:\n${comparison.regressions.map((entry) => `  - ${entry}`).join("\n")}`
+        baselineRegression = true
+      }
+      if (comparison.informational.length > 0) {
+        baselineComparisonText += `\n- Informational:\n${comparison.informational.map((entry) => `  - ${entry}`).join("\n")}`
+      }
+    } else if (options.baselinePath) {
+      throw new EvalConfigError(`Baseline file not found: ${baselinePath}`)
+    }
+
     if (output.result.summary.totalCases === 0) {
       console.error("No eval cases matched the selected filters after applying valid selectors")
       process.exit(2)
@@ -152,6 +210,13 @@ function main(): void {
     } else {
       process.stdout.write(output.consoleSummary + "\n")
       process.stdout.write(`Artifact: ${output.artifactPath}\n`)
+      if (baselineComparisonText) {
+        process.stdout.write(`${baselineComparisonText}\n`)
+      }
+    }
+
+    if (options.failOnRegression && baselineRegression) {
+      process.exit(1)
     }
 
     process.exit(output.result.summary.failedCases > 0 || output.result.summary.errorCases > 0 ? 1 : 0)
