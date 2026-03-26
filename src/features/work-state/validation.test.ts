@@ -135,35 +135,38 @@ describe("valid plan", () => {
 
 // ─── Structure validation ────────────────────────────────────────────────────
 
-describe("structure validation — required sections", () => {
-  it("produces an error when ## TL;DR is missing", () => {
+describe("structure validation — expected sections", () => {
+  it("produces a warning (not error) when ## TL;DR is missing", () => {
     const content = VALID_PLAN.replace(/## TL;DR[\s\S]*?(?=## Context)/, "")
     const planPath = writePlan("no-tldr", content)
     const result = validatePlan(planPath, testDir)
-    expect(result.valid).toBe(false)
+    expect(result.valid).toBe(true)
+    const warn = result.warnings.find((w) => w.message.includes("TL;DR"))
+    expect(warn).toBeDefined()
+    expect(warn!.category).toBe("structure")
+    expect(warn!.severity).toBe("warning")
     const err = result.errors.find((e) => e.message.includes("TL;DR"))
-    expect(err).toBeDefined()
-    expect(err!.category).toBe("structure")
+    expect(err).toBeUndefined()
   })
 
-  it("produces an error when ## TODOs is missing", () => {
+  it("produces a warning (not error) when ## TODOs is missing but checkboxes exist elsewhere", () => {
     const content = VALID_PLAN.replace(/## TODOs[\s\S]*?(?=## Verification)/, "")
     const planPath = writePlan("no-todos", content)
     const result = validatePlan(planPath, testDir)
-    expect(result.valid).toBe(false)
-    const err = result.errors.find((e) => e.message.includes("TODOs"))
-    expect(err).toBeDefined()
-    expect(err!.category).toBe("structure")
+    expect(result.valid).toBe(true)
+    const warn = result.warnings.find((w) => w.message.includes("TODOs"))
+    expect(warn).toBeDefined()
+    expect(warn!.category).toBe("structure")
   })
 
-  it("produces an error when ## Verification is missing", () => {
+  it("produces a warning (not error) when ## Verification is missing", () => {
     const content = VALID_PLAN.replace(/## Verification[\s\S]*$/, "")
     const planPath = writePlan("no-verification", content)
     const result = validatePlan(planPath, testDir)
-    expect(result.valid).toBe(false)
-    const err = result.errors.find((e) => e.message.includes("Verification"))
-    expect(err).toBeDefined()
-    expect(err!.category).toBe("structure")
+    expect(result.valid).toBe(true)
+    const warn = result.warnings.find((w) => w.message.includes("Verification"))
+    expect(warn).toBeDefined()
+    expect(warn!.category).toBe("structure")
   })
 })
 
@@ -398,17 +401,18 @@ describe("effort estimate validation", () => {
 // ─── Verification section validation ─────────────────────────────────────────
 
 describe("verification section validation", () => {
-  it("produces an error when Verification section has no checkboxes", () => {
+  it("produces a warning when Verification section has no checkboxes", () => {
     const content = VALID_PLAN.replace(
       "## Verification\n- [ ] All tests pass\n- [ ] Build succeeds\n",
       "## Verification\nNo checkboxes here.\n"
     )
     const planPath = writePlan("empty-verification", content)
     const result = validatePlan(planPath, testDir)
-    expect(result.valid).toBe(false)
-    const err = result.errors.find((e) => e.category === "verification")
-    expect(err).toBeDefined()
-    expect(err!.message).toContain("no checkboxes")
+    expect(result.valid).toBe(true)
+    const warn = result.warnings.find((w) => w.category === "verification")
+    expect(warn).toBeDefined()
+    expect(warn!.message).toContain("no checkboxes")
+    expect(warn!.severity).toBe("warning")
   })
 
   it("accepts a Verification section with only checked items", () => {
@@ -423,14 +427,67 @@ describe("verification section validation", () => {
   })
 })
 
+// ─── Non-blocking structure (graceful degradation) ──────────────────────────
+
+describe("non-blocking structure validation", () => {
+  it("plan with wrong heading names but checkboxes is still valid", () => {
+    const content = VALID_PLAN
+      .replace("## TL;DR", "## Summary")
+      .replace("## Context", "## Background")
+      .replace("## Objectives", "## Goals")
+      .replace("## TODOs", "## Tasks")
+      .replace("## Verification", "## Testing")
+    const planPath = writePlan("wrong-headings", content)
+    const result = validatePlan(planPath, testDir)
+    expect(result.valid).toBe(true)
+    expect(result.errors).toHaveLength(0)
+    // Should have structure warnings for all missing expected sections
+    const structureWarnings = result.warnings.filter((w) => w.category === "structure")
+    expect(structureWarnings.length).toBeGreaterThan(0)
+  })
+
+  it("plan with no sections at all but has checkboxes is valid", () => {
+    const content = `# Minimal Plan\n\n- [ ] Do the thing\n- [ ] Verify the thing\n`
+    const planPath = writePlan("no-sections", content)
+    const result = validatePlan(planPath, testDir)
+    expect(result.valid).toBe(true)
+  })
+
+  it("plan with no checkboxes anywhere is invalid (blocking error)", () => {
+    const content = `# Plan\n\n## TL;DR\nSomething\n\n## TODOs\nNo checkboxes.\n\n## Verification\nAlso no checkboxes.\n`
+    const planPath = writePlan("no-checkboxes-anywhere", content)
+    const result = validatePlan(planPath, testDir)
+    expect(result.valid).toBe(false)
+    const err = result.errors.find((e) => e.category === "checkboxes")
+    expect(err).toBeDefined()
+  })
+
+  it("plan with checkboxes only outside ## TODOs section is still valid", () => {
+    // ## TODOs heading is missing, but checkboxes exist in ## Verification
+    const content = `# Plan\n\n## Verification\n- [ ] All tests pass\n`
+    const planPath = writePlan("checkboxes-in-verification", content)
+    const result = validatePlan(planPath, testDir)
+    expect(result.valid).toBe(true)
+  })
+})
+
 // ─── ValidationResult shape ───────────────────────────────────────────────────
 
 describe("ValidationResult structure", () => {
   it("returns valid:false when there are errors", () => {
-    const planPath = writePlan("bad", "# Bad plan\n## TODOs\n- [ ] task\n")
+    // A plan with no checkboxes at all is the only blocking error
+    const planPath = writePlan("bad", "# Bad plan\nNo tasks here.\n")
     const result = validatePlan(planPath, testDir)
     expect(result.valid).toBe(false)
     expect(result.errors.length).toBeGreaterThan(0)
+  })
+
+  it("returns valid:true when sections are missing but checkboxes exist", () => {
+    // Missing TL;DR and Verification — warnings only, not blocking
+    const planPath = writePlan("missing-sections", "# Plan\n## TODOs\n- [ ] task\n")
+    const result = validatePlan(planPath, testDir)
+    expect(result.valid).toBe(true)
+    expect(result.warnings.length).toBeGreaterThan(0)
   })
 
   it("returns valid:true when there are only warnings", () => {

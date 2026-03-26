@@ -67,6 +67,8 @@ Use this structure:
 \`\`\`
 
 CRITICAL: Use \`- [ ]\` checkboxes for ALL actionable items. The /start-work system tracks progress by counting these checkboxes.
+
+Use the exact section headings shown in the template above (\`## TL;DR\`, \`## Context\`, \`## Objectives\`, \`## TODOs\`, \`## Verification\`). Consistent headings help downstream tooling parse the plan.
 </PlanOutput>
 
 <Constraints>

@@ -54,7 +54,7 @@ export function validatePlan(planPath: string, projectDir: string): ValidationRe
   validateEffortEstimate(content, warnings)
 
   // ─── 6. Verification section validation ─────────────────────────────────────
-  validateVerificationSection(content, errors)
+  validateVerificationSection(content, warnings)
 
   return {
     valid: errors.length === 0,
@@ -101,19 +101,21 @@ function hasSection(content: string, heading: string): boolean {
 
 function validateStructure(
   content: string,
-  errors: ValidationIssue[],
+  _errors: ValidationIssue[],
   warnings: ValidationIssue[]
 ): void {
-  // Required sections → errors if missing
-  const requiredSections: [string, string][] = [
-    ["## TL;DR", "Missing required section: ## TL;DR"],
-    ["## TODOs", "Missing required section: ## TODOs"],
-    ["## Verification", "Missing required section: ## Verification"],
+  // Previously-required sections → warnings (non-blocking) if missing.
+  // LLMs may deviate from exact heading names; missing sections should not
+  // prevent plan execution.
+  const expectedSections: [string, string][] = [
+    ["## TL;DR", "Missing expected section: ## TL;DR"],
+    ["## TODOs", "Missing expected section: ## TODOs"],
+    ["## Verification", "Missing expected section: ## Verification"],
   ]
 
-  for (const [heading, message] of requiredSections) {
+  for (const [heading, message] of expectedSections) {
     if (!hasSection(content, heading)) {
-      errors.push({ severity: "error", category: "structure", message })
+      warnings.push({ severity: "warning", category: "structure", message })
     }
   }
 
@@ -139,7 +141,16 @@ function validateCheckboxes(
 ): void {
   const todosSection = extractSection(content, "## TODOs")
   if (todosSection === null) {
-    // Already reported as a structural error — skip checkbox analysis
+    // Section not found (already warned in structure validation).
+    // Fall back to checking the entire document for any checkboxes.
+    const hasAnyCheckbox = /^- \[[ x]\] /m.test(content)
+    if (!hasAnyCheckbox) {
+      errors.push({
+        severity: "error",
+        category: "checkboxes",
+        message: "Plan contains no checkboxes (- [ ] or - [x]) — nothing to execute",
+      })
+    }
     return
   }
 
@@ -354,7 +365,7 @@ const VALID_EFFORT_VALUES = ["quick", "short", "medium", "large", "xl"]
 function validateEffortEstimate(content: string, warnings: ValidationIssue[]): void {
   const tldrSection = extractSection(content, "## TL;DR")
   if (tldrSection === null) {
-    // Already reported as structural error
+    // Section not found — already warned in structure validation
     return
   }
 
@@ -380,19 +391,19 @@ function validateEffortEstimate(content: string, warnings: ValidationIssue[]): v
 
 // ─── 6. Verification section ──────────────────────────────────────────────────
 
-function validateVerificationSection(content: string, errors: ValidationIssue[]): void {
+function validateVerificationSection(content: string, warnings: ValidationIssue[]): void {
   const verificationSection = extractSection(content, "## Verification")
   if (verificationSection === null) {
-    // Already reported as structural error
+    // Section not found — already warned in structure validation
     return
   }
 
   const hasCheckbox = /^- \[[ x]\] /m.test(verificationSection)
   if (!hasCheckbox) {
-    errors.push({
-      severity: "error",
+    warnings.push({
+      severity: "warning",
       category: "verification",
-      message: "## Verification section contains no checkboxes — at least one verifiable condition is required",
+      message: "## Verification section contains no checkboxes — consider adding verifiable conditions",
     })
   }
 }
