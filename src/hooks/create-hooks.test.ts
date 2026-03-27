@@ -32,6 +32,9 @@ describe("createHooks", () => {
     expect(hooks).toHaveProperty("firstMessageVariant")
     expect(hooks).toHaveProperty("processMessageForKeywords")
     expect(hooks).toHaveProperty("verificationReminder")
+    expect(hooks).toHaveProperty("todoDescriptionOverride")
+    expect(hooks).toHaveProperty("compactionTodoPreserverEnabled")
+    expect(hooks).toHaveProperty("todoContinuationEnforcerEnabled")
   })
 
   it("disabled hooks return null for context-window-monitor", () => {
@@ -211,5 +214,70 @@ describe("createHooks", () => {
       directory: "",
     })
     expect(hooks.analyticsEnabled).toBe(false)
+  })
+
+  describe("todo-description-override hook", () => {
+    it("todoDescriptionOverride is non-null when enabled", () => {
+      const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
+      expect(hooks.todoDescriptionOverride).not.toBeNull()
+    })
+
+    it("todoDescriptionOverride is null when disabled", () => {
+      const hooks = createHooks({
+        pluginConfig: baseConfig,
+        isHookEnabled: disableHook("todo-description-override"),
+        directory: "",
+      })
+      expect(hooks.todoDescriptionOverride).toBeNull()
+    })
+
+    it("todoDescriptionOverride when enabled mutates description for todowrite", () => {
+      const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
+      const output = { description: "original", parameters: {} }
+      hooks.todoDescriptionOverride!({ toolID: "todowrite" }, output)
+      expect(output.description).not.toBe("original")
+    })
+  })
+
+  describe("compaction-todo-preserver enablement", () => {
+    it("compactionTodoPreserverEnabled is true when enabled", () => {
+      const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
+      expect(hooks.compactionTodoPreserverEnabled).toBe(true)
+    })
+
+    it("compactionTodoPreserverEnabled is false when disabled", () => {
+      const hooks = createHooks({
+        pluginConfig: baseConfig,
+        isHookEnabled: disableHook("compaction-todo-preserver"),
+        directory: "",
+      })
+      expect(hooks.compactionTodoPreserverEnabled).toBe(false)
+    })
+
+    it("compactionTodoPreserverEnabled is false when all hooks disabled", () => {
+      const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: noneEnabled, directory: "" })
+      expect(hooks.compactionTodoPreserverEnabled).toBe(false)
+    })
+  })
+
+  describe("todo-continuation-enforcer enablement", () => {
+    it("todoContinuationEnforcerEnabled is true when enabled", () => {
+      const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
+      expect(hooks.todoContinuationEnforcerEnabled).toBe(true)
+    })
+
+    it("todoContinuationEnforcerEnabled is false when disabled", () => {
+      const hooks = createHooks({
+        pluginConfig: baseConfig,
+        isHookEnabled: disableHook("todo-continuation-enforcer"),
+        directory: "",
+      })
+      expect(hooks.todoContinuationEnforcerEnabled).toBe(false)
+    })
+
+    it("todoContinuationEnforcerEnabled is false when all hooks disabled", () => {
+      const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: noneEnabled, directory: "" })
+      expect(hooks.todoContinuationEnforcerEnabled).toBe(false)
+    })
   })
 })

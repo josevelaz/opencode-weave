@@ -15,6 +15,8 @@ export type PluginInterface = Required<
     | "tool.execute.before"
     | "tool.execute.after"
     | "command.execute.before"
+    | "tool.definition"
+    | "experimental.session.compacting"
   >
 >
 

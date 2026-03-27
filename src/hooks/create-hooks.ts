@@ -11,6 +11,7 @@ import { checkContinuation } from "./work-continuation"
 import { buildVerificationReminder } from "./verification-reminder"
 import { handleRunWorkflow, checkWorkflowContinuation } from "../features/workflow"
 import { handleWorkflowCommand } from "../features/workflow"
+import { applyTodoDescriptionOverride } from "./todo-description-override"
 
 export type CreatedHooks = ReturnType<typeof createHooks>
 
@@ -77,6 +78,14 @@ export function createHooks(args: {
     verificationReminder: isHookEnabled("verification-reminder")
       ? buildVerificationReminder
       : null,
+
+    todoDescriptionOverride: isHookEnabled("todo-description-override")
+      ? applyTodoDescriptionOverride
+      : null,
+
+    compactionTodoPreserverEnabled: isHookEnabled("compaction-todo-preserver"),
+
+    todoContinuationEnforcerEnabled: isHookEnabled("todo-continuation-enforcer"),
 
     analyticsEnabled,
   }

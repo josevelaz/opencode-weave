@@ -17,8 +17,8 @@ import { pauseWork, readWorkState } from "../features/work-state"
 import { getPlanProgress } from "../features/work-state/storage"
 import { CONTINUATION_MARKER } from "../hooks/work-continuation"
 import { WORKFLOW_CONTINUATION_MARKER } from "../features/workflow/hook"
-
-const FINALIZE_TODOS_MARKER = "<!-- weave:finalize-todos -->"
+import { createCompactionTodoPreserver } from "../hooks/compaction-todo-preserver"
+import { createTodoContinuationEnforcer, FINALIZE_TODOS_MARKER } from "../hooks/todo-continuation-enforcer"
 import { getActiveWorkflowInstance, pauseWorkflow } from "../features/workflow"
 import { readSessionSummaries, readMetricsReports } from "../features/analytics/storage"
 import { generateTokenReport } from "../features/analytics/token-report"
@@ -46,12 +46,17 @@ export function createPluginInterface(args: {
   /** Track last user message text per session for user_confirm completion detection. */
   const lastUserMessageText = new Map<string, string>()
 
-  /**
-   * Track sessions that have already received a "finalize todos" prompt.
-   * Cleared when the session receives a new user message (chat.message)
-   * so subsequent idle cycles can re-trigger if needed.
-   */
-  const todoFinalizedSessions = new Set<string>()
+  // Hook 2: compaction todo preserver (stateful, needs client)
+  const compactionPreserver =
+    hooks.compactionTodoPreserverEnabled && client
+      ? createCompactionTodoPreserver(client)
+      : null
+
+  // Hook 3: todo continuation enforcer (extracted from inline logic, needs client)
+  const todoContinuationEnforcer =
+    hooks.todoContinuationEnforcerEnabled && client
+      ? createTodoContinuationEnforcer(client)
+      : null
 
   return {
     tool: tools,
@@ -196,7 +201,9 @@ export function createPluginInterface(args: {
           // Re-arm todo finalization for real user messages, but not for
           // system-injected finalize prompts (prevents immediate re-arm).
           if (!userText.includes(FINALIZE_TODOS_MARKER)) {
-            todoFinalizedSessions.delete(sessionID)
+            if (todoContinuationEnforcer) {
+              todoContinuationEnforcer.clearFinalized(sessionID)
+            }
           }
         }
       }
@@ -298,6 +305,11 @@ export function createPluginInterface(args: {
     event: async (input) => {
       const { event } = input
 
+      // Compaction todo preserver: forward events for restore/cleanup
+      if (compactionPreserver) {
+        await compactionPreserver.handleEvent(event as { type: string; properties?: unknown })
+      }
+
       if (hooks.firstMessageVariant) {
         if (event.type === "session.created") {
           const evt = event as { type: string; properties: { info: { id: string } } }
@@ -313,7 +325,9 @@ export function createPluginInterface(args: {
       if (event.type === "session.deleted") {
         const evt = event as { type: string; properties: { info: { id: string } } }
         clearTokenSession(evt.properties.info.id)
-        todoFinalizedSessions.delete(evt.properties.info.id)
+        if (todoContinuationEnforcer) {
+          todoContinuationEnforcer.clearSession(evt.properties.info.id)
+        }
 
         // Analytics: finalize session summary
         if (tracker && hooks.analyticsEnabled) {
@@ -517,44 +531,12 @@ export function createPluginInterface(args: {
       }
 
       // Todo finalization safety net: when session goes truly idle (no continuation fired),
-      // check for lingering in_progress todos and inject a one-shot prompt to mark them complete.
-      if (event.type === "session.idle" && client && !continuationFired) {
+      // delegate to the todo-continuation-enforcer hook (or no-op if hook is disabled).
+      if (event.type === "session.idle" && todoContinuationEnforcer && !continuationFired) {
         const evt = event as { type: string; properties: { sessionID: string } }
         const sessionId = evt.properties?.sessionID ?? ""
-        if (sessionId && !todoFinalizedSessions.has(sessionId)) {
-          try {
-            const todosResponse = await client.session.todo({ path: { id: sessionId } })
-            const todos = (todosResponse.data ?? []) as Array<{ content: string; status: string }>
-            const hasInProgress = todos.some((t) => t.status === "in_progress")
-            if (hasInProgress) {
-              todoFinalizedSessions.add(sessionId)
-              const inProgressItems = todos
-                .filter((t) => t.status === "in_progress")
-                .map((t) => `  - "${t.content}"`)
-                .join("\n")
-              await client.session.promptAsync({
-                path: { id: sessionId },
-                body: {
-                  parts: [
-                    {
-                      type: "text",
-                      text: `${FINALIZE_TODOS_MARKER}
-You have finished your work but left these todos as in_progress:
-${inProgressItems}
-
-Use todowrite NOW to mark all of them as "completed" (or "cancelled" if abandoned). Do not do any other work — just update the todos and stop.`,
-                    },
-                  ],
-                },
-              })
-              log("[todo-finalize] Injected finalize prompt for in_progress todos", {
-                sessionId,
-                count: todos.filter((t) => t.status === "in_progress").length,
-              })
-            }
-          } catch (err) {
-            log("[todo-finalize] Failed to check/finalize todos (non-fatal)", { sessionId, error: String(err) })
-          }
+        if (sessionId) {
+          await todoContinuationEnforcer.checkAndFinalize(sessionId)
         }
       }
     },
@@ -665,6 +647,27 @@ Use todowrite NOW to mark all of them as "completed" (or "cancelled" if abandone
         const summaries = readSessionSummaries(directory)
         const metricsMarkdown = formatMetricsMarkdown(reports, summaries, args)
         parts.push({ type: "text", text: metricsMarkdown })
+      }
+    },
+
+    // Hook 1: override TodoWrite description with anti-obliteration language
+    "tool.definition": async (input, output) => {
+      if (hooks.todoDescriptionOverride) {
+        hooks.todoDescriptionOverride(
+          input as { toolID: string },
+          output as { description: string; parameters?: unknown },
+        )
+      }
+    },
+
+    // Hook 2 (capture): snapshot todos before compaction starts
+    "experimental.session.compacting": async (input) => {
+      if (compactionPreserver) {
+        const typedInput = input as { sessionID?: string }
+        const sessionID = typedInput.sessionID ?? ""
+        if (sessionID) {
+          await compactionPreserver.capture(sessionID)
+        }
       }
     },
   }

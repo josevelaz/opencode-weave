@@ -35,6 +35,9 @@ function makeHooks(overrides?: Partial<CreatedHooks>): CreatedHooks {
     workflowCommand: null,
     verificationReminder: null,
     analyticsEnabled: false,
+    todoDescriptionOverride: null,
+    compactionTodoPreserverEnabled: false,
+    todoContinuationEnforcerEnabled: true,
     ...overrides,
   }
 }
@@ -66,7 +69,7 @@ beforeEach(() => {
 })
 
 describe("createPluginInterface", () => {
-  it("returns object with all 9 required handler keys", () => {
+  it("returns object with all 11 required handler keys", () => {
     const iface = createPluginInterface({
       pluginConfig: baseConfig,
       hooks: makeHooks(),
@@ -85,6 +88,8 @@ describe("createPluginInterface", () => {
     expect(keys).toContain("tool.execute.before")
     expect(keys).toContain("tool.execute.after")
     expect(keys).toContain("command.execute.before")
+    expect(keys).toContain("tool.definition")
+    expect(keys).toContain("experimental.session.compacting")
   })
 
   it("tool is the tools record passed in", () => {
@@ -2086,6 +2091,142 @@ describe("workflow integration in plugin-interface", () => {
       await expect(iface.event({ event: evt as Parameters<typeof iface.event>[0]["event"] })).resolves.toBeUndefined()
       // No prompt injected since todo() threw
       expect(promptAsyncCalls.length).toBe(0)
+    })
+
+    it("does not inject finalize prompt when todo-continuation-enforcer is disabled", async () => {
+      const { mockClient, promptAsyncCalls } = makeClientWithTodos([
+        { content: "Task 1", status: "in_progress", priority: "medium" },
+      ])
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks({ todoContinuationEnforcerEnabled: false }),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+      })
+
+      const evt = idleEvent("sess-enforcer-disabled")
+      await iface.event({ event: evt as Parameters<typeof iface.event>[0]["event"] })
+
+      // No prompt — hook is disabled
+      expect(promptAsyncCalls.length).toBe(0)
+    })
+  })
+
+  describe("tool.definition handler", () => {
+    it("calls todoDescriptionOverride when toolID is todowrite and hook is enabled", async () => {
+      let overrideCalled = false
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks({
+          todoDescriptionOverride: (input, output) => {
+            if (input.toolID === "todowrite") {
+              overrideCalled = true
+              output.description = "overridden"
+            }
+          },
+        }),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+      })
+
+      const output = { description: "original" }
+      await iface["tool.definition"](
+        { toolID: "todowrite" } as Parameters<typeof iface["tool.definition"]>[0],
+        output as Parameters<typeof iface["tool.definition"]>[1],
+      )
+
+      expect(overrideCalled).toBe(true)
+      expect(output.description).toBe("overridden")
+    })
+
+    it("is no-op when todoDescriptionOverride hook is null (disabled)", async () => {
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks({ todoDescriptionOverride: null }),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+      })
+
+      const output = { description: "original" }
+      await iface["tool.definition"](
+        { toolID: "todowrite" } as Parameters<typeof iface["tool.definition"]>[0],
+        output as Parameters<typeof iface["tool.definition"]>[1],
+      )
+
+      expect(output.description).toBe("original")
+    })
+
+    it("does not mutate description for non-todowrite tools when real hook is wired", async () => {
+      const { applyTodoDescriptionOverride } = await import("../hooks/todo-description-override")
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks({ todoDescriptionOverride: applyTodoDescriptionOverride }),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+      })
+
+      const output = { description: "original read description" }
+      await iface["tool.definition"](
+        { toolID: "read" } as Parameters<typeof iface["tool.definition"]>[0],
+        output as Parameters<typeof iface["tool.definition"]>[1],
+      )
+
+      expect(output.description).toBe("original read description")
+    })
+  })
+
+  describe("experimental.session.compacting handler", () => {
+    it("calls compactionPreserver.capture when compactionTodoPreserverEnabled is true", async () => {
+      const captureCalls: string[] = []
+      const todosList = [{ content: "Task A", status: "in_progress", priority: "high" }]
+      const mockClient = {
+        session: {
+          todo: async ({ path }: { path: { id: string } }) => ({
+            data: todosList,
+          }),
+        },
+      } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks({ compactionTodoPreserverEnabled: true }),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+      })
+
+      await iface["experimental.session.compacting"](
+        { sessionID: "ses-compact-1" } as Parameters<typeof iface["experimental.session.compacting"]>[0],
+        {} as Parameters<typeof iface["experimental.session.compacting"]>[1],
+      )
+
+      // Verify the handler ran without errors
+      // (capture reads from the client and stores in memory — we verify indirectly via no throw)
+    })
+
+    it("is no-op when compactionTodoPreserverEnabled is false (no client instantiated)", async () => {
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks({ compactionTodoPreserverEnabled: false }),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+      })
+
+      // Should not throw — compactionPreserver is null when disabled
+      await expect(
+        iface["experimental.session.compacting"](
+          { sessionID: "ses-compact-disabled" } as Parameters<typeof iface["experimental.session.compacting"]>[0],
+          {} as Parameters<typeof iface["experimental.session.compacting"]>[1],
+        )
+      ).resolves.toBeUndefined()
     })
   })
 })

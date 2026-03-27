@@ -53,3 +53,10 @@ export {
   clear as clearAllTokenState,
 } from "./session-token-state"
 export type { SessionTokenEntry } from "./session-token-state"
+
+export { applyTodoDescriptionOverride, TODOWRITE_DESCRIPTION } from "./todo-description-override"
+export { createCompactionTodoPreserver } from "./compaction-todo-preserver"
+export type { TodoSnapshot } from "./compaction-todo-preserver"
+export { createTodoContinuationEnforcer, FINALIZE_TODOS_MARKER } from "./todo-continuation-enforcer"
+export { resolveTodoWriter } from "./todo-writer"
+export type { TodoItem, TodoWriter } from "./todo-writer"
