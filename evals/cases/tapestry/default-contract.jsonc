@@ -12,7 +12,7 @@
   },
   "evaluators": [
     { "kind": "xml-sections-present", "sections": ["Role", "PlanExecution", "Verification", "PostExecutionReview"] },
-    { "kind": "section-contains-all", "section": "Role", "patterns": ["You do NOT spawn subagents"] },
+    { "kind": "section-contains-all", "section": "Role", "patterns": ["no subagent delegation"] },
     { "kind": "section-contains-all", "section": "PostExecutionReview", "patterns": ["Task tool", "user approval"] },
     { "kind": "ordered-contains", "patterns": ["<Role>", "<PlanExecution>", "<Verification>", "<PostExecutionReview>"] },
     { "kind": "tool-policy", "expectations": { "call_weave_agent": false } }

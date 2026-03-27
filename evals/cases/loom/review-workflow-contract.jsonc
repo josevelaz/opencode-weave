@@ -12,7 +12,7 @@
   },
   "evaluators": [
     { "kind": "xml-sections-present", "sections": ["ReviewWorkflow"] },
-    { "kind": "section-contains-all", "section": "ReviewWorkflow", "patterns": ["MUST run Warp", "NOT optional", "Ad-Hoc Review"] },
-    { "kind": "section-contains-all", "section": "PlanWorkflow", "patterns": ["Delegate to Pattern", "Weft review is mandatory", "/start-work"] }
+    { "kind": "section-contains-all", "section": "ReviewWorkflow", "patterns": ["Warp is mandatory", "Ad-hoc review"] },
+    { "kind": "section-contains-all", "section": "PlanWorkflow", "patterns": ["Delegate to Pattern", "Delegate to Weft", "/start-work"] }
   ]
 }

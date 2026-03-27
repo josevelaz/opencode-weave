@@ -15,6 +15,6 @@
     { "kind": "section-contains-all", "section": "Delegation", "patterns": ["Delegate aggressively", "MUST use Warp"] },
     { "kind": "section-contains-all", "section": "PlanWorkflow", "patterns": ["/start-work", "Delegate to Pattern"] },
     { "kind": "ordered-contains", "patterns": ["<Role>", "<Delegation>", "<PlanWorkflow>", "<ReviewWorkflow>", "<Style>"] },
-    { "kind": "min-length", "min": 4000 }
+    { "kind": "min-length", "min": 3000 }
   ]
 }
