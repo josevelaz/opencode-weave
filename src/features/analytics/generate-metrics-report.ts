@@ -3,23 +3,24 @@ import type { MetricsReport } from "./types"
 import { extractPlannedFiles } from "./plan-parser"
 import { getChangedFiles } from "./git-diff"
 import { calculateAdherence } from "./adherence"
-import { aggregateTokensForPlan } from "./plan-token-aggregator"
-import { writeMetricsReport, readSessionSummaries } from "./storage"
-import { getPlanName } from "../work-state/storage"
+import { aggregateTokensDetailed } from "./plan-token-aggregator"
+import { writeMetricsReport } from "./storage"
+import { getPlanName, getPlanProgress } from "../work-state/storage"
+import { calculateQualityScore } from "./quality-score"
 import { log } from "../../shared/log"
 
 /**
- * Generate a Phase 1 metrics report for a completed plan.
+ * Generate a metrics report for a completed plan.
  *
  * Orchestrates:
  * 1. Extract planned files from the plan markdown
  * 2. Get actual changed files via git diff (startSha..HEAD)
  * 3. Calculate adherence (coverage, precision)
- * 4. Aggregate token usage across all sessions for this plan
+ * 4. Aggregate token usage (with per-session and model detail) across all sessions
  * 5. Compute total duration from session summaries
- * 6. Write the report to metrics-reports.jsonl
+ * 6. Calculate quality score (composite of adherence, task completion, efficiency)
+ * 7. Write the report to metrics-reports.jsonl
  *
- * In Phase 1, `quality` and `gaps` are undefined.
  * Returns the report if successful, null on error.
  */
 export function generateMetricsReport(
@@ -38,34 +39,51 @@ export function generateMetricsReport(
     // 3. Calculate adherence
     const adherence = calculateAdherence(plannedFiles, actualFiles)
 
-    // 4. Aggregate token usage
-    const tokenUsage = aggregateTokensForPlan(directory, state.session_ids)
+    // 4. Aggregate token usage with per-session and model detail
+    const detailed = aggregateTokensDetailed(directory, state.session_ids)
 
-    // 5. Compute duration from session summaries
-    const summaries = readSessionSummaries(directory)
-    const matchingSummaries = summaries.filter((s) =>
-      state.session_ids.includes(s.sessionId),
-    )
-    const durationMs = matchingSummaries.reduce(
-      (sum, s) => sum + s.durationMs,
-      0,
-    )
+    // 5. Compute duration from session breakdowns
+    const durationMs = detailed.sessions.reduce((sum, s) => sum + s.durationMs, 0)
 
-    // 6. Build the report
+    // 6. Calculate quality score
+    let quality: MetricsReport["quality"]
+    try {
+      const progress = getPlanProgress(state.active_plan)
+      const totalTokens = detailed.total.input + detailed.total.output + detailed.total.reasoning
+      quality = calculateQualityScore({
+        adherence,
+        totalTasks: progress.total,
+        completedTasks: progress.completed,
+        totalTokens,
+      })
+    } catch (qualityErr) {
+      log("[analytics] Failed to calculate quality score (non-fatal)", {
+        error: String(qualityErr),
+      })
+    }
+
+    // Derive modelsUsed from model breakdown (excluding "(unknown)")
+    const modelsUsed = detailed.modelBreakdown
+      .filter((m) => m.model !== "(unknown)")
+      .map((m) => m.model)
+
+    // 7. Build the report
     const report: MetricsReport = {
       planName: getPlanName(state.active_plan),
       generatedAt: new Date().toISOString(),
       adherence,
-      quality: undefined,
-      gaps: undefined,
-      tokenUsage,
+      quality,
+      tokenUsage: detailed.total,
       durationMs,
       sessionCount: state.session_ids.length,
       startSha: state.start_sha,
       sessionIds: [...state.session_ids],
+      modelsUsed: modelsUsed.length > 0 ? modelsUsed : undefined,
+      totalCost: detailed.totalCost > 0 ? detailed.totalCost : undefined,
+      sessionBreakdown: detailed.sessions.length > 0 ? detailed.sessions : undefined,
     }
 
-    // 7. Write to storage
+    // 8. Write to storage
     const written = writeMetricsReport(directory, report)
     if (!written) {
       log("[analytics] Failed to write metrics report (non-fatal)")
@@ -76,6 +94,7 @@ export function generateMetricsReport(
       plan: report.planName,
       coverage: adherence.coverage,
       precision: adherence.precision,
+      quality: quality?.composite,
     })
 
     return report

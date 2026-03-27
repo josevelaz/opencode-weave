@@ -271,7 +271,7 @@ export function createPluginInterface(args: {
       const input = _input as {
         sessionID?: string
         agent?: string
-        model?: { limit?: { context?: number } }
+        model?: { id?: string; limit?: { context?: number } }
       }
       const sessionId = input.sessionID ?? ""
       const maxTokens = input.model?.limit?.context ?? 0
@@ -283,6 +283,11 @@ export function createPluginInterface(args: {
       // Analytics: capture agent name
       if (tracker && hooks.analyticsEnabled && sessionId && input.agent) {
         tracker.setAgentName(sessionId, input.agent)
+      }
+
+      // Analytics: capture model ID
+      if (tracker && hooks.analyticsEnabled && sessionId && input.model?.id) {
+        tracker.trackModel(sessionId, input.model.id)
       }
     },
 

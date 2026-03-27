@@ -114,6 +114,18 @@ export class SessionTracker {
   }
 
   /**
+   * Set the model ID for a session. Only sets on first call (captures primary model).
+   * Safe to call for untracked sessions (no-op, no throw).
+   */
+  trackModel(sessionId: string, modelId: string): void {
+    const session = this.sessions.get(sessionId)
+    if (!session) return
+    if (!session.model) {
+      session.model = modelId
+    }
+  }
+
+  /**
    * Accumulate dollar cost from a message into the session total.
    */
   trackCost(sessionId: string, cost: number): void {
@@ -174,6 +186,7 @@ export class SessionTracker {
       totalToolCalls,
       totalDelegations: session.delegations.length,
       agentName: session.agentName,
+      model: session.model,
       totalCost: session.totalCost > 0 ? session.totalCost : undefined,
       tokenUsage: session.tokenUsage.totalMessages > 0 ? session.tokenUsage : undefined,
     }

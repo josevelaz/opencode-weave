@@ -6,6 +6,8 @@ export type {
   MetricsTokenUsage,
   AdherenceReport,
   MetricsReport,
+  QualityReport,
+  SessionTokenBreakdown,
   DetectedStack,
   ProjectFingerprint,
   Suggestion,
@@ -57,7 +59,10 @@ export { getChangedFiles } from "./git-diff"
 
 export { calculateAdherence } from "./adherence"
 
-export { aggregateTokensForPlan } from "./plan-token-aggregator"
+export { aggregateTokensForPlan, aggregateTokensDetailed } from "./plan-token-aggregator"
+export type { DetailedTokenAggregation } from "./plan-token-aggregator"
+
+export { calculateQualityScore, BASELINE_TOKENS_PER_TASK } from "./quality-score"
 
 import { createSessionTracker } from "./session-tracker"
 import type { SessionTracker } from "./session-tracker"

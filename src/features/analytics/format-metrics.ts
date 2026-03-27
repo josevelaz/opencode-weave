@@ -19,6 +19,13 @@ function formatDuration(ms: number): string {
 }
 
 /**
+ * Format a dollar cost as $X.XX
+ */
+function formatCost(n: number): string {
+  return `$${n.toFixed(2)}`
+}
+
+/**
  * Format an ISO date string as a short human-readable date.
  */
 function formatDate(iso: string): string {
@@ -28,6 +35,13 @@ function formatDate(iso: string): string {
   } catch {
     return iso
   }
+}
+
+/**
+ * Format a percentage (0-1 value) as an integer percent string (e.g., 0.782 → "78%").
+ */
+function formatPct(v: number): string {
+  return `${Math.round(v * 100)}%`
 }
 
 /**
@@ -41,8 +55,8 @@ function formatReport(report: MetricsReport): string {
   lines.push("")
   lines.push("| Metric | Value |")
   lines.push("|--------|-------|")
-  lines.push(`| Coverage | ${Math.round(report.adherence.coverage * 100)}% |`)
-  lines.push(`| Precision | ${Math.round(report.adherence.precision * 100)}% |`)
+  lines.push(`| Coverage | ${formatPct(report.adherence.coverage)} |`)
+  lines.push(`| Precision | ${formatPct(report.adherence.precision)} |`)
   lines.push(`| Sessions | ${report.sessionCount} |`)
   lines.push(`| Duration | ${formatDuration(report.durationMs)} |`)
   lines.push(`| Input Tokens | ${formatNumber(report.tokenUsage.input)} |`)
@@ -56,6 +70,26 @@ function formatReport(report: MetricsReport): string {
     lines.push(`| Cache Write | ${formatNumber(report.tokenUsage.cacheWrite)} |`)
   }
 
+  // Models used
+  if (report.modelsUsed && report.modelsUsed.length > 0) {
+    lines.push(`| Models | ${report.modelsUsed.join(", ")} |`)
+  }
+
+  // Total cost
+  if (report.totalCost !== undefined && report.totalCost > 0) {
+    lines.push(`| Total Cost | ${formatCost(report.totalCost)} |`)
+  }
+
+  // Quality score section
+  if (report.quality) {
+    const q = report.quality
+    lines.push(`| Quality Score | ${formatPct(q.composite)} |`)
+    lines.push(`| ├ Adherence Coverage | ${formatPct(q.components.adherenceCoverage)} |`)
+    lines.push(`| ├ Adherence Precision | ${formatPct(q.components.adherencePrecision)} |`)
+    lines.push(`| ├ Task Completion | ${formatPct(q.components.taskCompletion)} |`)
+    lines.push(`| └ Efficiency | ${formatPct(q.components.efficiency)} |`)
+  }
+
   if (report.adherence.unplannedChanges.length > 0) {
     lines.push("")
     lines.push(`**Unplanned Changes**: ${report.adherence.unplannedChanges.map((f) => `\`${f}\``).join(", ")}`)
@@ -64,6 +98,46 @@ function formatReport(report: MetricsReport): string {
   if (report.adherence.missedFiles.length > 0) {
     lines.push("")
     lines.push(`**Missed Files**: ${report.adherence.missedFiles.map((f) => `\`${f}\``).join(", ")}`)
+  }
+
+  // Model attribution (when multiple models used)
+  if (report.sessionBreakdown && report.modelsUsed && report.modelsUsed.length > 1) {
+    // Build per-model summary from session breakdown
+    const modelTotals = new Map<string, { tokens: number; cost: number }>()
+    for (const s of report.sessionBreakdown) {
+      const key = s.model ?? "(unknown)"
+      const t = s.tokens.input + s.tokens.output + s.tokens.reasoning
+      const c = s.cost ?? 0
+      const existing = modelTotals.get(key)
+      if (existing) {
+        existing.tokens += t
+        existing.cost += c
+      } else {
+        modelTotals.set(key, { tokens: t, cost: c })
+      }
+    }
+    const attribution = Array.from(modelTotals.entries())
+      .filter(([k]) => k !== "(unknown)")
+      .map(([model, data]) => `${formatNumber(data.tokens)} tokens on ${model} (${formatCost(data.cost)})`)
+    if (attribution.length > 0) {
+      lines.push("")
+      lines.push(`**Model Attribution**: ${attribution.join(", ")}`)
+    }
+  }
+
+  // Session breakdown
+  if (report.sessionBreakdown && report.sessionBreakdown.length > 0) {
+    lines.push("")
+    lines.push("**Session Breakdown**:")
+    for (const s of report.sessionBreakdown) {
+      const id = s.sessionId.length > 8 ? s.sessionId.slice(0, 8) : s.sessionId
+      const agent = s.agentName ?? "(unknown)"
+      const totalTokens = s.tokens.input + s.tokens.output + s.tokens.reasoning
+      const model = s.model ? `, ${s.model}` : ""
+      const cost = s.cost !== undefined && s.cost > 0 ? `, ${formatCost(s.cost)}` : ""
+      const dur = formatDuration(s.durationMs)
+      lines.push(`- \`${id}\` ${agent} — ${formatNumber(totalTokens)} tokens${model}${cost}, ${dur}`)
+    }
   }
 
   return lines.join("\n")
@@ -193,3 +267,4 @@ export function formatMetricsMarkdown(
 
   return lines.join("\n")
 }
+

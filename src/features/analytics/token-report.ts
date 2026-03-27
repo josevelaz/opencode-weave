@@ -76,7 +76,42 @@ export function generateTokenReport(summaries: SessionSummary[]): string {
   )
   sections.push(`## Per-Agent Breakdown\n${agentLines.join("\n")}`)
 
-  // ── Section 3: Top 5 Costliest Sessions ────────────────────────
+  // ── Section 3: Per-Model Breakdown ────────────────────────────
+  const modelGroups = new Map<string, SessionSummary[]>()
+  for (const s of summaries) {
+    const key = s.model ?? "(unknown)"
+    const group = modelGroups.get(key)
+    if (group) {
+      group.push(s)
+    } else {
+      modelGroups.set(key, [s])
+    }
+  }
+
+  const modelStats = Array.from(modelGroups.entries())
+    .map(([model, sessions]) => {
+      const modelCost = sessions.reduce((sum, s) => sum + (s.totalCost ?? 0), 0)
+      const modelTokens = sessions.reduce(
+        (sum, s) =>
+          sum +
+          (s.tokenUsage?.inputTokens ?? 0) +
+          (s.tokenUsage?.outputTokens ?? 0) +
+          (s.tokenUsage?.reasoningTokens ?? 0),
+        0,
+      )
+      return { model, sessions: sessions.length, totalTokens: modelTokens, totalCost: modelCost }
+    })
+    .sort((a, b) => b.totalCost - a.totalCost)
+
+  const modelLines = modelStats.map(
+    (m) =>
+      `- **${m.model}**: ${fmt(m.sessions)} session${m.sessions === 1 ? "" : "s"}, ` +
+      `${fmt(m.totalTokens)} tokens, ` +
+      `${fmtCost(m.totalCost)}`,
+  )
+  sections.push(`## Per-Model Breakdown\n${modelLines.join("\n")}`)
+
+  // ── Section 4: Top 5 Costliest Sessions ────────────────────────
   const top5 = [...summaries]
     .sort((a, b) => (b.totalCost ?? 0) - (a.totalCost ?? 0))
     .slice(0, 5)
@@ -93,7 +128,6 @@ export function generateTokenReport(summaries: SessionSummary[]): string {
     return `- \`${id}\` ${agent} — ${cost}, ${fmt(tokens)} tokens, ${duration}`
   })
   sections.push(`## Top 5 Costliest Sessions\n${top5Lines.join("\n")}`)
-
   return sections.join("\n\n")
 }
 

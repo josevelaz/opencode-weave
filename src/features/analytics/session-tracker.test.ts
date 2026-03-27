@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "fs"
 import { join } from "path"
 import { tmpdir } from "os"
 import { SessionTracker, createSessionTracker } from "./session-tracker"
-import { readSessionSummaries } from "./storage"
+import { readSessionSummaries, appendSessionSummary } from "./storage"
 
 let tempDir: string
 let tracker: SessionTracker
@@ -267,7 +267,7 @@ describe("SessionTracker", () => {
 
     it("handles backward compat — old summaries without tokenUsage read fine", () => {
       // Write an old-format summary directly (no tokenUsage field)
-      const { appendSessionSummary: appendFn } = require("./storage")
+      const appendFn = appendSessionSummary
       appendFn(tempDir, {
         sessionId: "old-s1",
         startedAt: "2025-01-01T00:00:00.000Z",
@@ -318,6 +318,69 @@ describe("SessionTracker", () => {
     it("is safe to call for untracked sessions", () => {
       // Should not throw
       tracker.setAgentName("nonexistent", "Loom")
+    })
+  })
+
+  describe("trackModel", () => {
+    it("stores model ID on session", () => {
+      tracker.startSession("s1")
+      tracker.trackModel("s1", "claude-sonnet-4-20250514")
+      const session = tracker.getSession("s1")!
+      expect(session.model).toBe("claude-sonnet-4-20250514")
+    })
+
+    it("is idempotent — first call wins", () => {
+      tracker.startSession("s1")
+      tracker.trackModel("s1", "claude-opus-4")
+      tracker.trackModel("s1", "claude-sonnet-4-20250514")
+      const session = tracker.getSession("s1")!
+      expect(session.model).toBe("claude-opus-4")
+    })
+
+    it("is safe to call for untracked sessions — no-op, no throw", () => {
+      // Should not throw
+      tracker.trackModel("nonexistent", "claude-sonnet-4-20250514")
+    })
+
+    it("includes model in endSession summary", () => {
+      tracker.startSession("s1")
+      tracker.trackModel("s1", "claude-sonnet-4-20250514")
+      const summary = tracker.endSession("s1")!
+      expect(summary.model).toBe("claude-sonnet-4-20250514")
+    })
+
+    it("omits model from summary when not set", () => {
+      tracker.startSession("s1")
+      const summary = tracker.endSession("s1")!
+      expect(summary.model).toBeUndefined()
+    })
+
+    it("persists model in JSONL and reads back correctly", () => {
+      tracker.startSession("s1")
+      tracker.trackModel("s1", "gpt-4o")
+      tracker.endSession("s1")
+
+      const summaries = readSessionSummaries(tempDir)
+      expect(summaries.length).toBe(1)
+      expect(summaries[0].model).toBe("gpt-4o")
+    })
+
+    it("old JSONL entries without model field parse correctly (undefined)", () => {
+      appendSessionSummary(tempDir, {
+        sessionId: "old-s1",
+        startedAt: "2025-01-01T00:00:00.000Z",
+        endedAt: "2025-01-01T00:05:00.000Z",
+        durationMs: 300_000,
+        toolUsage: [],
+        delegations: [],
+        totalToolCalls: 0,
+        totalDelegations: 0,
+        // intentionally no model field
+      })
+
+      const summaries = readSessionSummaries(tempDir)
+      expect(summaries.length).toBe(1)
+      expect(summaries[0].model).toBeUndefined()
     })
   })
 

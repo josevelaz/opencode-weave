@@ -143,4 +143,46 @@ describe("generateTokenReport", () => {
 
     expect(report).toContain("2 sessions")
   })
+
+  it("shows per-model breakdown section", () => {
+    const report = generateTokenReport([
+      makeSummary({ model: "claude-opus-4", totalCost: 0.30,
+        tokenUsage: { inputTokens: 10_000, outputTokens: 5_000, reasoningTokens: 1_000, cacheReadTokens: 0, cacheWriteTokens: 0, totalMessages: 3 },
+      }),
+      makeSummary({ model: "gpt-4o", totalCost: 0.10,
+        tokenUsage: { inputTokens: 3_000, outputTokens: 1_000, reasoningTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, totalMessages: 1 },
+      }),
+    ])
+
+    expect(report).toContain("## Per-Model Breakdown")
+    expect(report).toContain("claude-opus-4")
+    expect(report).toContain("gpt-4o")
+    // claude-opus-4 has higher total cost, should appear first
+    const claudeIndex = report.indexOf("claude-opus-4")
+    const gptIndex = report.indexOf("gpt-4o")
+    expect(claudeIndex).toBeLessThan(gptIndex)
+  })
+
+  it("shows (unknown) for sessions without model", () => {
+    const report = generateTokenReport([
+      makeSummary({ totalCost: 0.10 }), // no model field
+    ])
+
+    expect(report).toContain("## Per-Model Breakdown")
+    expect(report).toContain("(unknown)")
+  })
+
+  it("groups sessions by model correctly", () => {
+    const report = generateTokenReport([
+      makeSummary({ model: "claude-opus-4", totalCost: 0.20 }),
+      makeSummary({ model: "claude-opus-4", totalCost: 0.15 }),
+      makeSummary({ model: "gpt-4o", totalCost: 0.05 }),
+    ])
+
+    // claude-opus-4 should show 2 sessions
+    expect(report).toContain("**claude-opus-4**")
+    // gpt-4o should show 1 session
+    const gptLine = report.split("\n").find((l) => l.includes("gpt-4o"))
+    expect(gptLine).toContain("1 session,")
+  })
 })

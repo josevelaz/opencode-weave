@@ -30,6 +30,14 @@ function makeSummary(sessionId: string, durationMs: number = 300_000): SessionSu
   }
 }
 
+function makeSummaryWithModel(sessionId: string, model: string, durationMs = 300_000): SessionSummary {
+  return {
+    ...makeSummary(sessionId, durationMs),
+    model,
+    totalCost: 0.05,
+  }
+}
+
 function createPlanFile(dir: string, content: string): string {
   const plansDir = join(dir, ".weave", "plans")
   mkdirSync(plansDir, { recursive: true })
@@ -80,8 +88,7 @@ describe("generateMetricsReport", () => {
     expect(report!.tokenUsage.input).toBe(2000) // 1000 * 2 sessions
     expect(report!.tokenUsage.output).toBe(1000)
     expect(report!.durationMs).toBe(300_000) // 120k + 180k
-    expect(report!.quality).toBeUndefined()
-    expect(report!.gaps).toBeUndefined()
+    expect(report!.quality).toBeDefined()
   })
 
   it("calculates adherence with vacuous coverage when no start_sha", () => {
@@ -197,5 +204,121 @@ describe("generateMetricsReport", () => {
     expect(report).not.toBeNull()
     expect(report!.generatedAt >= before).toBe(true)
     expect(report!.generatedAt <= after).toBe(true)
+  })
+
+  it("populates modelsUsed from session model fields", () => {
+    const planPath = createPlanFile(tempDir, `# Plan\n\n## TODOs\n\n- [x] 1. **Task**\n  **Files**: src/a.ts\n`)
+    appendSessionSummary(tempDir, makeSummaryWithModel("s1", "claude-opus-4"))
+    appendSessionSummary(tempDir, makeSummaryWithModel("s2", "claude-sonnet-4-20250514"))
+    appendSessionSummary(tempDir, makeSummaryWithModel("s3", "claude-opus-4")) // duplicate model
+
+    const state: WorkState = {
+      active_plan: planPath,
+      started_at: "2026-01-01T00:00:00.000Z",
+      session_ids: ["s1", "s2", "s3"],
+      plan_name: "test-plan",
+    }
+
+    const report = generateMetricsReport(tempDir, state)
+    expect(report).not.toBeNull()
+    expect(report!.modelsUsed).toBeDefined()
+    expect(report!.modelsUsed!.length).toBe(2)
+    expect(report!.modelsUsed).toContain("claude-opus-4")
+    expect(report!.modelsUsed).toContain("claude-sonnet-4-20250514")
+  })
+
+  it("omits modelsUsed when sessions have no model field", () => {
+    const planPath = createPlanFile(tempDir, `# Plan\n\n## TODOs\n\n- [ ] 1. **Task**\n  **Files**: src/a.ts\n`)
+    appendSessionSummary(tempDir, makeSummary("s1"))
+
+    const state: WorkState = {
+      active_plan: planPath,
+      started_at: "2026-01-01T00:00:00.000Z",
+      session_ids: ["s1"],
+      plan_name: "test-plan",
+    }
+
+    const report = generateMetricsReport(tempDir, state)
+    expect(report).not.toBeNull()
+    expect(report!.modelsUsed).toBeUndefined()
+  })
+
+  it("populates totalCost from session costs", () => {
+    const planPath = createPlanFile(tempDir, `# Plan\n\n## TODOs\n\n- [ ] 1. **Task**\n  **Files**: src/a.ts\n`)
+    appendSessionSummary(tempDir, makeSummaryWithModel("s1", "claude-opus-4"))
+    appendSessionSummary(tempDir, makeSummaryWithModel("s2", "claude-sonnet-4-20250514"))
+
+    const state: WorkState = {
+      active_plan: planPath,
+      started_at: "2026-01-01T00:00:00.000Z",
+      session_ids: ["s1", "s2"],
+      plan_name: "test-plan",
+    }
+
+    const report = generateMetricsReport(tempDir, state)
+    expect(report).not.toBeNull()
+    expect(report!.totalCost).toBeCloseTo(0.10, 5)
+  })
+
+  it("populates sessionBreakdown with per-session detail", () => {
+    const planPath = createPlanFile(tempDir, `# Plan\n\n## TODOs\n\n- [ ] 1. **Task**\n  **Files**: src/a.ts\n`)
+    appendSessionSummary(tempDir, makeSummaryWithModel("s1", "claude-opus-4", 120_000))
+    appendSessionSummary(tempDir, makeSummaryWithModel("s2", "claude-sonnet-4-20250514", 180_000))
+
+    const state: WorkState = {
+      active_plan: planPath,
+      started_at: "2026-01-01T00:00:00.000Z",
+      session_ids: ["s1", "s2"],
+      plan_name: "test-plan",
+    }
+
+    const report = generateMetricsReport(tempDir, state)
+    expect(report).not.toBeNull()
+    expect(report!.sessionBreakdown).toBeDefined()
+    expect(report!.sessionBreakdown!.length).toBe(2)
+    const s1 = report!.sessionBreakdown!.find((s) => s.sessionId === "s1")
+    expect(s1).toBeDefined()
+    expect(s1!.model).toBe("claude-opus-4")
+    expect(s1!.durationMs).toBe(120_000)
+  })
+
+  it("populates quality with valid QualityReport structure for completed plan", () => {
+    const planPath = createPlanFile(tempDir, `# Plan\n\n## TODOs\n\n- [x] 1. **Task one**\n  **Files**: src/a.ts\n- [x] 2. **Task two**\n  **Files**: src/b.ts\n`)
+    appendSessionSummary(tempDir, makeSummary("s1"))
+
+    const state: WorkState = {
+      active_plan: planPath,
+      started_at: "2026-01-01T00:00:00.000Z",
+      session_ids: ["s1"],
+      plan_name: "test-plan",
+    }
+
+    const report = generateMetricsReport(tempDir, state)
+    expect(report).not.toBeNull()
+    expect(report!.quality).toBeDefined()
+    expect(report!.quality!.composite).toBeGreaterThanOrEqual(0)
+    expect(report!.quality!.composite).toBeLessThanOrEqual(1)
+    expect(report!.quality!.components.adherenceCoverage).toBeGreaterThanOrEqual(0)
+    expect(report!.quality!.components.taskCompletion).toBe(1) // all tasks done
+    expect(report!.quality!.efficiencyData.totalTasks).toBe(2)
+  })
+
+  it("gaps field no longer exists on MetricsReport", () => {
+    // Verify at compile time — if gaps existed on the type, this would need updating
+    const planPath = createPlanFile(tempDir, `# Plan\n\n## TODOs\n\n- [ ] 1. **Task**\n  **Files**: src/a.ts\n`)
+    appendSessionSummary(tempDir, makeSummary("s1"))
+
+    const state: WorkState = {
+      active_plan: planPath,
+      started_at: "2026-01-01T00:00:00.000Z",
+      session_ids: ["s1"],
+      plan_name: "test-plan",
+    }
+
+    const report = generateMetricsReport(tempDir, state)
+    expect(report).not.toBeNull()
+    // TypeScript compilation will fail if 'gaps' property exists on MetricsReport — this confirms it was removed
+    const keys = Object.keys(report!)
+    expect(keys).not.toContain("gaps")
   })
 })

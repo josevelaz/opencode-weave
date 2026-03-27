@@ -68,6 +68,8 @@ export interface SessionSummary {
   totalDelegations: number
   /** Display name of the agent that ran this session (e.g., "Loom (Main Orchestrator)") */
   agentName?: string
+  /** Model ID used in this session (e.g., "claude-sonnet-4-20250514") */
+  model?: string
   /** Total dollar cost accumulated across all messages */
   totalCost?: number
   /** Aggregated token usage across all messages (absent for old entries or sessions with no messages) */
@@ -118,6 +120,52 @@ export interface Suggestion {
   category: "tool-usage" | "delegation" | "workflow" | "token-usage"
   /** Confidence level */
   confidence: "high" | "medium" | "low"
+}
+
+// ── Quality Score ─────────────────────────────────────────────────
+
+/** Composite quality score for a completed plan */
+export interface QualityReport {
+  /** Composite quality score (0-1) — weighted average of components */
+  composite: number
+  /** Component scores (each 0-1) */
+  components: {
+    /** Fraction of planned files that were actually changed */
+    adherenceCoverage: number
+    /** Fraction of actual changes that were planned */
+    adherencePrecision: number
+    /** Fraction of plan tasks marked as complete ([x]) */
+    taskCompletion: number
+    /** Efficiency score — inverse of normalized tokens-per-task */
+    efficiency: number
+  }
+  /** Raw data used to compute efficiency (for transparency) */
+  efficiencyData: {
+    /** Total tokens consumed */
+    totalTokens: number
+    /** Number of tasks in the plan */
+    totalTasks: number
+    /** Tokens per task */
+    tokensPerTask: number
+  }
+}
+
+// ── Session Token Breakdown ───────────────────────────────────────
+
+/** Per-session token breakdown within a plan's metrics report */
+export interface SessionTokenBreakdown {
+  /** Session ID */
+  sessionId: string
+  /** Model ID used in this session */
+  model?: string
+  /** Display name of the agent */
+  agentName?: string
+  /** Token usage for this session */
+  tokens: MetricsTokenUsage
+  /** Dollar cost for this session */
+  cost?: number
+  /** Duration in milliseconds */
+  durationMs: number
 }
 
 // ── Metrics Report ───────────────────────────────────────────────
@@ -173,10 +221,8 @@ export interface MetricsReport {
   generatedAt: string
   /** Adherence metrics */
   adherence: AdherenceReport
-  /** Code quality score (Phase 2 — undefined in Phase 1) */
-  quality?: unknown
-  /** Quality gaps (Phase 2 — undefined in Phase 1) */
-  gaps?: unknown
+  /** Composite quality score for the plan */
+  quality?: QualityReport
   /** Token usage across all sessions */
   tokenUsage: MetricsTokenUsage
   /** Total duration of all sessions in milliseconds */
@@ -189,6 +235,12 @@ export interface MetricsReport {
   endSha?: string
   /** Session IDs that contributed to this report */
   sessionIds: string[]
+  /** Deduplicated list of model IDs used across all sessions */
+  modelsUsed?: string[]
+  /** Total dollar cost across all sessions */
+  totalCost?: number
+  /** Per-session token breakdown */
+  sessionBreakdown?: SessionTokenBreakdown[]
 }
 
 // ── Session Tracker ──────────────────────────────────────────────
@@ -217,6 +269,8 @@ export interface TrackedSession {
   inFlight: Record<string, InFlightToolCall>
   /** Display name of the agent running this session */
   agentName?: string
+  /** Model ID used in this session (e.g., "claude-sonnet-4-20250514") */
+  model?: string
   /** Accumulated dollar cost across all messages */
   totalCost: number
   /** Cumulative token usage across all messages */

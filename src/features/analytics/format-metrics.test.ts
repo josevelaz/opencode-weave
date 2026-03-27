@@ -188,4 +188,128 @@ describe("formatMetricsMarkdown", () => {
     expect(result).toContain("2m")
     expect(result).not.toContain("2m 0s")
   })
+
+  it("shows models row when modelsUsed is non-empty", () => {
+    const result = formatMetricsMarkdown([makeReport({ modelsUsed: ["claude-opus-4", "gpt-4o"] })], [])
+    expect(result).toContain("Models")
+    expect(result).toContain("claude-opus-4")
+    expect(result).toContain("gpt-4o")
+  })
+
+  it("omits models row when modelsUsed is absent", () => {
+    const result = formatMetricsMarkdown([makeReport()], [])
+    expect(result).not.toContain("| Models |")
+  })
+
+  it("shows total cost row when totalCost is defined and > 0", () => {
+    const result = formatMetricsMarkdown([makeReport({ totalCost: 1.23 })], [])
+    expect(result).toContain("Total Cost")
+    expect(result).toContain("$1.23")
+  })
+
+  it("omits total cost row when totalCost is absent", () => {
+    const result = formatMetricsMarkdown([makeReport()], [])
+    expect(result).not.toContain("Total Cost")
+  })
+
+  it("shows quality score section when quality is present", () => {
+    const quality = {
+      composite: 0.78,
+      components: {
+        adherenceCoverage: 0.85,
+        adherencePrecision: 0.90,
+        taskCompletion: 0.75,
+        efficiency: 0.62,
+      },
+      efficiencyData: { totalTokens: 100_000, totalTasks: 2, tokensPerTask: 50_000 },
+    }
+    const result = formatMetricsMarkdown([makeReport({ quality })], [])
+    expect(result).toContain("Quality Score")
+    expect(result).toContain("78%")
+    expect(result).toContain("Adherence Coverage")
+    expect(result).toContain("85%")
+    expect(result).toContain("Adherence Precision")
+    expect(result).toContain("90%")
+    expect(result).toContain("Task Completion")
+    expect(result).toContain("75%")
+    expect(result).toContain("Efficiency")
+    expect(result).toContain("62%")
+  })
+
+  it("omits quality section when quality is absent (backward compatible)", () => {
+    const result = formatMetricsMarkdown([makeReport()], [])
+    expect(result).not.toContain("Quality Score")
+  })
+
+  it("shows session breakdown when sessionBreakdown is present", () => {
+    const sessionBreakdown = [
+      {
+        sessionId: "abc12345678",
+        model: "claude-opus-4",
+        agentName: "Loom",
+        tokens: { input: 10_000, output: 5_000, reasoning: 2_000, cacheRead: 0, cacheWrite: 0 },
+        cost: 0.55,
+        durationMs: 330_000,
+      },
+    ]
+    const result = formatMetricsMarkdown([makeReport({ sessionBreakdown })], [])
+    expect(result).toContain("Session Breakdown")
+    expect(result).toContain("abc12345")
+    expect(result).toContain("Loom")
+    expect(result).toContain("17,000") // 10k+5k+2k = 17k total tokens
+    expect(result).toContain("claude-opus-4")
+    expect(result).toContain("$0.55")
+    expect(result).toContain("5m 30s")
+  })
+
+  it("omits session breakdown when sessionBreakdown is absent", () => {
+    const result = formatMetricsMarkdown([makeReport()], [])
+    expect(result).not.toContain("Session Breakdown")
+  })
+
+  it("shows model attribution when multiple models and sessionBreakdown present", () => {
+    const sessionBreakdown = [
+      {
+        sessionId: "s1",
+        model: "claude-opus-4",
+        agentName: "Loom",
+        tokens: { input: 30_000, output: 10_000, reasoning: 5_000, cacheRead: 0, cacheWrite: 0 },
+        cost: 0.85,
+        durationMs: 300_000,
+      },
+      {
+        sessionId: "s2",
+        model: "gpt-4o",
+        agentName: "Tapestry",
+        tokens: { input: 10_000, output: 2_000, reasoning: 0, cacheRead: 0, cacheWrite: 0 },
+        cost: 0.23,
+        durationMs: 200_000,
+      },
+    ]
+    const result = formatMetricsMarkdown([makeReport({
+      modelsUsed: ["claude-opus-4", "gpt-4o"],
+      sessionBreakdown,
+    })], [])
+    expect(result).toContain("Model Attribution")
+    expect(result).toContain("claude-opus-4")
+    expect(result).toContain("gpt-4o")
+  })
+
+  it("omits model attribution for single-model plans", () => {
+    const sessionBreakdown = [
+      {
+        sessionId: "s1",
+        model: "claude-opus-4",
+        agentName: "Loom",
+        tokens: { input: 10_000, output: 5_000, reasoning: 0, cacheRead: 0, cacheWrite: 0 },
+        cost: 0.55,
+        durationMs: 300_000,
+      },
+    ]
+    const result = formatMetricsMarkdown([makeReport({
+      modelsUsed: ["claude-opus-4"],
+      sessionBreakdown,
+    })], [])
+    expect(result).not.toContain("Model Attribution")
+  })
 })
