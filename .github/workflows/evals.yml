@@ -91,6 +91,7 @@ jobs:
     continue-on-error: true
     permissions:
       contents: write
+      models: read
 
     steps:
       - uses: actions/checkout@v6
