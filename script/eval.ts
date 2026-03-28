@@ -255,7 +255,12 @@ async function main(): Promise<void> {
       process.exit(1)
     }
 
-    process.exit(output.result.summary.failedCases > 0 || output.result.summary.errorCases > 0 ? 1 : 0)
+    // Only exit 1 on failures when running with a baseline (deterministic evals).
+    // Live evals (e.g. agent-routing with --jsonl) use the trend report's
+    // --check --threshold to detect regressions instead.
+    if (!options.jsonl) {
+      process.exit(output.result.summary.failedCases > 0 || output.result.summary.errorCases > 0 ? 1 : 0)
+    }
   } catch (error) {
     if (error instanceof EvalConfigError) {
       console.error(error.message)
