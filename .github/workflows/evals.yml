@@ -6,10 +6,10 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "0 10 * * 1"   # Weekly Monday 10:00 UTC — Phase 2 live eval
+    - cron: "0 10 * * 1"   # Weekly Monday 10:00 UTC — live routing eval
   workflow_dispatch:
     inputs:
-      run_phase2:
+      run_routing:
         description: "Run agent routing eval (live, non-blocking)"
         required: false
         default: "true"
@@ -72,19 +72,19 @@ jobs:
           CHANGED=$(git diff --name-only "$BASE" HEAD -- 'src/agents/**/default.ts' 'src/agents/**/prompt-composer.ts' | head -1)
           if [ -n "$CHANGED" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "Prompt files changed — will trigger Phase 2 live eval"
+            echo "Prompt files changed — will trigger live routing eval"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "No prompt files changed"
           fi
 
-  phase2-routing:
-    name: Phase2 Routing (live/non-blocking)
+  agent-routing:
+    name: Agent Routing (live, non-blocking)
     needs: [detect-prompt-changes]
     if: >-
       always() && (
         github.event_name == 'schedule' ||
-        (github.event_name == 'workflow_dispatch' && inputs.run_phase2 == 'true') ||
+        (github.event_name == 'workflow_dispatch' && inputs.run_routing == 'true') ||
         needs.detect-prompt-changes.outputs.prompts_changed == 'true'
       )
     runs-on: ubuntu-latest
@@ -103,7 +103,7 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Run phase2 routing (live)
+      - name: Run agent routing eval (live)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVAL_MODEL: ${{ inputs.model || 'gpt-4o-mini' }}
@@ -123,11 +123,11 @@ jobs:
           git diff --cached --quiet || git commit -m "chore(evals): update agent-routing trend results [skip ci]"
           git push
 
-      - name: Upload phase2 routing artifacts
+      - name: Upload routing eval artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: phase2-routing-artifacts
+          name: routing-eval-artifacts
           path: |
             .weave/evals/
             evals/results/agent-routing.jsonl
