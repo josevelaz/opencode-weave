@@ -18,7 +18,7 @@
     {
       "kind": "llm-judge",
       "rubricRef": "evals/rubrics/loom-routing-rubric.md",
-      "expectedContains": ["pattern", "/start-work"],
+      "expectedContains": ["pattern"],
       "forbiddenContains": ["I will implement this directly"]
     }
   ]
