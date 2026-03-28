@@ -257,6 +257,7 @@ export interface ExecutionContext {
   mode: "local" | "ci" | "hosted"
   directory: string
   outputPath?: string
+  modelOverride?: string
 }
 
 export interface RunnerFilters {
@@ -271,6 +272,7 @@ export interface RunEvalSuiteOptions {
   filters?: RunnerFilters
   outputPath?: string
   mode?: ExecutionContext["mode"]
+  modelOverride?: string
 }
 
 export interface EvalLoadErrorContext {

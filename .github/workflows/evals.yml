@@ -10,9 +10,13 @@ on:
   workflow_dispatch:
     inputs:
       run_phase2:
-        description: "Run non-blocking Phase 2 Loom routing eval (requires GITHUB_TOKEN)"
+        description: "Run agent routing eval (live, non-blocking)"
         required: false
         default: "false"
+      model:
+        description: "Model to evaluate (default: gpt-4o-mini)"
+        required: false
+        default: "gpt-4o-mini"
 
 jobs:
   deterministic-evals:
@@ -101,7 +105,8 @@ jobs:
       - name: Run phase2 routing (live)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bun run eval --suite agent-routing --jsonl
+          EVAL_MODEL: ${{ inputs.model || 'gpt-4o-mini' }}
+        run: bun run eval --suite agent-routing --jsonl --model "$EVAL_MODEL"
 
       - name: Generate trend report
         if: always()

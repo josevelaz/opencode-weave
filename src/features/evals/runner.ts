@@ -174,6 +174,7 @@ export async function runEvalSuite(options: RunEvalSuiteOptions): Promise<RunEva
     mode: options.mode ?? "local",
     directory: options.directory,
     outputPath: options.outputPath,
+    modelOverride: options.modelOverride,
   }
 
   const runId = createRunId()

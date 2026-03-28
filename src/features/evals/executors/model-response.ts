@@ -13,7 +13,7 @@ function redactProvider(value: string): string {
 export async function executeModelResponse(
   resolvedTarget: ResolvedTarget,
   executor: ModelResponseExecutor,
-  _context: ExecutionContext,
+  context: ExecutionContext,
 ): Promise<EvalArtifacts> {
   const token = process.env.GITHUB_TOKEN
   if (!token) {
@@ -22,8 +22,9 @@ export async function executeModelResponse(
     )
   }
 
+  const model = context.modelOverride ?? executor.model
   const systemPrompt = resolvedTarget.artifacts.renderedPrompt ?? ""
-  const { content, durationMs } = await callGitHubModels(systemPrompt, executor.input, executor.model, token)
+  const { content, durationMs } = await callGitHubModels(systemPrompt, executor.input, model, token)
 
   return {
     ...resolvedTarget.artifacts,
@@ -31,7 +32,7 @@ export async function executeModelResponse(
     judgeOutput: undefined,
     baselineDelta: {
       provider: redactProvider(executor.provider),
-      model: executor.model,
+      model,
       durationMs,
     },
   }

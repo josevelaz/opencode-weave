@@ -21,6 +21,7 @@ interface CliOptions {
   caseIds?: string[]
   agents?: string[]
   tags?: string[]
+  model?: string
   json: boolean
   outputPath?: string
   jsonl: boolean
@@ -32,7 +33,7 @@ interface CliOptions {
 
 function printUsage(): void {
   console.error(
-    "Usage: bun run eval [--suite prompt-contracts] [--case id] [--agent loom] [--tag contract] [--json] [--output path] [--baseline path] [--update-baseline] [--fail-on-regression]",
+    "Usage: bun run eval [--suite prompt-contracts] [--case id] [--agent loom] [--tag contract] [--model gpt-4o-mini] [--json] [--output path] [--baseline path] [--update-baseline] [--fail-on-regression]",
   )
 }
 
@@ -78,6 +79,9 @@ function parseArgs(argv: string[]): CliOptions {
         break
       case "--tag":
         options.tags = [...(options.tags ?? []), parseMultiValue(argv[++index], "--tag")]
+        break
+      case "--model":
+        options.model = parseMultiValue(argv[++index], "--model")
         break
       case "--json":
         options.json = true
@@ -192,6 +196,7 @@ async function main(): Promise<void> {
       },
       outputPath: options.outputPath,
       mode: process.env.CI ? "ci" : "local",
+      modelOverride: options.model,
     })
 
     const baseline = deriveDeterministicBaseline(output.result)
