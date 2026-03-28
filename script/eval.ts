@@ -152,7 +152,7 @@ function validateSelectors(options: CliOptions): void {
   throw new EvalConfigError(lines.join("\n"))
 }
 
-function main(): void {
+async function main(): Promise<void> {
   let options: CliOptions
   try {
     options = parseArgs(process.argv.slice(2))
@@ -167,7 +167,7 @@ function main(): void {
 
     const baselinePath = options.baselinePath ?? getDefaultBaselinePath(process.cwd(), options.suite)
 
-    const output = runEvalSuite({
+    const output = await runEvalSuite({
       directory: process.cwd(),
       suite: options.suite,
       filters: {
@@ -231,4 +231,7 @@ function main(): void {
   }
 }
 
-main()
+main().catch((error) => {
+  console.error(error instanceof Error ? error.stack ?? error.message : String(error))
+  process.exit(4)
+})

@@ -1,10 +1,10 @@
 import type { EvalArtifacts, ExecutionContext, ExecutorSpec, ResolvedTarget } from "../types"
 
-export function executePromptRender(
+export async function executePromptRender(
   resolvedTarget: ResolvedTarget,
   executor: ExecutorSpec,
   _context: ExecutionContext,
-): EvalArtifacts {
+): Promise<EvalArtifacts> {
   if (executor.kind !== "prompt-render") {
     throw new Error(`Executor ${executor.kind} is not implemented in Phase 1`)
   }

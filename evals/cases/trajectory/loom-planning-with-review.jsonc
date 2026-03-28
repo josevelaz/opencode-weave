@@ -1,0 +1,23 @@
+{
+  "id": "trajectory-loom-planning-with-review",
+  "title": "Trajectory: Loom delegates to Pattern then Warp for security review",
+  "phase": "trajectory",
+  "tags": ["trajectory", "trajectory", "loom", "pattern", "warp", "delegation", "security"],
+  "target": {
+    "kind": "trajectory-agent",
+    "agent": "loom",
+    "scenarioRef": "evals/scenarios/loom-planning-with-review.jsonc"
+  },
+  "executor": {
+    "kind": "trajectory-run",
+    "scenarioRef": "evals/scenarios/loom-planning-with-review.jsonc"
+  },
+  "evaluators": [
+    {
+      "kind": "trajectory-assertion",
+      "expectedSequence": ["loom", "pattern", "warp", "loom"],
+      "requiredAgents": ["pattern", "warp"],
+      "minTurns": 5
+    }
+  ]
+}

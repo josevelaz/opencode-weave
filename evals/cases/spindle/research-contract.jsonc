@@ -1,8 +1,8 @@
 {
   "id": "spindle-research-contract",
   "title": "Spindle prompt requires sourced external research",
-  "phase": "phase1",
-  "tags": ["phase1", "default", "spindle"],
+  "phase": "prompt",
+  "tags": ["prompt", "default", "spindle"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "spindle"

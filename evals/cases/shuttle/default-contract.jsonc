@@ -1,0 +1,25 @@
+{
+  "id": "shuttle-default-contract",
+  "title": "Shuttle prompt enforces domain specialist leaf-worker contract",
+  "phase": "prompt",
+  "tags": ["prompt", "default", "shuttle"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "shuttle"
+  },
+  "executor": {
+    "kind": "prompt-render"
+  },
+  "evaluators": [
+    { "kind": "xml-sections-present", "sections": ["Role", "Execution", "Constraints", "Style"] },
+    { "kind": "contains-all", "patterns": [
+      "category-based specialist worker",
+      "Execute the assigned task completely",
+      "Never spawn subagents",
+      "Never read or expose .env files"
+    ]},
+    { "kind": "excludes-all", "patterns": ["call_weave_agent"] },
+    { "kind": "tool-policy", "expectations": { "call_weave_agent": false } },
+    { "kind": "min-length", "min": 400 }
+  ]
+}

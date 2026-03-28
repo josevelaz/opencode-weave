@@ -1,8 +1,8 @@
 {
   "id": "weft-verdict-contract",
   "title": "Weft prompt requires structured approval-biased verdicts",
-  "phase": "phase1",
-  "tags": ["phase1", "default", "weft"],
+  "phase": "prompt",
+  "tags": ["prompt", "default", "weft"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "weft"

@@ -1,6 +1,6 @@
-# Loom Routing Intent Rubric (Phase 2 Pilot)
+# Loom Routing Intent Rubric (Phase 2)
 
-Use this rubric to evaluate Loom's first-turn routing intent for single-turn pilot prompts.
+Use this rubric to evaluate Loom's first-turn routing intent for single-turn routing prompts.
 
 ## Pass Conditions
 
@@ -13,6 +13,7 @@ Use this rubric to evaluate Loom's first-turn routing intent for single-turn pil
 - **Exploration ask**: should indicate delegation to Thread for codebase exploration.
 - **Planning/execution ask**: should indicate Pattern planning and/or `/start-work` execution handoff.
 - **Security-sensitive ask**: should indicate Warp/security review intent.
+- **Category-specific specialized work**: should indicate delegation to Shuttle for domain-specific tasks.
 
 ## Failure Signals
 

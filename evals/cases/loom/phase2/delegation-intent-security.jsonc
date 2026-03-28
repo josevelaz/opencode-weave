@@ -1,16 +1,16 @@
 {
   "id": "loom-phase2-delegation-intent-security",
   "title": "Loom model response surfaces Warp for security-sensitive review asks",
-  "phase": "phase2",
-  "tags": ["phase2", "loom", "pilot", "routing", "security"],
+  "phase": "routing",
+  "tags": ["routing", "loom", "routing", "security"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"
   },
   "executor": {
     "kind": "model-response",
-    "provider": "openai",
-    "model": "gpt-5",
+    "provider": "github-models",
+    "model": "gpt-4o-mini",
     "input": "Review authentication and token handling changes for security issues before shipping."
   },
   "evaluators": [

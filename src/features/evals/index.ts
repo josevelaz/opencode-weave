@@ -26,15 +26,37 @@ export type {
   EvalRunSummary,
   RunEvalSuiteOptions,
   RunnerFilters,
+  TrajectoryScenario,
+  TrajectoryTurn,
+  TrajectoryTrace,
+  TrajectoryTurnResult,
+  TrajectoryAssertionEvaluator,
 } from "./types"
 
-export { EvalCaseSchema, EvalSuiteManifestSchema, EvalRunResultSchema } from "./schema"
-export { EvalConfigError, loadEvalSuiteManifest, loadEvalCasesForSuite, resolveSuitePath } from "./loader"
+export { isTrajectoryTrace } from "./types"
+
+export {
+  EvalCaseSchema,
+  EvalSuiteManifestSchema,
+  EvalRunResultSchema,
+  TrajectoryScenarioSchema,
+  TrajectoryTurnSchema,
+  TrajectoryAssertionEvaluatorSchema,
+} from "./schema"
+export {
+  EvalConfigError,
+  loadEvalSuiteManifest,
+  loadEvalCasesForSuite,
+  resolveSuitePath,
+  loadTrajectoryScenario,
+} from "./loader"
 export { resolveBuiltinAgentTarget } from "./targets/builtin-agent-target"
 export { executePromptRender } from "./executors/prompt-renderer"
 export { executeModelResponse } from "./executors/model-response"
+export { executeTrajectoryRun, detectDelegation } from "./executors/trajectory-run"
 export { runDeterministicEvaluator } from "./evaluators/deterministic"
 export { runLlmJudgeEvaluator } from "./evaluators/llm-judge"
+export { runTrajectoryAssertionEvaluator } from "./evaluators/trajectory-assertion"
 export { deriveDeterministicBaseline, readDeterministicBaseline, compareDeterministicBaseline } from "./baseline"
 export { ensureEvalStorageDir, getDefaultEvalRunPath, writeEvalRunResult } from "./storage"
 export { formatEvalSummary } from "./reporter"

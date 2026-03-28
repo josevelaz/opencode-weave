@@ -27,4 +27,15 @@ describe("resolveBuiltinAgentTarget", () => {
       call_weave_agent: false,
     })
   })
+
+  it("resolves shuttle with default prompt and tool deny-list", () => {
+    const result = resolveBuiltinAgentTarget({ kind: "builtin-agent-prompt", agent: "shuttle" })
+    expect(result.artifacts.agentMetadata?.sourceKind).toBe("default")
+    expect(result.artifacts.agentMetadata?.agent).toBe("shuttle")
+    expect(result.artifacts.toolPolicy).toEqual({ call_weave_agent: false })
+    expect(result.artifacts.renderedPrompt).toBeTruthy()
+    expect(result.artifacts.renderedPrompt!.length).toBeGreaterThan(0)
+    expect(result.artifacts.renderedPrompt).toContain("<Role>")
+    expect(result.artifacts.renderedPrompt).toContain("Never spawn subagents")
+  })
 })

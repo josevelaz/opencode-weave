@@ -1,8 +1,8 @@
 {
   "id": "tapestry-default-contract",
   "title": "Tapestry default prompt enforces sequential execution and review",
-  "phase": "phase1",
-  "tags": ["phase1", "composer", "tapestry"],
+  "phase": "prompt",
+  "tags": ["prompt", "composer", "tapestry"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "tapestry"

@@ -1,0 +1,20 @@
+{
+  "id": "loom-self-handle-simple",
+  "title": "Loom handles a simple question without delegation",
+  "description": "User asks a simple question. Loom answers directly without delegating to any specialist agent.",
+  "agents": ["loom"],
+  "turns": [
+    {
+      "turn": 1,
+      "role": "user",
+      "content": "What TypeScript version does this project use?"
+    },
+    {
+      "turn": 2,
+      "role": "assistant",
+      "agent": "loom",
+      "content": "Loom answers the simple question directly.",
+      "mockResponse": "Based on the project's `package.json`, this project uses TypeScript 5.3.3. The `tsconfig.json` targets ES2022 with strict mode enabled.\n\nThis is a straightforward lookup — no specialist needed. Let me know if you have other questions!"
+    }
+  ]
+}

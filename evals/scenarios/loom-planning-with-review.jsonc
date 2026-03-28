@@ -1,0 +1,43 @@
+{
+  "id": "loom-planning-with-review",
+  "title": "Loom delegates to Pattern then Warp for security review",
+  "description": "User asks for a security-sensitive feature. Loom delegates to Pattern for planning, then Warp reviews the security aspects before Loom reports back.",
+  "agents": ["loom", "pattern", "warp"],
+  "turns": [
+    {
+      "turn": 1,
+      "role": "user",
+      "content": "I need to implement API key management with rotation, scoping, and rate limiting per key."
+    },
+    {
+      "turn": 2,
+      "role": "assistant",
+      "agent": "loom",
+      "content": "This is a security-sensitive feature that needs both planning and security review.",
+      "expectedDelegation": "pattern",
+      "mockResponse": "This is a security-sensitive feature involving API key management. It needs a proper plan first, and then a security review. Let me start by delegating to Pattern for the implementation plan.\n\n*Delegating to Pattern for planning...*"
+    },
+    {
+      "turn": 3,
+      "role": "assistant",
+      "agent": "pattern",
+      "content": "Pattern creates a plan for API key management.",
+      "mockResponse": "# API Key Management Plan\n\n## TL;DR\n> Implement API key management with creation, rotation, scoping, and per-key rate limiting.\n\n## Deliverables\n- [ ] Key generation with cryptographic randomness\n- [ ] Key rotation with grace period for old keys\n- [ ] Scope system (read, write, admin)\n- [ ] Per-key rate limiting with Redis backend\n- [ ] Key audit log\n\nPlan saved to `.weave/plans/api-key-management.md`."
+    },
+    {
+      "turn": 4,
+      "role": "assistant",
+      "agent": "warp",
+      "content": "Warp reviews the security aspects of the plan.",
+      "expectedDelegation": "warp",
+      "mockResponse": "## Security Review — API Key Management\n\n**Verdict: APPROVED with recommendations**\n\n### Findings\n- Key generation: Use `crypto.randomBytes(32)` — confirmed in plan ✓\n- Key storage: Must hash keys at rest (bcrypt/argon2) — **add to plan**\n- Rotation grace period: 24h is reasonable ✓\n- Rate limiting: Redis-backed is appropriate ✓\n\n### Required Changes\n1. Hash API keys at rest — never store plaintext\n2. Add key prefix for identification without exposing full key\n3. Implement key revocation separate from rotation\n\n*Routing to Warp complete. Delegating back to Loom.*"
+    },
+    {
+      "turn": 5,
+      "role": "assistant",
+      "agent": "loom",
+      "content": "Both planning and security review are done.",
+      "mockResponse": "Both planning and security review are complete:\n\n1. **Pattern** created the implementation plan at `.weave/plans/api-key-management.md`\n2. **Warp** security review: APPROVED with recommendations\n   - Must hash keys at rest\n   - Add key prefix for safe identification\n   - Implement revocation separate from rotation\n\nThe plan has been updated with Warp's security requirements. Run `/start-work` when ready."
+    }
+  ]
+}

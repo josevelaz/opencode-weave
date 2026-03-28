@@ -1,0 +1,24 @@
+{
+  "id": "loom-phase2-delegation-intent-shuttle",
+  "title": "Loom model response prefers Shuttle for category-specific specialized work",
+  "phase": "routing",
+  "tags": ["routing", "loom", "routing"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "github-models",
+    "model": "gpt-4o-mini",
+    "input": "I need a domain specialist to handle the GraphQL schema generation for our product catalog. This is category-specific specialized work."
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "rubricRef": "evals/rubrics/loom-routing-rubric.md",
+      "expectedContains": ["shuttle"],
+      "forbiddenContains": ["I will implement this directly"]
+    }
+  ]
+}

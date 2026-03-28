@@ -37,6 +37,11 @@ jobs:
           bun run script/eval-spike-github-models.ts \
             --model "$EVAL_MODEL"
 
+      - name: Generate trend report
+        if: always()
+        continue-on-error: true
+        run: bun run script/eval-trend-report.ts --check --threshold 0.80
+
       - name: Commit JSONL results
         if: github.ref == 'refs/heads/main' && always()
         run: |

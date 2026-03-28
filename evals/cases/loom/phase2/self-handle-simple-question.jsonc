@@ -1,0 +1,24 @@
+{
+  // Spike backport: self-handle-simple-question
+  // A quick factual question Loom can answer directly — no agent delegation should occur
+  "id": "loom-phase2-self-handle-simple-question",
+  "title": "Loom model response handles simple factual questions without delegation",
+  "phase": "routing",
+  "tags": ["routing", "loom", "routing", "spike-backport", "self-handle"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "github-models",
+    "model": "gpt-4o-mini",
+    "input": "What's the difference between a Promise and an Observable in JavaScript?"
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "forbiddenContains": ["thread", "pattern", "spindle", "warp", "weft", "shuttle", "delegate", "Task"]
+    }
+  ]
+}

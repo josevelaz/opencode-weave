@@ -1,0 +1,24 @@
+{
+  // Spike backport: ambiguous-exploration-security
+  // Gray zone: could be Thread (exploration/scanning) or Warp (security analysis) — delegation should happen
+  "id": "loom-phase2-ambiguous-exploration-security",
+  "title": "Loom model response delegates ambiguous exploration+security asks (does not self-handle)",
+  "phase": "routing",
+  "tags": ["routing", "loom", "routing", "spike-backport", "ambiguous"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "github-models",
+    "model": "gpt-4o-mini",
+    "input": "Scan the authentication module for potential security vulnerabilities and summarize what you find."
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "forbiddenContains": ["I'll handle this myself", "implement directly"]
+    }
+  ]
+}

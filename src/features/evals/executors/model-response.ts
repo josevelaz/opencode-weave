@@ -1,47 +1,38 @@
+import { callGitHubModels } from "./github-models-api"
 import type { EvalArtifacts, ExecutionContext, ModelResponseExecutor, ResolvedTarget } from "../types"
-
-function resolveMockResponse(executor: ModelResponseExecutor): string {
-  const mappingEnv = process.env.WEAVE_EVAL_MOCK_RESPONSES
-  if (!mappingEnv) {
-    throw new Error(
-      "Model-response execution requires WEAVE_EVAL_MOCK_RESPONSES mapping for Phase 2 pilot safety",
-    )
-  }
-
-  let mapping: Record<string, string>
-  try {
-    mapping = JSON.parse(mappingEnv) as Record<string, string>
-  } catch {
-    throw new Error("Invalid WEAVE_EVAL_MOCK_RESPONSES JSON mapping")
-  }
-
-  const key = `${executor.provider}/${executor.model}`
-  const response = mapping[key]
-  if (!response) {
-    throw new Error(`No mock response configured for model-response executor key: ${key}`)
-  }
-  return response
-}
 
 function redactProvider(value: string): string {
   return value.length <= 3 ? "***" : `${value.slice(0, 1)}***${value.slice(-1)}`
 }
 
-export function executeModelResponse(
+/**
+ * Executes a model-response eval case by calling the GitHub Models API.
+ *
+ * Phase 2 is live-only — requires GITHUB_TOKEN env var.
+ */
+export async function executeModelResponse(
   resolvedTarget: ResolvedTarget,
   executor: ModelResponseExecutor,
   _context: ExecutionContext,
-): EvalArtifacts {
-  const response = resolveMockResponse(executor)
+): Promise<EvalArtifacts> {
+  const token = process.env.GITHUB_TOKEN
+  if (!token) {
+    throw new Error(
+      "Model-response executor requires GITHUB_TOKEN environment variable for GitHub Models API access.",
+    )
+  }
+
+  const systemPrompt = resolvedTarget.artifacts.renderedPrompt ?? ""
+  const { content, durationMs } = await callGitHubModels(systemPrompt, executor.input, executor.model, token)
 
   return {
     ...resolvedTarget.artifacts,
-    modelOutput: response,
+    modelOutput: content,
     judgeOutput: undefined,
-    // keep provider/model metadata sanitized and never include secrets
     baselineDelta: {
       provider: redactProvider(executor.provider),
       model: executor.model,
+      durationMs,
     },
   }
 }

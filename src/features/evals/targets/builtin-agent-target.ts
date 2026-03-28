@@ -7,6 +7,7 @@ import { THREAD_DEFAULTS } from "../../../agents/thread/default"
 import { SPINDLE_DEFAULTS } from "../../../agents/spindle/default"
 import { WEFT_DEFAULTS } from "../../../agents/weft/default"
 import { WARP_DEFAULTS } from "../../../agents/warp/default"
+import { SHUTTLE_DEFAULTS } from "../../../agents/shuttle/default"
 import type { BuiltinAgentPromptTarget, ResolvedTarget } from "../types"
 
 function cloneTools(tools: Record<string, boolean> | undefined): Record<string, boolean> {
@@ -115,6 +116,20 @@ export function resolveBuiltinAgentTarget(target: BuiltinAgentPromptTarget): Res
           agentMetadata: {
             agent: "warp",
             description: WARP_DEFAULTS.description,
+            sourceKind: "default",
+          },
+        },
+      }
+    case "shuttle":
+      return {
+        target,
+        artifacts: {
+          renderedPrompt: SHUTTLE_DEFAULTS.prompt,
+          promptLength: SHUTTLE_DEFAULTS.prompt?.length,
+          toolPolicy: cloneTools(SHUTTLE_DEFAULTS.tools as Record<string, boolean> | undefined),
+          agentMetadata: {
+            agent: "shuttle",
+            description: SHUTTLE_DEFAULTS.description,
             sourceKind: "default",
           },
         },

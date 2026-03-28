@@ -4,12 +4,13 @@ import { parse as parseJsonc, printParseErrorCode } from "jsonc-parser"
 import {
   EvalCaseSchema,
   EvalSuiteManifestSchema,
+  TrajectoryScenarioSchema,
   formatSchemaIssues,
   AllowedEvalTargetKinds,
   AllowedExecutorKinds,
   AllowedEvaluatorKinds,
 } from "./schema"
-import type { LoadedEvalCase, LoadedEvalSuiteManifest } from "./types"
+import type { LoadedEvalCase, LoadedEvalSuiteManifest, TrajectoryScenario } from "./types"
 
 export class EvalConfigError extends Error {
   constructor(message: string) {
@@ -120,4 +121,16 @@ export function loadEvalCaseFile(directory: string, filePath: string): LoadedEva
 export function loadEvalCasesForSuite(directory: string, suite: LoadedEvalSuiteManifest): LoadedEvalCase[] {
   const suiteDir = join(suite.filePath, "..")
   return suite.caseFiles.map((caseFile) => loadEvalCaseFile(directory, resolvePath(directory, caseFile, suiteDir)))
+}
+
+export function loadTrajectoryScenario(directory: string, scenarioRef: string): TrajectoryScenario {
+  const filePath = resolvePath(directory, scenarioRef, join(directory, "evals", "scenarios"))
+  const parsed = readJsoncFile(filePath)
+  const result = TrajectoryScenarioSchema.safeParse(parsed)
+
+  if (!result.success) {
+    throw new EvalConfigError(`${formatSchemaIssues(filePath, result.error.issues)}`)
+  }
+
+  return result.data
 }

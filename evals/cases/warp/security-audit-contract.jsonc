@@ -1,8 +1,8 @@
 {
   "id": "warp-security-audit-contract",
   "title": "Warp prompt enforces triage, spec checks, and skeptical review",
-  "phase": "phase1",
-  "tags": ["phase1", "default", "warp"],
+  "phase": "prompt",
+  "tags": ["prompt", "default", "warp"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "warp"

@@ -1,0 +1,24 @@
+{
+  "id": "trajectory-loom-delegates-to-thread",
+  "title": "Trajectory: Loom delegates exploration to Thread",
+  "phase": "trajectory",
+  "tags": ["trajectory", "trajectory", "loom", "thread", "delegation"],
+  "target": {
+    "kind": "trajectory-agent",
+    "agent": "loom",
+    "scenarioRef": "evals/scenarios/loom-delegates-to-thread.jsonc"
+  },
+  "executor": {
+    "kind": "trajectory-run",
+    "scenarioRef": "evals/scenarios/loom-delegates-to-thread.jsonc"
+  },
+  "evaluators": [
+    {
+      "kind": "trajectory-assertion",
+      "expectedSequence": ["loom", "thread", "loom"],
+      "requiredAgents": ["thread"],
+      "forbiddenAgents": ["pattern"],
+      "minTurns": 4
+    }
+  ]
+}

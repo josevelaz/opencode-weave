@@ -2,8 +2,11 @@ import { randomBytes } from "node:crypto"
 import { loadEvalCasesForSuite, loadEvalSuiteManifest } from "./loader"
 import { executeModelResponse } from "./executors/model-response"
 import { executePromptRender } from "./executors/prompt-renderer"
+import { executeTrajectoryRun } from "./executors/trajectory-run"
+import { DELAY_BETWEEN_CALLS_MS } from "./executors/github-models-api"
 import { runDeterministicEvaluator } from "./evaluators/deterministic"
 import { runLlmJudgeEvaluator } from "./evaluators/llm-judge"
+import { runTrajectoryAssertionEvaluator } from "./evaluators/trajectory-assertion"
 import { formatEvalSummary } from "./reporter"
 import { ensureEvalStorageDir, writeEvalRunResult } from "./storage"
 import { resolveBuiltinAgentTarget } from "./targets/builtin-agent-target"
@@ -14,8 +17,13 @@ import type {
   EvalRunSummary,
   ExecutionContext,
   LoadedEvalCase,
+  ResolvedTarget,
   RunEvalSuiteOptions,
 } from "./types"
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 function createRunId(): string {
   return `eval_${randomBytes(6).toString("hex")}`
@@ -46,18 +54,37 @@ function matchesFilters(evalCase: LoadedEvalCase, filters: RunEvalSuiteOptions["
   return true
 }
 
-function resolveTarget(evalCase: LoadedEvalCase) {
+function resolveTarget(evalCase: LoadedEvalCase): ResolvedTarget {
   switch (evalCase.target.kind) {
     case "builtin-agent-prompt":
       return resolveBuiltinAgentTarget(evalCase.target)
+    case "trajectory-agent": {
+      // Resolve the primary agent's prompt for trajectory evals.
+      // The trajectory executor will load the scenario separately.
+      const agentTarget = resolveBuiltinAgentTarget({
+        kind: "builtin-agent-prompt",
+        agent: evalCase.target.agent as Parameters<typeof resolveBuiltinAgentTarget>[0]["agent"],
+      })
+      return {
+        target: evalCase.target,
+        artifacts: agentTarget.artifacts,
+      }
+    }
     case "custom-agent-prompt":
     case "single-turn-agent":
-    case "trajectory-agent":
       throw new Error(`Target kind ${evalCase.target.kind} is reserved for a later phase and is not implemented yet`)
   }
 }
 
-function executeCase(evalCase: LoadedEvalCase, context: ExecutionContext): EvalCaseResult {
+/**
+ * Returns true if the case uses an executor that calls an external API,
+ * meaning we should rate-limit between consecutive cases.
+ */
+function needsApiRateLimit(evalCase: LoadedEvalCase): boolean {
+  return evalCase.executor.kind === "model-response"
+}
+
+async function executeCase(evalCase: LoadedEvalCase, context: ExecutionContext): Promise<EvalCaseResult> {
   const started = Date.now()
 
   try {
@@ -66,18 +93,22 @@ function executeCase(evalCase: LoadedEvalCase, context: ExecutionContext): EvalC
 
       switch (evalCase.executor.kind) {
         case "prompt-render":
-          artifacts = executePromptRender(resolvedTarget, evalCase.executor, context)
+          artifacts = await executePromptRender(resolvedTarget, evalCase.executor, context)
           break
         case "model-response":
-          artifacts = executeModelResponse(resolvedTarget, evalCase.executor, context)
+          artifacts = await executeModelResponse(resolvedTarget, evalCase.executor, context)
           break
         case "trajectory-run":
-          throw new Error(`Executor ${evalCase.executor.kind} is reserved for a later phase and is not implemented yet`)
+          artifacts = await executeTrajectoryRun(resolvedTarget, evalCase.executor, context)
+          break
       }
 
     const assertionResults = evalCase.evaluators.flatMap((evaluator) => {
       if (evaluator.kind === "llm-judge") {
         return runLlmJudgeEvaluator(evaluator, artifacts)
+      }
+      if (evaluator.kind === "trajectory-assertion") {
+        return runTrajectoryAssertionEvaluator(evaluator, artifacts)
       }
       return runDeterministicEvaluator(evaluator, artifacts)
     })
@@ -131,7 +162,7 @@ export interface RunEvalSuiteOutput {
   consoleSummary: string
 }
 
-export function runEvalSuite(options: RunEvalSuiteOptions): RunEvalSuiteOutput {
+export async function runEvalSuite(options: RunEvalSuiteOptions): Promise<RunEvalSuiteOutput> {
   ensureEvalStorageDir(options.directory)
 
   const suite = loadEvalSuiteManifest(options.directory, options.suite)
@@ -147,7 +178,13 @@ export function runEvalSuite(options: RunEvalSuiteOptions): RunEvalSuiteOutput {
 
   const runId = createRunId()
   const startedAt = new Date().toISOString()
-  const caseResults = selectedCases.map((evalCase) => executeCase(evalCase, context))
+  const caseResults: EvalCaseResult[] = []
+  for (let i = 0; i < selectedCases.length; i++) {
+    if (i > 0 && needsApiRateLimit(selectedCases[i])) {
+      await sleep(DELAY_BETWEEN_CALLS_MS)
+    }
+    caseResults.push(await executeCase(selectedCases[i], context))
+  }
   const finishedAt = new Date().toISOString()
 
   const result: EvalRunResult = {

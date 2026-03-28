@@ -1,0 +1,23 @@
+{
+  "id": "trajectory-loom-self-handle-simple",
+  "title": "Trajectory: Loom handles simple question without delegation",
+  "phase": "trajectory",
+  "tags": ["trajectory", "trajectory", "loom", "self-handle"],
+  "target": {
+    "kind": "trajectory-agent",
+    "agent": "loom",
+    "scenarioRef": "evals/scenarios/loom-self-handle-simple.jsonc"
+  },
+  "executor": {
+    "kind": "trajectory-run",
+    "scenarioRef": "evals/scenarios/loom-self-handle-simple.jsonc"
+  },
+  "evaluators": [
+    {
+      "kind": "trajectory-assertion",
+      "expectedSequence": ["loom"],
+      "forbiddenAgents": ["pattern", "thread", "spindle", "warp", "weft"],
+      "maxTurns": 2
+    }
+  ]
+}

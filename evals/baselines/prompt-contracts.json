@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "suiteId": "phase1-core",
-  "phase": "phase1",
+  "suiteId": "prompt-contracts",
+  "phase": "prompt",
   "generatedAt": "2026-03-21T11:56:42.923Z",
   "normalizedScore": 1,
   "cases": [
@@ -9,7 +9,7 @@
       "caseId": "loom-default-contract",
       "status": "passed",
       "normalizedScore": 1,
-      "assertionPassed": 14,
+      "assertionPassed": 15,
       "assertionFailed": 0,
       "errorCount": 0
     },
@@ -82,6 +82,14 @@
       "status": "passed",
       "normalizedScore": 1,
       "assertionPassed": 12,
+      "assertionFailed": 0,
+      "errorCount": 0
+    },
+    {
+      "caseId": "shuttle-default-contract",
+      "status": "passed",
+      "normalizedScore": 1,
+      "assertionPassed": 11,
       "assertionFailed": 0,
       "errorCount": 0
     }

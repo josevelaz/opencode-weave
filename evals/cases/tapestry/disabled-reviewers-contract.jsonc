@@ -1,8 +1,8 @@
 {
   "id": "tapestry-disabled-reviewers-contract",
   "title": "Tapestry removes delegated review when Weft and Warp are disabled",
-  "phase": "phase1",
-  "tags": ["phase1", "composer", "tapestry", "variants"],
+  "phase": "prompt",
+  "tags": ["prompt", "composer", "tapestry", "variants"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "tapestry",

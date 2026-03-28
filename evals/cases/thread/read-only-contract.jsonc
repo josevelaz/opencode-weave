@@ -1,8 +1,8 @@
 {
   "id": "thread-read-only-contract",
   "title": "Thread prompt stays strictly read-only",
-  "phase": "phase1",
-  "tags": ["phase1", "default", "thread"],
+  "phase": "prompt",
+  "tags": ["prompt", "default", "thread"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "thread"

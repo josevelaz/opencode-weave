@@ -8,7 +8,7 @@ const typedFixture = fixture as unknown as EvalRunResult
 describe("formatEvalSummary", () => {
   it("formats a concise suite summary", () => {
     const summary = formatEvalSummary(typedFixture)
-    expect(summary).toContain("Suite phase1-core")
+    expect(summary).toContain("Suite prompt-contracts")
     expect(summary).toContain("Suite role: full deterministic")
     expect(summary).toContain("Cases: 1")
     expect(summary).toContain("Normalized score: 1.00")
@@ -18,7 +18,7 @@ describe("formatEvalSummary", () => {
   it("labels pr-smoke runs as PR smoke", () => {
     const summary = formatEvalSummary({
       ...typedFixture,
-      suiteId: "pr-smoke",
+      suiteId: "prompt-smoke",
     })
     expect(summary).toContain("Suite role: PR smoke")
   })

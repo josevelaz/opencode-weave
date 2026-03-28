@@ -16,7 +16,7 @@ export const BuiltinAgentPromptVariantSchema = z.object({
 
 export const BuiltinAgentPromptTargetSchema = z.object({
   kind: z.literal("builtin-agent-prompt"),
-  agent: z.enum(["loom", "tapestry", "pattern", "thread", "spindle", "weft", "warp"]),
+  agent: z.enum(["loom", "tapestry", "shuttle", "pattern", "thread", "spindle", "weft", "warp"]),
   variant: BuiltinAgentPromptVariantSchema.optional(),
 })
 
@@ -126,6 +126,28 @@ export const BaselineDiffEvaluatorSchema = WeightedEvaluatorSchema.extend({
 export const TrajectoryAssertionEvaluatorSchema = WeightedEvaluatorSchema.extend({
   kind: z.literal("trajectory-assertion"),
   assertionRef: NonEmptyString.optional(),
+  expectedSequence: z.array(NonEmptyString).optional(),
+  requiredAgents: z.array(NonEmptyString).optional(),
+  forbiddenAgents: z.array(NonEmptyString).optional(),
+  minTurns: z.number().int().positive().optional(),
+  maxTurns: z.number().int().positive().optional(),
+})
+
+export const TrajectoryTurnSchema = z.object({
+  turn: z.number().int().positive(),
+  role: z.enum(["user", "assistant"]),
+  agent: NonEmptyString.optional(),
+  content: z.string(),
+  mockResponse: z.string().optional(),
+  expectedDelegation: NonEmptyString.optional(),
+})
+
+export const TrajectoryScenarioSchema = z.object({
+  id: NonEmptyString,
+  title: NonEmptyString,
+  description: z.string().optional(),
+  agents: z.array(NonEmptyString).min(1),
+  turns: z.array(TrajectoryTurnSchema).min(2),
 })
 
 export const EvaluatorSpecSchema = z.discriminatedUnion("kind", [

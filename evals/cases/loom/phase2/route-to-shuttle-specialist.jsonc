@@ -1,0 +1,25 @@
+{
+  // Spike backport: route-to-shuttle-specialist
+  // Category-specific specialized work with explicit domain-specialist framing
+  "id": "loom-phase2-route-to-shuttle-specialist",
+  "title": "Loom model response prefers Shuttle for domain-specialist framing asks",
+  "phase": "routing",
+  "tags": ["routing", "loom", "routing", "spike-backport"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "github-models",
+    "model": "gpt-4o-mini",
+    "input": "I need a domain specialist to handle the GraphQL schema generation for our product catalog — types, resolvers, and input validation schemas. This is category-specific specialized work."
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "expectedContains": ["shuttle"],
+      "forbiddenContains": ["I will implement this directly"]
+    }
+  ]
+}

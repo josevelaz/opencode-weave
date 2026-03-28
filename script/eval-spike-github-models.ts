@@ -117,7 +117,16 @@ const EVAL_CASES: EvalCase[] = [
     expectedContains: ["shuttle"],
     forbiddenContains: ["I will implement this directly"],
     notes:
-      "Category-specific specialized work with explicit domain-specialist framing. The prompt says 'Use shuttle for category-specific specialized work'. The input mirrors this language directly to reduce ambiguity.",
+      "Category-specific specialized work with explicit domain-specialist framing. The prompt says 'Use shuttle for category-specific specialized work'. The input mirrors this language directly to reduce ambiguity. Known fragility: Loom's prompt has only one line about shuttle, so routing is unreliable without prompt-mirroring.",
+  },
+  {
+    id: "route-to-shuttle-specialist-hard",
+    input:
+      "We have a product catalog domain that needs GraphQL schema generation — types, resolvers, and input validation. Please delegate to the right specialist agent for this domain work.",
+    expectedContains: ["shuttle"],
+    forbiddenContains: ["I will implement this directly"],
+    notes:
+      "Harder shuttle routing variant — does NOT use the magic phrase 'category-specific specialized work'. Tests whether Loom can infer shuttle routing from domain context alone. Expected to be fragile; may fail with current Loom prompt.",
   },
   {
     id: "self-handle-simple-question",

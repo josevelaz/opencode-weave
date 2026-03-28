@@ -1,0 +1,35 @@
+{
+  "id": "loom-delegates-to-pattern",
+  "title": "Loom delegates complex planning to Pattern",
+  "description": "User asks for a multi-file feature. Loom identifies the planning need and delegates to Pattern, who produces a plan. Loom then summarizes back to the user.",
+  "agents": ["loom", "pattern"],
+  "turns": [
+    {
+      "turn": 1,
+      "role": "user",
+      "content": "I need to add a webhook system with event types, delivery tracking, retry logic, and a management UI."
+    },
+    {
+      "turn": 2,
+      "role": "assistant",
+      "agent": "loom",
+      "content": "This is a substantial multi-component feature that needs planning before implementation.",
+      "expectedDelegation": "pattern",
+      "mockResponse": "This is a substantial multi-component feature that requires careful planning across several modules. Let me delegate to Pattern to create a detailed implementation plan before we start building.\n\n*Delegating to Pattern for planning...*"
+    },
+    {
+      "turn": 3,
+      "role": "assistant",
+      "agent": "pattern",
+      "content": "Plan for the webhook system covering event registry, delivery tracking, retry logic, and management UI.",
+      "mockResponse": "# Webhook System Plan\n\n## TL;DR\n> Add a webhook system with event registry, delivery tracking, retry logic, and management UI.\n\n## Deliverables\n- [ ] Event type registry with schema validation\n- [ ] Delivery tracking with status history\n- [ ] Exponential backoff retry logic\n- [ ] Management UI for webhook endpoints\n\nPlan saved to `.weave/plans/webhook-system.md`."
+    },
+    {
+      "turn": 4,
+      "role": "assistant",
+      "agent": "loom",
+      "content": "Pattern has created a plan for the webhook system. Run /start-work to begin.",
+      "mockResponse": "Pattern has created a detailed plan for the webhook system at `.weave/plans/webhook-system.md`. The plan covers:\n\n- Event type registry with schema validation\n- Delivery tracking with status history\n- Retry logic with exponential backoff\n- Management UI\n\nRun `/start-work` when you're ready to begin execution."
+    }
+  ]
+}

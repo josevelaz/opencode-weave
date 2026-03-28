@@ -195,8 +195,9 @@ export function runDeterministicEvaluator(spec: EvaluatorSpec, artifacts: EvalAr
       return minLength(prompt, spec)
     case "llm-judge":
       throw new Error("Evaluator llm-judge is handled by llm-judge evaluator path")
-    case "baseline-diff":
     case "trajectory-assertion":
+      throw new Error("Evaluator trajectory-assertion is handled by trajectory-assertion evaluator path")
+    case "baseline-diff":
       throw new Error(`Evaluator ${spec.kind} is reserved for a later phase and is not implemented yet`)
   }
 }

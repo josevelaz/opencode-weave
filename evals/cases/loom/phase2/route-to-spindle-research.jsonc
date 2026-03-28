@@ -1,0 +1,25 @@
+{
+  // Spike backport: route-to-spindle-research
+  // Pure external research task — Spindle is described as "external docs and research (read-only)"
+  "id": "loom-phase2-route-to-spindle-research",
+  "title": "Loom model response prefers Spindle for external research asks",
+  "phase": "routing",
+  "tags": ["routing", "loom", "routing", "spike-backport"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "github-models",
+    "model": "gpt-4o-mini",
+    "input": "Research how the Stripe API handles idempotency keys and summarize the best practices from their docs."
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "expectedContains": ["spindle"],
+      "forbiddenContains": ["implement directly", "I'll handle this myself"]
+    }
+  ]
+}

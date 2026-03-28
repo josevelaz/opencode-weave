@@ -1,35 +1,93 @@
-import { describe, expect, it } from "bun:test"
+import { describe, expect, it, beforeEach, afterEach } from "bun:test"
 import { executeModelResponse } from "./model-response"
 
 describe("executeModelResponse", () => {
-  it("returns mocked response and sanitized provider metadata", () => {
-    process.env.WEAVE_EVAL_MOCK_RESPONSES = JSON.stringify({
-      "openai/gpt-5": "delegate to thread",
-    })
+  const savedEnv: Record<string, string | undefined> = {}
 
-    const artifacts = executeModelResponse(
-      {
-        target: { kind: "builtin-agent-prompt", agent: "loom" },
-        artifacts: { renderedPrompt: "prompt" },
-      },
-      {
-        kind: "model-response",
-        provider: "openai",
-        model: "gpt-5",
-        input: "hello",
-      },
-      { mode: "local", directory: process.cwd() },
-    )
-
-    expect(artifacts.modelOutput).toBe("delegate to thread")
-    expect((artifacts.baselineDelta as { provider: string }).provider).toBe("o***i")
+  beforeEach(() => {
+    savedEnv.GITHUB_TOKEN = process.env.GITHUB_TOKEN
   })
 
-  it("fails when no mock mapping env is provided", () => {
-    delete process.env.WEAVE_EVAL_MOCK_RESPONSES
+  afterEach(() => {
+    if (savedEnv.GITHUB_TOKEN !== undefined) {
+      process.env.GITHUB_TOKEN = savedEnv.GITHUB_TOKEN
+    } else {
+      delete process.env.GITHUB_TOKEN
+    }
+  })
 
-    expect(() =>
+  it("throws when GITHUB_TOKEN is missing", async () => {
+    delete process.env.GITHUB_TOKEN
+
+    expect(
       executeModelResponse(
+        {
+          target: { kind: "builtin-agent-prompt", agent: "loom" },
+          artifacts: { renderedPrompt: "system prompt" },
+        },
+        {
+          kind: "model-response",
+          provider: "github-models",
+          model: "gpt-4o-mini",
+          input: "test input",
+        },
+        { mode: "local", directory: process.cwd() },
+      ),
+    ).rejects.toThrow("GITHUB_TOKEN")
+  })
+
+  it("calls GitHub Models API and returns model output with sanitized metadata", async () => {
+    const originalFetch = globalThis.fetch
+    Object.assign(globalThis, {
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "I will delegate to thread for exploration." } }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    })
+    process.env.GITHUB_TOKEN = "test-token"
+
+    try {
+      const artifacts = await executeModelResponse(
+        {
+          target: { kind: "builtin-agent-prompt", agent: "loom" },
+          artifacts: { renderedPrompt: "system prompt" },
+        },
+        {
+          kind: "model-response",
+          provider: "github-models",
+          model: "gpt-4o-mini",
+          input: "find auth files",
+        },
+        { mode: "local", directory: process.cwd() },
+      )
+
+      expect(artifacts.modelOutput).toBe("I will delegate to thread for exploration.")
+      expect((artifacts.baselineDelta as { provider: string }).provider).toBe("g***s")
+      expect((artifacts.baselineDelta as { model: string }).model).toBe("gpt-4o-mini")
+      expect((artifacts.baselineDelta as { durationMs: number }).durationMs).toBeGreaterThanOrEqual(0)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("does not leak input text into provider metadata artifacts", async () => {
+    const originalFetch = globalThis.fetch
+    Object.assign(globalThis, {
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "delegate to pattern" } }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    })
+    process.env.GITHUB_TOKEN = "test-token"
+
+    try {
+      const artifacts = await executeModelResponse(
         {
           target: { kind: "builtin-agent-prompt", agent: "loom" },
           artifacts: { renderedPrompt: "prompt" },
@@ -37,35 +95,89 @@ describe("executeModelResponse", () => {
         {
           kind: "model-response",
           provider: "openai",
-          model: "gpt-5",
-          input: "hello",
+          model: "gpt-4o-mini",
+          input: "Bearer sk-secret-token",
         },
         { mode: "local", directory: process.cwd() },
-      ),
-    ).toThrow("WEAVE_EVAL_MOCK_RESPONSES")
+      )
+
+      const serialized = JSON.stringify(artifacts)
+      expect(serialized).not.toContain("sk-secret-token")
+      expect(serialized).not.toContain("Bearer")
+    } finally {
+      globalThis.fetch = originalFetch
+    }
   })
 
-  it("does not leak input text into provider metadata artifacts", () => {
-    process.env.WEAVE_EVAL_MOCK_RESPONSES = JSON.stringify({
-      "openai/gpt-5": "delegate to pattern",
+  it("passes executor.model directly to the API (no model name resolution)", async () => {
+    const originalFetch = globalThis.fetch
+    let capturedBody: unknown
+
+    Object.assign(globalThis, {
+      fetch: async (_url: string | URL | Request, init?: RequestInit) => {
+        capturedBody = JSON.parse(init?.body as string)
+        return new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "ok" } }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        )
+      },
     })
+    process.env.GITHUB_TOKEN = "test-token"
 
-    const artifacts = executeModelResponse(
-      {
-        target: { kind: "builtin-agent-prompt", agent: "loom" },
-        artifacts: { renderedPrompt: "prompt" },
-      },
-      {
-        kind: "model-response",
-        provider: "openai",
-        model: "gpt-5",
-        input: "Bearer sk-secret-token",
-      },
-      { mode: "local", directory: process.cwd() },
-    )
+    try {
+      await executeModelResponse(
+        {
+          target: { kind: "builtin-agent-prompt", agent: "loom" },
+          artifacts: { renderedPrompt: "system" },
+        },
+        {
+          kind: "model-response",
+          provider: "github-models",
+          model: "gpt-4o-mini",
+          input: "test",
+        },
+        { mode: "local", directory: process.cwd() },
+      )
 
-    const serialized = JSON.stringify(artifacts)
-    expect(serialized).not.toContain("sk-secret-token")
-    expect(serialized).not.toContain("Bearer")
+      expect((capturedBody as { model: string }).model).toBe("gpt-4o-mini")
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("redacts short provider names completely", async () => {
+    const originalFetch = globalThis.fetch
+    Object.assign(globalThis, {
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "ok" } }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    })
+    process.env.GITHUB_TOKEN = "test-token"
+
+    try {
+      const artifacts = await executeModelResponse(
+        {
+          target: { kind: "builtin-agent-prompt", agent: "loom" },
+          artifacts: { renderedPrompt: "prompt" },
+        },
+        {
+          kind: "model-response",
+          provider: "ai",
+          model: "gpt-4o-mini",
+          input: "test",
+        },
+        { mode: "local", directory: process.cwd() },
+      )
+
+      expect((artifacts.baselineDelta as { provider: string }).provider).toBe("***")
+    } finally {
+      globalThis.fetch = originalFetch
+    }
   })
 })

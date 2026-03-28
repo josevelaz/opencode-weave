@@ -1,16 +1,16 @@
 {
   "id": "loom-phase2-delegation-intent-planning",
   "title": "Loom model response prefers Pattern and start-work for complex implementation asks",
-  "phase": "phase2",
-  "tags": ["phase2", "loom", "pilot", "routing"],
+  "phase": "routing",
+  "tags": ["routing", "loom", "routing"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"
   },
   "executor": {
     "kind": "model-response",
-    "provider": "openai",
-    "model": "gpt-5",
+    "provider": "github-models",
+    "model": "gpt-4o-mini",
     "input": "Implement a multi-file feature with data model updates, API changes, and integration tests."
   },
   "evaluators": [

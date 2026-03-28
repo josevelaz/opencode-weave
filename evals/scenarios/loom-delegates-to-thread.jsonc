@@ -1,0 +1,35 @@
+{
+  "id": "loom-delegates-to-thread",
+  "title": "Loom delegates codebase exploration to Thread",
+  "description": "User asks to explore authentication files. Loom routes to Thread for read-only exploration. Thread returns findings. Loom summarizes.",
+  "agents": ["loom", "thread"],
+  "turns": [
+    {
+      "turn": 1,
+      "role": "user",
+      "content": "Find all authentication-related files in the project and explain how the auth flow works."
+    },
+    {
+      "turn": 2,
+      "role": "assistant",
+      "agent": "loom",
+      "content": "This is an exploration task that requires reading through the codebase.",
+      "expectedDelegation": "thread",
+      "mockResponse": "This is a codebase exploration task — I need to find and read through auth-related files to understand the flow. Let me delegate to Thread for a thorough read-only exploration.\n\n*Delegating to Thread for exploration...*"
+    },
+    {
+      "turn": 3,
+      "role": "assistant",
+      "agent": "thread",
+      "content": "Thread explores the auth files and reports findings.",
+      "mockResponse": "## Auth File Exploration\n\nFound the following authentication-related files:\n\n1. `src/auth/session.ts` — Session management with JWT tokens\n2. `src/auth/middleware.ts` — Express middleware for route protection\n3. `src/auth/providers/github.ts` — GitHub OAuth provider\n4. `src/auth/providers/google.ts` — Google OAuth provider\n\n### Auth Flow\n1. User initiates OAuth via `/auth/{provider}`\n2. Provider callback hits `/auth/{provider}/callback`\n3. Session JWT is created and stored in httpOnly cookie\n4. Middleware validates JWT on protected routes"
+    },
+    {
+      "turn": 4,
+      "role": "assistant",
+      "agent": "loom",
+      "content": "Thread has explored the auth system.",
+      "mockResponse": "Thread has completed the exploration. Here's a summary of the authentication system:\n\nThe project uses OAuth-based auth with GitHub and Google providers. The flow is:\n1. OAuth initiation → provider callback → JWT session cookie\n2. Protected routes use middleware that validates the JWT\n\nKey files: `src/auth/session.ts`, `src/auth/middleware.ts`, and provider implementations under `src/auth/providers/`.\n\nWould you like to make changes to the auth system, or do you need more details about a specific part?"
+    }
+  ]
+}

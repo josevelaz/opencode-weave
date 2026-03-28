@@ -1,0 +1,23 @@
+{
+  "id": "trajectory-loom-delegates-to-pattern",
+  "title": "Trajectory: Loom delegates complex planning to Pattern",
+  "phase": "trajectory",
+  "tags": ["trajectory", "trajectory", "loom", "pattern", "delegation"],
+  "target": {
+    "kind": "trajectory-agent",
+    "agent": "loom",
+    "scenarioRef": "evals/scenarios/loom-delegates-to-pattern.jsonc"
+  },
+  "executor": {
+    "kind": "trajectory-run",
+    "scenarioRef": "evals/scenarios/loom-delegates-to-pattern.jsonc"
+  },
+  "evaluators": [
+    {
+      "kind": "trajectory-assertion",
+      "expectedSequence": ["loom", "pattern", "loom"],
+      "requiredAgents": ["pattern"],
+      "minTurns": 4
+    }
+  ]
+}

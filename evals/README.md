@@ -121,26 +121,156 @@ bun run eval:coverage
 - Provider-backed judge runs belong in dedicated manual or scheduled workflows later
 - Expensive eval classes should not become accidental always-on blockers
 
-### Phase 2 Loom Pilot Trigger (manual)
+### Phase 2 Agent Routing (live-only, scheduled + manual)
 
-`evals.yml` includes a manual `workflow_dispatch` path for `phase2-loom-pilot`.
+`evals.yml` runs the `phase2-routing` suite automatically every **Monday at 10:00 UTC** via a scheduled cron trigger, and also supports manual `workflow_dispatch`.
 
-- Set `run_phase2_pilot=true` to run the pilot.
-- Optional input `phase2_mock_responses` can override `WEAVE_EVAL_MOCK_RESPONSES` JSON.
-- Pilot job is intentionally **non-blocking** (`continue-on-error: true`) and is not part of default PR gating.
-- Pilot artifacts are uploaded as `phase2-loom-pilot-artifacts`.
+- Phase 2 is **live-only** — it calls the GitHub Models API with Loom's real system prompt. No mock mode.
+- Requires `GITHUB_TOKEN` with `models:read` scope (or the built-in `secrets.GITHUB_TOKEN` in GitHub Actions).
+- Running without `GITHUB_TOKEN` produces a clear error for each case — this is expected and correct.
+- Routing job is intentionally **non-blocking** (`continue-on-error: true`) and is not part of default PR gating.
+- Phase 2 only runs on schedule or manual dispatch — never on PRs or pushes.
+- Baseline comparison will be active once generated via `--update-baseline` from a successful live run.
+- Routing artifacts are uploaded as `phase2-routing-artifacts`.
+
+#### Running Phase 2 Locally
+
+```bash
+GITHUB_TOKEN=ghp_xxx bun run eval:phase2
+```
+
+#### Updating the Phase 2 Baseline
+
+```bash
+GITHUB_TOKEN=ghp_xxx bun run eval --suite phase2-routing --update-baseline
+```
+
+#### Phase 2 Graduation Criteria
+
+Phase 2 graduates from non-blocking to blocking CI gate when ALL of the following are met:
+
+1. **4 consecutive weekly runs pass** with stable baseline (no regressions for 4 weeks).
+2. **Case count reaches 6+** (double the initial 3), covering at least 3 distinct routing intents.
+3. **Team review**: at least one explicit sign-off that Phase 2 is ready to block PRs.
+
+Upon graduation:
+
+- Add `--fail-on-regression` to the Phase 2 eval command
+- Remove `continue-on-error: true` from the job
+- Optionally add Phase 2 to the `push`/`pull_request` triggers (or keep weekly-only with blocking exit code)
+
+## Phase 3: Trajectory Evals
+
+Phase 3 adds multi-turn trajectory evals that validate delegation chains — e.g., "user asks complex question → Loom delegates to Pattern → Pattern produces plan → Loom reports back".
+
+### What Phase 3 Covers
+
+- Multi-turn delegation sequence validation
+- Correct agent selection across turns
+- Delegation chain ordering (exact sequence matching)
+- Required/forbidden agent assertions
+- Turn count bounds
+
+### Layout
+
+- `evals/scenarios/*.jsonc` — trajectory scenario files (multi-turn conversation scripts)
+- `evals/cases/trajectory/*.jsonc` — trajectory eval case files
+- `evals/suites/phase3-trajectory-pilot.jsonc` — pilot suite manifest
+
+### Running Phase 3
+
+```bash
+# Run the full trajectory pilot suite
+bun run eval --suite phase3-trajectory-pilot
+
+# Run a single trajectory case
+bun run eval --suite phase3-trajectory-pilot --case trajectory-loom-delegates-to-pattern
+```
+
+No environment variables or API credentials are needed — trajectory evals use mock responses embedded in scenario files.
+
+### Scenario File Format
+
+Scenarios live in `evals/scenarios/` as `.jsonc` files. Each scenario defines a multi-turn conversation:
+
+```jsonc
+{
+  "id": "scenario-id",
+  "title": "Human-readable title",
+  "description": "What this scenario tests",
+  "agents": ["loom", "pattern"],  // agents involved
+  "turns": [
+    { "turn": 1, "role": "user", "content": "User message" },
+    {
+      "turn": 2,
+      "role": "assistant",
+      "agent": "loom",           // which agent produces this turn
+      "content": "Description",
+      "mockResponse": "Canned response for mock mode",
+      "expectedDelegation": "pattern"  // optional: expected delegation target
+    }
+  ]
+}
+```
+
+### Writing Trajectory Cases
+
+Each eval case references a scenario via `scenarioRef` and uses `trajectory-assertion` evaluators:
+
+```jsonc
+{
+  "id": "trajectory-example",
+  "title": "Trajectory: Example",
+  "phase": "phase3",
+  "target": {
+    "kind": "trajectory-agent",
+    "agent": "loom",
+    "scenarioRef": "evals/scenarios/example.jsonc"
+  },
+  "executor": {
+    "kind": "trajectory-run",
+    "scenarioRef": "evals/scenarios/example.jsonc"
+  },
+  "evaluators": [
+    {
+      "kind": "trajectory-assertion",
+      "expectedSequence": ["loom", "pattern", "loom"],
+      "requiredAgents": ["pattern"],
+      "forbiddenAgents": ["spindle"],
+      "minTurns": 4,
+      "maxTurns": 10
+    }
+  ]
+}
+```
+
+### Trajectory Assertion Types
+
+| Assertion | What it checks |
+|-----------|---------------|
+| `expectedSequence` | Observed delegation sequence matches exactly (ordered) |
+| `requiredAgents` | Each listed agent appears at least once in the delegation sequence |
+| `forbiddenAgents` | None of the listed agents appear in the delegation sequence |
+| `minTurns` | Completed turn count is at or above the threshold |
+| `maxTurns` | Completed turn count is at or below the limit |
+
+### Current Pilot Scenarios
+
+1. **Loom → Pattern** — Complex feature planning delegation
+2. **Loom → Thread** — Codebase exploration delegation
+3. **Loom → Pattern → Warp** — Planning with mandatory security review
+4. **Loom self-handle** — Simple question answered without delegation
+5. **Loom → Warp** — Security audit delegation
 
 ## Future Phases
 
-- `target.kind` is ready for custom-agent, single-turn, and trajectory targets
-- `executor.kind` is ready for `model-response` and `trajectory-run`
-- `evaluator.kind` is ready for `llm-judge`, `baseline-diff`, and `trajectory-assertion`
+- `target.kind` is ready for custom-agent and single-turn targets
 - Promptfoo, if adopted later, should be an adapter behind executor/judge layers rather than the canonical schema owner
 - Provider-backed evals must use env-only secrets and must never persist raw tokens, keys, or auth headers in artifacts
 
-## Phase 2 Pilot Guardrails
+## Phase 2 Guardrails
 
-- Phase 2 pilot uses `model-response` + `llm-judge` in a tightly scoped Loom-only suite.
-- Current pilot path is intentionally mock-driven via `WEAVE_EVAL_MOCK_RESPONSES` and manual workflow execution.
+- Phase 2 routing uses `model-response` + `llm-judge` in a tightly scoped Loom-only suite.
+- Phase 2 is live-only: it calls the GitHub Models API directly and requires `GITHUB_TOKEN`.
 - Never store provider secrets in case files, suite files, or committed baselines.
 - Artifacts must not include auth headers, API keys, bearer tokens, or raw provider secret values.

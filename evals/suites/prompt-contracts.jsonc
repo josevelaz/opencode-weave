@@ -1,8 +1,8 @@
 {
-  "id": "phase1-core",
-  "title": "Phase 1 deterministic core prompt contracts",
-  "phase": "phase1",
-  "tags": ["phase1", "deterministic"],
+  "id": "prompt-contracts",
+  "title": "Prompt deterministic core prompt contracts",
+  "phase": "prompt",
+  "tags": ["prompt", "deterministic"],
   "caseFiles": [
     "evals/cases/loom/default-contract.jsonc",
     "evals/cases/loom/disabled-agents.jsonc",
@@ -13,6 +13,7 @@
     "evals/cases/thread/read-only-contract.jsonc",
     "evals/cases/spindle/research-contract.jsonc",
     "evals/cases/weft/verdict-contract.jsonc",
-    "evals/cases/warp/security-audit-contract.jsonc"
+    "evals/cases/warp/security-audit-contract.jsonc",
+    "evals/cases/shuttle/default-contract.jsonc"
   ]
 }

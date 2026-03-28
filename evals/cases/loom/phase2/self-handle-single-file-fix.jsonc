@@ -1,0 +1,24 @@
+{
+  // Spike backport: self-handle-single-file-fix
+  // Single-file, single-line fix — Loom should handle directly without delegation
+  "id": "loom-phase2-self-handle-single-file-fix",
+  "title": "Loom model response handles single-file fixes without delegation",
+  "phase": "routing",
+  "tags": ["routing", "loom", "routing", "spike-backport", "self-handle"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "github-models",
+    "model": "gpt-4o-mini",
+    "input": "There's a typo in src/utils/format.ts on line 42 — it says 'formated' instead of 'formatted'. Fix it."
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "forbiddenContains": ["pattern", "spindle", "warp", "weft", "shuttle", "delegate to"]
+    }
+  ]
+}

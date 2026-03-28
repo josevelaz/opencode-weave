@@ -1,8 +1,8 @@
 {
   "id": "pattern-plan-output-contract",
   "title": "Pattern prompt requires plan-only markdown output",
-  "phase": "phase1",
-  "tags": ["phase1", "default", "pattern"],
+  "phase": "prompt",
+  "tags": ["prompt", "default", "pattern"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "pattern"

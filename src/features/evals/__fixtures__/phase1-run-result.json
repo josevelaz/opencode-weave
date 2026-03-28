@@ -2,8 +2,8 @@
   "runId": "eval_fixture",
   "startedAt": "2026-01-01T00:00:00.000Z",
   "finishedAt": "2026-01-01T00:00:01.000Z",
-  "suiteId": "phase1-core",
-  "phase": "phase1",
+  "suiteId": "prompt-contracts",
+  "phase": "prompt",
   "summary": {
     "totalCases": 1,
     "passedCases": 1,

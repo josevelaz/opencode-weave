@@ -1,0 +1,23 @@
+{
+  "id": "trajectory-loom-security-review-chain",
+  "title": "Trajectory: Loom delegates security audit to Warp",
+  "phase": "trajectory",
+  "tags": ["trajectory", "trajectory", "loom", "warp", "delegation", "security"],
+  "target": {
+    "kind": "trajectory-agent",
+    "agent": "loom",
+    "scenarioRef": "evals/scenarios/loom-security-review-chain.jsonc"
+  },
+  "executor": {
+    "kind": "trajectory-run",
+    "scenarioRef": "evals/scenarios/loom-security-review-chain.jsonc"
+  },
+  "evaluators": [
+    {
+      "kind": "trajectory-assertion",
+      "expectedSequence": ["loom", "warp", "loom"],
+      "requiredAgents": ["warp"],
+      "minTurns": 4
+    }
+  ]
+}

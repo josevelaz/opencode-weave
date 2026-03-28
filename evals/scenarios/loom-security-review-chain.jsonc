@@ -1,0 +1,35 @@
+{
+  "id": "loom-security-review-chain",
+  "title": "Loom delegates security audit to Warp",
+  "description": "User asks to review auth changes for security issues. Loom routes to Warp for a security audit. Warp returns findings. Loom summarizes.",
+  "agents": ["loom", "warp"],
+  "turns": [
+    {
+      "turn": 1,
+      "role": "user",
+      "content": "Review the recent changes to the authentication module for security vulnerabilities."
+    },
+    {
+      "turn": 2,
+      "role": "assistant",
+      "agent": "loom",
+      "content": "This requires a security audit — delegating to Warp.",
+      "expectedDelegation": "warp",
+      "mockResponse": "This request involves reviewing authentication code for security vulnerabilities — that's exactly what Warp specializes in. Let me delegate to Warp for a thorough security audit.\n\n*Delegating to Warp for security review...*"
+    },
+    {
+      "turn": 3,
+      "role": "assistant",
+      "agent": "warp",
+      "content": "Warp conducts the security audit and reports findings.",
+      "mockResponse": "## Security Audit — Authentication Module\n\n### Critical Findings\n1. **SQL Injection risk** in `src/auth/queries.ts:42` — user input concatenated into query string\n2. **Missing CSRF token** validation on `/auth/callback` endpoint\n\n### Warnings\n3. Session timeout set to 30 days — consider reducing to 7 days\n4. Password reset token uses `Math.random()` — use `crypto.randomBytes()` instead\n\n### Passed\n- JWT signing uses RS256 ✓\n- HttpOnly + Secure flags on session cookie ✓\n- Rate limiting on login endpoint ✓\n\n**Verdict: 2 critical issues must be fixed before merge.**"
+    },
+    {
+      "turn": 4,
+      "role": "assistant",
+      "agent": "loom",
+      "content": "Warp has completed the security audit.",
+      "mockResponse": "Warp has completed the security audit of the authentication module. Here's the summary:\n\n**2 Critical Issues:**\n1. SQL injection risk in `src/auth/queries.ts:42` — needs parameterized queries\n2. Missing CSRF token validation on the OAuth callback\n\n**2 Warnings:**\n3. Session timeout too long (30d → recommend 7d)\n4. Password reset token should use `crypto.randomBytes()`\n\nThe critical issues must be fixed before merging. Would you like me to create a plan to address these, or should we fix them directly?"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import type { WeaveAgentName } from "../../agents/types"
 
-export const EVAL_PHASES = ["phase1", "phase2", "phase3", "phase4"] as const
+export const EVAL_PHASES = ["prompt", "routing", "trajectory", "experimental"] as const
 export type EvalPhase = (typeof EVAL_PHASES)[number]
 
 export const EVAL_TARGET_KINDS = [
@@ -29,7 +29,7 @@ export const EVALUATOR_KINDS = [
 ] as const
 export type EvaluatorKind = (typeof EVALUATOR_KINDS)[number]
 
-export type BuiltinEvalAgentName = Exclude<WeaveAgentName, "shuttle">
+export type BuiltinEvalAgentName = WeaveAgentName
 
 export interface BuiltinAgentPromptVariant {
   disabledAgents?: string[]
@@ -142,6 +142,11 @@ export interface BaselineDiffEvaluator extends WeightedEvaluatorSpec {
 export interface TrajectoryAssertionEvaluator extends WeightedEvaluatorSpec {
   kind: "trajectory-assertion"
   assertionRef?: string
+  expectedSequence?: string[]
+  requiredAgents?: string[]
+  forbiddenAgents?: string[]
+  minTurns?: number
+  maxTurns?: number
 }
 
 export type EvaluatorSpec =
@@ -299,4 +304,53 @@ export interface BaselineComparison {
   outcome: "no-regression" | "informational-diff" | "regression"
   regressions: string[]
   informational: string[]
+}
+
+// --- Trajectory types (Phase 3) ---
+
+export interface TrajectoryTurn {
+  turn: number
+  role: "user" | "assistant"
+  agent?: string
+  content: string
+  mockResponse?: string
+  expectedDelegation?: string
+}
+
+export interface TrajectoryScenario {
+  id: string
+  title: string
+  description?: string
+  agents: string[]
+  turns: TrajectoryTurn[]
+}
+
+export interface TrajectoryTurnResult {
+  turn: number
+  agent: string
+  role: "user" | "assistant"
+  response: string
+  expectedDelegation?: string
+  observedDelegation?: string | null
+  durationMs: number
+}
+
+export interface TrajectoryTrace {
+  scenarioId: string
+  turns: TrajectoryTurnResult[]
+  delegationSequence: string[]
+  totalTurns: number
+  completedTurns: number
+}
+
+export function isTrajectoryTrace(trace: unknown): trace is TrajectoryTrace {
+  if (!trace || typeof trace !== "object") return false
+  const t = trace as Record<string, unknown>
+  return (
+    typeof t.scenarioId === "string" &&
+    Array.isArray(t.turns) &&
+    Array.isArray(t.delegationSequence) &&
+    typeof t.totalTurns === "number" &&
+    typeof t.completedTurns === "number"
+  )
 }

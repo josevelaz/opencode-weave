@@ -1,0 +1,24 @@
+{
+  // Spike backport: ambiguous-research-planning
+  // Two-phase task: research (Spindle) then planning (Pattern) — delegation should happen
+  "id": "loom-phase2-ambiguous-research-planning",
+  "title": "Loom model response delegates ambiguous research+planning asks (does not self-handle)",
+  "phase": "routing",
+  "tags": ["routing", "loom", "routing", "spike-backport", "ambiguous"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "github-models",
+    "model": "gpt-4o-mini",
+    "input": "Research how other projects implement OAuth2 PKCE flow, then create a plan for adding it to our app."
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "forbiddenContains": ["I'll handle this myself", "implement directly"]
+    }
+  ]
+}
