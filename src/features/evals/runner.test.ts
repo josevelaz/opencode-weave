@@ -25,8 +25,8 @@ describe("runEvalSuite", () => {
     }
   })
 
-  it("phase2 errors without GITHUB_TOKEN (live-only)", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "weave-evals-runner-phase2-"))
+  it("agent-routing errors without GITHUB_TOKEN (live-only)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "weave-evals-runner-routing-"))
     const savedToken = process.env.GITHUB_TOKEN
     try {
       delete process.env.GITHUB_TOKEN
@@ -35,7 +35,7 @@ describe("runEvalSuite", () => {
       const output = await runEvalSuite({
         directory: dir,
         suite: "agent-routing",
-        filters: { caseIds: ["loom-phase2-delegation-intent-exploration"] },
+        filters: { caseIds: ["route-to-thread-exploration"] },
       })
 
       // Should produce an error case, not crash

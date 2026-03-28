@@ -56,8 +56,8 @@ describe("eval schemas", () => {
 
   it("validates llm-judge evaluator with phrase checks", () => {
     const result = EvalCaseSchema.safeParse({
-      id: "loom-phase2-judge",
-      title: "Loom phase2 judge",
+      id: "routing-judge-test",
+      title: "Routing judge validation",
       phase: "routing",
       target: { kind: "builtin-agent-prompt", agent: "loom" },
       executor: { kind: "model-response", provider: "openai", model: "gpt-5", input: "test" },
@@ -74,8 +74,8 @@ describe("eval schemas", () => {
 
   it("rejects invalid model-response executor missing provider", () => {
     const result = EvalCaseSchema.safeParse({
-      id: "phase2-invalid",
-      title: "Invalid phase2",
+      id: "routing-invalid-executor",
+      title: "Invalid model-response executor",
       phase: "routing",
       target: { kind: "builtin-agent-prompt", agent: "loom" },
       executor: { kind: "model-response", model: "gpt-5", input: "test" },
