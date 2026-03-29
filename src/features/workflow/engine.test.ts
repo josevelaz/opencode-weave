@@ -128,7 +128,7 @@ describe("startWorkflow", () => {
     })
 
     expect(action.type).toBe("inject_prompt")
-    expect(action.agent).toBe("loom")
+    expect(action.agent).toBeUndefined()
     expect(action.prompt).toBeDefined()
     expect(action.prompt).toContain("Add OAuth2 login")
 
@@ -160,7 +160,7 @@ describe("startWorkflow", () => {
     expect(action.prompt).toContain("Gather info for: Build search feature")
   })
 
-  it("sets the first step agent in the action", () => {
+  it("includes delegation instruction in the prompt for non-loom agents", () => {
     const defPath = writeDefinitionFile(THREE_STEP_GATE_DEF)
     const action = startWorkflow({
       definition: THREE_STEP_GATE_DEF,
@@ -170,7 +170,9 @@ describe("startWorkflow", () => {
       directory: testDir,
     })
 
-    expect(action.agent).toBe("pattern")
+    expect(action.agent).toBeUndefined()
+    expect(action.prompt).toContain("Delegation")
+    expect(action.prompt).toContain("pattern")
   })
 
   it("stores session ID in instance", () => {
@@ -268,7 +270,7 @@ describe("checkAndAdvance", () => {
     })
 
     expect(action.type).toBe("inject_prompt")
-    expect(action.agent).toBe("tapestry")
+    expect(action.agent).toBeUndefined()
     expect(action.prompt).toContain("Advance test")
 
     // Verify instance state
@@ -485,7 +487,7 @@ describe("gate step handling", () => {
     })
 
     expect(action.type).toBe("inject_prompt")
-    expect(action.agent).toBe("tapestry")
+    expect(action.agent).toBeUndefined()
 
     const instance = getActiveWorkflowInstance(testDir)
     expect(instance!.current_step_id).toBe("execute")
@@ -569,7 +571,7 @@ describe("resumeWorkflow", () => {
 
     const action = resumeWorkflow(testDir)
     expect(action.type).toBe("inject_prompt")
-    expect(action.agent).toBe("loom")
+    expect(action.agent).toBeUndefined()
     expect(action.prompt).toContain("Resume test")
 
     const instance = getActiveWorkflowInstance(testDir)
@@ -622,7 +624,7 @@ describe("resumeWorkflow", () => {
 
     const action = resumeWorkflow(testDir)
     expect(action.type).toBe("inject_prompt")
-    expect(action.agent).toBe("tapestry")
+    expect(action.agent).toBeUndefined()
     expect(action.prompt).toContain("Mid-workflow resume test")
 
     const instance = getActiveWorkflowInstance(testDir)
@@ -659,7 +661,7 @@ describe("skipStep", () => {
 
     const action = skipStep(testDir)
     expect(action.type).toBe("inject_prompt")
-    expect(action.agent).toBe("tapestry")
+    expect(action.agent).toBeUndefined()
 
     const instance = getActiveWorkflowInstance(testDir)
     expect(instance!.current_step_id).toBe("build")
@@ -783,7 +785,7 @@ describe("full lifecycle", () => {
 
     // Step 1: autonomous (agent_signal)
     expect(action1.type).toBe("inject_prompt")
-    expect(action1.agent).toBe("pattern")
+    expect(action1.agent).toBeUndefined()
 
     const action2 = checkAndAdvance({
       directory: testDir,
@@ -797,7 +799,7 @@ describe("full lifecycle", () => {
 
     // Step 2: gate (review_verdict) — APPROVE
     expect(action2.type).toBe("inject_prompt")
-    expect(action2.agent).toBe("weft")
+    expect(action2.agent).toBeUndefined()
     expect(action2.prompt).toContain("Completed Steps")
 
     const action3 = checkAndAdvance({
@@ -812,7 +814,7 @@ describe("full lifecycle", () => {
 
     // Step 3: autonomous (agent_signal)
     expect(action3.type).toBe("inject_prompt")
-    expect(action3.agent).toBe("tapestry")
+    expect(action3.agent).toBeUndefined()
     expect(action3.prompt).toContain("Completed Steps")
 
     const action4 = checkAndAdvance({
@@ -872,6 +874,6 @@ describe("full lifecycle", () => {
       },
     })
     expect(advanced.type).toBe("inject_prompt")
-    expect(advanced.agent).toBe("tapestry")
+    expect(advanced.agent).toBeUndefined()
   })
 })

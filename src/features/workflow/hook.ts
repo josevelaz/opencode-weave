@@ -71,8 +71,9 @@ export function handleRunWorkflow(input: {
   promptText: string
   sessionId: string
   directory: string
+  workflowDirs?: string[]
 }): WorkflowHookResult {
-  const { promptText, sessionId, directory } = input
+  const { promptText, sessionId, directory, workflowDirs } = input
 
   // Only fire when the template has been injected (contains <session-context>)
   if (!promptText.includes("<session-context>")) {
@@ -90,7 +91,7 @@ export function handleRunWorkflow(input: {
 
   // Case 1: No args, no active instance → list available definitions
   if (!workflowName && !activeInstance) {
-    const result = listAvailableWorkflows(directory)
+    const result = listAvailableWorkflows(directory, workflowDirs)
     return prependWarning(result, workStateWarning)
   }
 
@@ -116,7 +117,7 @@ export function handleRunWorkflow(input: {
       }
     }
 
-    const result = startNewWorkflow(workflowName, goal, sessionId, directory)
+    const result = startNewWorkflow(workflowName, goal, sessionId, directory, workflowDirs)
     return prependWarning(result, workStateWarning)
   }
 
@@ -149,6 +150,7 @@ export function checkWorkflowContinuation(input: {
   directory: string
   lastAssistantMessage?: string
   lastUserMessage?: string
+  workflowDirs?: string[]
 }): { continuationPrompt: string | null; switchAgent: string | null } {
   const { directory, lastAssistantMessage, lastUserMessage } = input
 
@@ -176,7 +178,7 @@ export function checkWorkflowContinuation(input: {
     case "inject_prompt":
       return {
         continuationPrompt: `${WORKFLOW_CONTINUATION_MARKER}\n${action.prompt}`,
-        switchAgent: action.agent ?? null,
+        switchAgent: null,
       }
     case "complete":
       return {
@@ -249,8 +251,8 @@ function extractArguments(promptText: string): string {
 /**
  * List available workflow definitions.
  */
-function listAvailableWorkflows(directory: string): WorkflowHookResult {
-  const workflows = discoverWorkflows(directory)
+function listAvailableWorkflows(directory: string, workflowDirs?: string[]): WorkflowHookResult {
+  const workflows = discoverWorkflows(directory, workflowDirs)
   if (workflows.length === 0) {
     return {
       contextInjection:
@@ -283,7 +285,7 @@ function resumeActiveWorkflow(directory: string): WorkflowHookResult {
         const currentStep = definition.steps.find((s) => s.id === instance.current_step_id)
         return {
           contextInjection: `## Workflow In Progress\nWorkflow "${instance.definition_name}" is already running.\nCurrent step: **${currentStep?.name ?? instance.current_step_id}**\nGoal: "${instance.goal}"\n\nContinue with the current step.`,
-          switchAgent: currentStep?.agent ?? null,
+          switchAgent: null,
         }
       }
     }
@@ -292,7 +294,7 @@ function resumeActiveWorkflow(directory: string): WorkflowHookResult {
 
   return {
     contextInjection: action.prompt ?? null,
-    switchAgent: action.agent ?? null,
+    switchAgent: null,
   }
 }
 
@@ -304,8 +306,9 @@ function startNewWorkflow(
   goal: string,
   sessionId: string,
   directory: string,
+  workflowDirs?: string[],
 ): WorkflowHookResult {
-  const workflows = discoverWorkflows(directory)
+  const workflows = discoverWorkflows(directory, workflowDirs)
   const match = workflows.find((w) => w.definition.name === workflowName)
 
   if (!match) {
@@ -332,6 +335,6 @@ function startNewWorkflow(
 
   return {
     contextInjection: action.prompt ?? null,
-    switchAgent: action.agent ?? null,
+    switchAgent: null,
   }
 }

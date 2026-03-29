@@ -84,7 +84,8 @@ export function buildContextHeader(
 
 /**
  * Build the full context-threaded prompt for a step.
- * Combines: (1) workflow context header, (2) resolved step prompt.
+ * Combines: (1) workflow context header, (2) delegation instruction if step
+ * targets a non-loom agent, (3) resolved step prompt.
  */
 export function composeStepPrompt(
   stepDef: WorkflowStepDefinition,
@@ -94,10 +95,46 @@ export function composeStepPrompt(
   const contextHeader = buildContextHeader(instance, definition)
   const resolvedPrompt = resolveTemplate(stepDef.prompt, instance, definition)
 
-  return `${contextHeader}---
+  // If the step targets a specific agent, add a delegation instruction.
+  // Loom stays as the coordinator and delegates to the step's agent.
+  const delegationInstruction = buildDelegationInstruction(stepDef)
 
+  return `${contextHeader}---
+${delegationInstruction}
 ## Your Task
 ${resolvedPrompt}`
+}
+
+/**
+ * Build a delegation instruction for a workflow step.
+ * Returns an instruction block if the step targets a specific agent, or empty string if not.
+ */
+function buildDelegationInstruction(stepDef: WorkflowStepDefinition): string {
+  // No delegation needed — Loom handles it directly
+  if (!stepDef.agent || stepDef.agent === "loom") return "\n"
+
+  const agentName = stepDef.agent
+  const stepType = stepDef.type
+
+  if (stepType === "interactive") {
+    return `
+**Delegation**: This is an interactive step. Delegate to **${agentName}** using the Task tool. The ${agentName} agent should present questions to the user, then STOP and return the questions. You (Loom) will relay them to the user and pass answers back. After the work is done, present the result and ask the user to confirm (e.g., "Does this look good?"). The workflow engine auto-advances when the user replies with a confirmation keyword (confirmed, approved, looks good, lgtm, done, continue).
+
+`
+  }
+
+  if (stepType === "gate") {
+    return `
+**Delegation**: Delegate this review to **${agentName}** using the Task tool. Pass the full task description below. The ${agentName} agent must return a verdict of [APPROVE] or [REJECT] with detailed feedback. Relay the verdict to the user.
+
+`
+  }
+
+  // Autonomous step
+  return `
+**Delegation**: Delegate this task to **${agentName}** using the Task tool. Pass the full task description below. The ${agentName} agent should complete the work autonomously and return a summary when done. The workflow engine will auto-advance to the next step — do NOT tell the user to manually continue.
+
+`
 }
 
 /**

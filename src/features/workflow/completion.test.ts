@@ -240,4 +240,33 @@ describe("agent_signal", () => {
     const result = checkStepCompletion("agent_signal", ctx)
     expect(result.summary).toContain("signaled completion")
   })
+
+  it("detects custom keywords when configured", () => {
+    const ctx = makeContext({
+      lastAssistantMessage: "Specification complete. [SPEC_COMPLETE]",
+      config: { method: "agent_signal", keywords: ["[SPEC_COMPLETE]", "[TASKS_COMPLETE]"] },
+    })
+    const result = checkStepCompletion("agent_signal", ctx)
+    expect(result.complete).toBe(true)
+    expect(result.summary).toContain("[SPEC_COMPLETE]")
+  })
+
+  it("returns false when custom keywords don't match", () => {
+    const ctx = makeContext({
+      lastAssistantMessage: "I'm working on the specification",
+      config: { method: "agent_signal", keywords: ["[SPEC_COMPLETE]"] },
+    })
+    const result = checkStepCompletion("agent_signal", ctx)
+    expect(result.complete).toBe(false)
+  })
+
+  it("still detects hardcoded marker even when custom keywords are set", () => {
+    const ctx = makeContext({
+      lastAssistantMessage: "Done! <!-- workflow:step-complete -->",
+      config: { method: "agent_signal", keywords: ["[SPEC_COMPLETE]"] },
+    })
+    const result = checkStepCompletion("agent_signal", ctx)
+    expect(result.complete).toBe(true)
+    expect(result.summary).toBe("Agent signaled completion")
+  })
 })

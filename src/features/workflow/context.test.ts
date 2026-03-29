@@ -259,4 +259,81 @@ describe("composeStepPrompt", () => {
     expect(prompt).toContain("add-oauth2-login-with-google-and-github")
     expect(prompt).toContain("OAuth2 requirements")
   })
+
+  it("includes delegation instruction for non-loom agents", () => {
+    const instance = makeInstance({
+      current_step_id: "plan",
+      steps: {
+        gather: { id: "gather", status: "completed" },
+        plan: { id: "plan", status: "active" },
+        review: { id: "review", status: "pending" },
+      },
+    })
+    const stepDef = SAMPLE_DEFINITION.steps[1] // agent: "pattern", type: "autonomous"
+    const prompt = composeStepPrompt(stepDef, instance, SAMPLE_DEFINITION)
+
+    expect(prompt).toContain("**Delegation**")
+    expect(prompt).toContain("**pattern**")
+    expect(prompt).toContain("Task tool")
+  })
+
+  it("omits delegation instruction for loom agent", () => {
+    const instance = makeInstance()
+    const stepDef = SAMPLE_DEFINITION.steps[0] // agent: "loom"
+    const prompt = composeStepPrompt(stepDef, instance, SAMPLE_DEFINITION)
+
+    expect(prompt).not.toContain("**Delegation**")
+  })
+
+  it("includes interactive delegation instruction for interactive steps", () => {
+    const interactiveDef: WorkflowDefinition = {
+      name: "test",
+      version: 1,
+      steps: [{
+        id: "ask",
+        name: "Ask",
+        type: "interactive",
+        agent: "shuttle",
+        prompt: "Ask the user questions",
+        completion: { method: "user_confirm" },
+      }],
+    }
+    const instance: WorkflowInstance = {
+      instance_id: "wf_test",
+      definition_id: "test",
+      definition_name: "test",
+      definition_path: "/test.jsonc",
+      goal: "Test",
+      slug: "test",
+      status: "running",
+      started_at: "2026-01-01T00:00:00Z",
+      session_ids: ["s1"],
+      current_step_id: "ask",
+      steps: { ask: { id: "ask", status: "active" } },
+      artifacts: {},
+    }
+    const prompt = composeStepPrompt(interactiveDef.steps[0], instance, interactiveDef)
+
+    expect(prompt).toContain("**Delegation**")
+    expect(prompt).toContain("interactive step")
+    expect(prompt).toContain("**shuttle**")
+  })
+
+  it("includes gate delegation instruction for gate steps", () => {
+    const instance = makeInstance({
+      current_step_id: "review",
+      steps: {
+        gather: { id: "gather", status: "completed" },
+        plan: { id: "plan", status: "completed" },
+        review: { id: "review", status: "active" },
+      },
+    })
+    const stepDef = SAMPLE_DEFINITION.steps[2] // agent: "weft", type: "gate"
+    const prompt = composeStepPrompt(stepDef, instance, SAMPLE_DEFINITION)
+
+    expect(prompt).toContain("**Delegation**")
+    expect(prompt).toContain("**weft**")
+    expect(prompt).toContain("[APPROVE]")
+    expect(prompt).toContain("[REJECT]")
+  })
 })

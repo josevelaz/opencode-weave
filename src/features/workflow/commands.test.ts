@@ -128,7 +128,7 @@ describe("handleWorkflowCommand", () => {
         setupRunningInstance(testDir)
         const result = handleWorkflowCommand("workflow skip", testDir)
         expect(result.handled).toBe(true)
-        expect(result.switchAgent).toBe("tapestry")
+        expect(result.switchAgent).toBeUndefined()
 
         const instance = getActiveWorkflowInstance(testDir)
         expect(instance?.current_step_id).toBe("build")

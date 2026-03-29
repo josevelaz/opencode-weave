@@ -182,7 +182,7 @@ describe("handleRunWorkflow", () => {
     })
     expect(result.contextInjection).not.toBeNull()
     expect(result.contextInjection).toContain("Add OAuth2 login")
-    expect(result.switchAgent).toBe("loom")
+    expect(result.switchAgent).toBeNull()
 
     const instance = getActiveWorkflowInstance(testDir)
     expect(instance).not.toBeNull()
@@ -288,7 +288,7 @@ describe("checkWorkflowContinuation", () => {
     })
     expect(result.continuationPrompt).not.toBeNull()
     expect(result.continuationPrompt).toContain(WORKFLOW_CONTINUATION_MARKER)
-    expect(result.switchAgent).toBe("tapestry")
+    expect(result.switchAgent).toBeNull()
   })
 
   it("includes WORKFLOW_CONTINUATION_MARKER in all continuation prompts", () => {

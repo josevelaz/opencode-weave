@@ -1614,7 +1614,7 @@ describe("workflow integration in plugin-interface", () => {
       const hooks = makeHooks({
         workflowStart: (_promptText: string, _sessionId: string) => ({
           contextInjection: "## Workflow Started\nGoal: Add OAuth2 login",
-          switchAgent: "loom",
+          switchAgent: null,
         }),
       })
 
@@ -1629,13 +1629,14 @@ describe("workflow integration in plugin-interface", () => {
       const parts = [
         { type: "text", text: "The workflow engine will inject context here." },
       ]
-      const message: Record<string, unknown> = {}
+      const message: Record<string, unknown> = { agent: "Loom (Main Orchestrator)" }
       const output = { message: message as never, parts }
 
       await iface["chat.message"]({ sessionID: "s1" }, output)
 
       expect(parts[0].text).toContain("Workflow Started")
       expect(parts[0].text).toContain("Add OAuth2 login")
+      // Agent should NOT change — workflows delegate via Task tool, not agent switching
       expect(message.agent).toBe("Loom (Main Orchestrator)")
     })
 
@@ -1664,6 +1665,47 @@ describe("workflow integration in plugin-interface", () => {
 
       expect(called).toBe(false)
       expect(parts[0].text).toBe("Just a regular user message")
+    })
+  })
+
+  describe("workflowStart does not collide with startWork", () => {
+    it("startWork hook is skipped for /run-workflow commands", async () => {
+      let startWorkCalled = false
+      const hooks = makeHooks({
+        startWork: (_promptText: string, _sessionId: string) => {
+          startWorkCalled = true
+          return { contextInjection: "## Plan Not Found", switchAgent: "tapestry" }
+        },
+        workflowStart: (_promptText: string, _sessionId: string) => ({
+          contextInjection: "## Workflow Started",
+          switchAgent: null,
+        }),
+      })
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks,
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+      })
+
+      const parts = [
+        { type: "text", text: "<command-instruction>\nThe workflow engine will inject context here.\n</command-instruction>\n<session-context>Session ID: s1</session-context>\n<user-request>spec-driven \"Add OAuth2\"</user-request>" },
+      ]
+      const message: Record<string, unknown> = { agent: "Loom (Main Orchestrator)" }
+      const output = { message: message as never, parts }
+
+      await iface["chat.message"]({ sessionID: "s1" }, output)
+
+      // startWork should NOT have been called for /run-workflow commands
+      expect(startWorkCalled).toBe(false)
+      // Agent should stay as Loom
+      expect(message.agent).toBe("Loom (Main Orchestrator)")
+      // Workflow context should be injected
+      expect(parts[0].text).toContain("Workflow Started")
+      // Plan Not Found should NOT appear
+      expect(parts[0].text).not.toContain("Plan Not Found")
     })
   })
 

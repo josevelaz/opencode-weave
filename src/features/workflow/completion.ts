@@ -165,13 +165,26 @@ function checkReviewVerdict(context: CompletionContext): CompletionCheckResult {
 }
 
 function checkAgentSignal(context: CompletionContext): CompletionCheckResult {
-  const { lastAssistantMessage } = context
+  const { lastAssistantMessage, config } = context
   if (!lastAssistantMessage) return { complete: false }
 
+  // Check the hardcoded marker first
   if (lastAssistantMessage.includes(AGENT_SIGNAL_MARKER)) {
     return {
       complete: true,
       summary: "Agent signaled completion",
+    }
+  }
+
+  // Check custom keywords if configured
+  if (config.keywords && config.keywords.length > 0) {
+    for (const keyword of config.keywords) {
+      if (lastAssistantMessage.includes(keyword)) {
+        return {
+          complete: true,
+          summary: `Agent signaled completion via keyword: "${keyword}"`,
+        }
+      }
     }
   }
 

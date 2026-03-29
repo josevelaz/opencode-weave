@@ -135,7 +135,15 @@ export function createPluginInterface(args: {
             .join("\n")
             .trim() ?? ""
 
-        const result = hooks.startWork(promptText, sessionID)
+        // Skip start-work processing for /run-workflow commands — both templates use
+        // <session-context> tags, but they are different commands with different agents.
+        // Without this guard, startWork would try to match a plan name from the workflow
+        // arguments, switch to Tapestry, and inject a "Plan Not Found" error.
+        const isWorkflowCommand = promptText.includes("workflow engine will inject context")
+
+        const result = isWorkflowCommand
+          ? { contextInjection: null, switchAgent: null }
+          : hooks.startWork(promptText, sessionID)
 
         // Switch agent by mutating output.message.agent (OpenCode reads this to route the message)
         if (result.switchAgent && message) {
@@ -187,7 +195,10 @@ export function createPluginInterface(args: {
         }
       }
 
-      // Track user message text per session for workflow completion detection (user_confirm)
+      // Track user message text per session for workflow completion detection (user_confirm).
+      // IMPORTANT: Only track genuine user messages — filter out system-injected prompts
+      // (workflow continuation, work continuation, todo finalization) to prevent false
+      // completion triggers (e.g., "continue" keyword in a continuation prompt).
       {
         const parts = _output.parts as Array<{ type: string; text?: string }> | undefined
         const userText =
@@ -197,10 +208,14 @@ export function createPluginInterface(args: {
             .join("\n")
             .trim() ?? ""
         if (userText && sessionID) {
-          lastUserMessageText.set(sessionID, userText)
-          // Re-arm todo finalization for real user messages, but not for
-          // system-injected finalize prompts (prevents immediate re-arm).
-          if (!userText.includes(FINALIZE_TODOS_MARKER)) {
+          const isSystemInjected =
+            userText.includes(WORKFLOW_CONTINUATION_MARKER) ||
+            userText.includes(CONTINUATION_MARKER) ||
+            userText.includes(FINALIZE_TODOS_MARKER) ||
+            userText.includes("<command-instruction>")
+          if (!isSystemInjected) {
+            lastUserMessageText.set(sessionID, userText)
+            // Re-arm todo finalization for real user messages
             if (todoContinuationEnforcer) {
               todoContinuationEnforcer.clearFinalized(sessionID)
             }
