@@ -4,24 +4,40 @@ import type { LoadedSkill, SkillDiscoveryResult } from './types'
 import { fetchSkillsFromOpenCode } from './opencode-client'
 import { scanDirectory } from './discovery'
 import { log } from '../../shared/log'
+import { resolveSafePath } from '../../shared/resolve-safe-path'
 
 export interface LoadSkillsOptions {
   serverUrl: string | URL
   directory?: string
   disabledSkills?: string[]
+  /** Additional directories to scan for skills (from config `skill_directories`) */
+  customDirs?: string[]
 }
 
 /**
- * Scan the filesystem for skills in OpenCode's standard locations.
+ * Scan the filesystem for skills in OpenCode's standard locations plus any custom directories.
  * This covers both user-level (~/.config/opencode/skills/) and
- * project-level ({directory}/.opencode/skills/) skill directories.
+ * project-level ({directory}/.opencode/skills/) skill directories,
+ * plus any extra directories provided via config.
  */
-function scanFilesystemSkills(directory: string): LoadedSkill[] {
+function scanFilesystemSkills(directory: string, customDirs?: string[]): LoadedSkill[] {
   const userDir = path.join(os.homedir(), '.config', 'opencode', 'skills')
   const projectDir = path.join(directory, '.opencode', 'skills')
   const userSkills = scanDirectory({ directory: userDir, scope: 'user' })
   const projectSkills = scanDirectory({ directory: projectDir, scope: 'project' })
-  return [...projectSkills, ...userSkills]
+
+  // Custom directories (from config) — scanned as "project" scope, sandboxed to project root
+  const customSkills: LoadedSkill[] = []
+  if (customDirs) {
+    for (const dir of customDirs) {
+      const resolved = resolveSafePath(dir, directory)
+      if (resolved) {
+        customSkills.push(...scanDirectory({ directory: resolved, scope: 'project' }))
+      }
+    }
+  }
+
+  return [...projectSkills, ...customSkills, ...userSkills]
 }
 
 /**
@@ -41,13 +57,13 @@ function mergeSkillSources(apiSkills: LoadedSkill[], fsSkills: LoadedSkill[]): L
 }
 
 export async function loadSkills(options: LoadSkillsOptions): Promise<SkillDiscoveryResult> {
-  const { serverUrl, directory = process.cwd(), disabledSkills = [] } = options
+  const { serverUrl, directory = process.cwd(), disabledSkills = [], customDirs } = options
 
   // Primary: fetch from OpenCode HTTP API
   const apiSkills = await fetchSkillsFromOpenCode(serverUrl, directory)
 
   // Fallback: scan filesystem for skills the API may not have returned
-  const fsSkills = scanFilesystemSkills(directory)
+  const fsSkills = scanFilesystemSkills(directory, customDirs)
 
   const skills = mergeSkillSources(apiSkills, fsSkills)
 

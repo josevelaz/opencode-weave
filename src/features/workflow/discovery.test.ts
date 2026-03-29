@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
 import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "fs"
-import { join } from "path"
+import { join, normalize } from "path"
 import { tmpdir } from "os"
 import { loadWorkflowDefinition, discoverWorkflows } from "./discovery"
 import { WORKFLOWS_DIR_PROJECT } from "./constants"
@@ -172,5 +172,104 @@ describe("discoverWorkflows", () => {
     writeFileSync(join(wfDir, "test.jsonc"), VALID_JSONC, "utf-8")
     const workflows = discoverWorkflows(testDir)
     expect(workflows).toHaveLength(1)
+  })
+})
+
+describe("discoverWorkflows with custom directories", () => {
+  it("discovers workflows from a custom relative directory", () => {
+    const customDir = join(testDir, "custom-workflows")
+    mkdirSync(customDir, { recursive: true })
+    writeFileSync(join(customDir, "custom.jsonc"), VALID_JSONC, "utf-8")
+    const workflows = discoverWorkflows(testDir, ["custom-workflows"])
+    expect(workflows).toHaveLength(1)
+    expect(workflows[0].definition.name).toBe("test-workflow")
+    expect(workflows[0].scope).toBe("project")
+  })
+
+  it("resolves relative custom directories against project root", () => {
+    const customDir = join(testDir, "my-workflows")
+    mkdirSync(customDir, { recursive: true })
+    writeFileSync(join(customDir, "custom.jsonc"), VALID_JSONC, "utf-8")
+    const workflows = discoverWorkflows(testDir, ["my-workflows"])
+    expect(workflows).toHaveLength(1)
+    expect(workflows[0].definition.name).toBe("test-workflow")
+  })
+
+  it("project workflows override custom directory workflows with same name", () => {
+    // Custom dir has "test-workflow"
+    const customDir = join(testDir, "custom-workflows")
+    mkdirSync(customDir, { recursive: true })
+    writeFileSync(join(customDir, "custom.jsonc"), VALID_JSONC, "utf-8")
+    // Project dir also has "test-workflow"
+    const projectDir = join(testDir, WORKFLOWS_DIR_PROJECT)
+    mkdirSync(projectDir, { recursive: true })
+    writeFileSync(join(projectDir, "project.jsonc"), VALID_JSONC, "utf-8")
+    const workflows = discoverWorkflows(testDir, ["custom-workflows"])
+    // Only one — project wins
+    expect(workflows).toHaveLength(1)
+    expect(workflows[0].scope).toBe("project")
+    expect(workflows[0].path).toContain(normalize(WORKFLOWS_DIR_PROJECT))
+  })
+
+  it("custom directory workflows override user workflows with same name", () => {
+    // Only a custom dir — no project dir — so custom wins over user (user has none in test)
+    const customDir = join(testDir, "custom-workflows")
+    mkdirSync(customDir, { recursive: true })
+    writeFileSync(join(customDir, "custom.jsonc"), VALID_JSONC, "utf-8")
+    const workflows = discoverWorkflows(testDir, ["custom-workflows"])
+    expect(workflows).toHaveLength(1)
+    expect(workflows[0].scope).toBe("project")
+  })
+
+  it("skips non-existent custom directories gracefully", () => {
+    const workflows = discoverWorkflows(testDir, ["does-not-exist"])
+    expect(workflows).toHaveLength(0)
+  })
+
+  it("works with empty customDirs array", () => {
+    const workflows = discoverWorkflows(testDir, [])
+    expect(workflows).toHaveLength(0)
+  })
+
+  it("merges workflows from multiple custom directories", () => {
+    mkdirSync(join(testDir, "custom1"), { recursive: true })
+    mkdirSync(join(testDir, "custom2"), { recursive: true })
+    writeFileSync(join(testDir, "custom1", "wf1.jsonc"), VALID_JSONC, "utf-8")
+    writeFileSync(join(testDir, "custom2", "wf2.jsonc"), ANOTHER_WORKFLOW_JSONC, "utf-8")
+    const workflows = discoverWorkflows(testDir, ["custom1", "custom2"])
+    expect(workflows).toHaveLength(2)
+    const names = workflows.map((w) => w.definition.name).sort()
+    expect(names).toEqual(["another-workflow", "test-workflow"])
+  })
+
+  it("existing behavior unchanged when no customDirs provided", () => {
+    const wfDir = join(testDir, WORKFLOWS_DIR_PROJECT)
+    mkdirSync(wfDir, { recursive: true })
+    writeFileSync(join(wfDir, "test.jsonc"), VALID_JSONC, "utf-8")
+    const withoutCustom = discoverWorkflows(testDir)
+    const withUndefined = discoverWorkflows(testDir, undefined)
+    expect(withoutCustom).toHaveLength(1)
+    expect(withUndefined).toHaveLength(1)
+    expect(withoutCustom[0].definition.name).toBe(withUndefined[0].definition.name)
+  })
+
+  it("rejects absolute paths in customDirs (path traversal protection)", () => {
+    // Even if the absolute path points to a valid directory with workflows,
+    // it should be rejected for security
+    const absDir = join(testDir, "abs-workflows")
+    mkdirSync(absDir, { recursive: true })
+    writeFileSync(join(absDir, "wf.jsonc"), VALID_JSONC, "utf-8")
+    const workflows = discoverWorkflows(testDir, [absDir])
+    expect(workflows).toHaveLength(0)
+  })
+
+  it("rejects paths with .. traversal above project root", () => {
+    const workflows = discoverWorkflows(testDir, ["../../../etc"])
+    expect(workflows).toHaveLength(0)
+  })
+
+  it("rejects paths that resolve outside project root via nested ..", () => {
+    const workflows = discoverWorkflows(testDir, ["subdir/../../outside"])
+    expect(workflows).toHaveLength(0)
   })
 })

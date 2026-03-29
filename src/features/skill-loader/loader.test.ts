@@ -1,5 +1,5 @@
 import { describe, it, expect, mock, beforeEach, afterEach, afterAll, spyOn } from "bun:test"
-import { join } from "path"
+import { join, resolve } from "path"
 import type { LoadedSkill } from "./types"
 
 // Mock discovery module before importing loader
@@ -245,5 +245,126 @@ describe("loadSkills", () => {
     })
     expect(result.skills).toHaveLength(1)
     expect(result.skills[0].name).toBe("api-skill")
+  })
+
+  // --- Custom directory tests ---
+
+  it("scans custom skill directories when provided (relative paths)", async () => {
+    const expectedDir = resolve(DIRECTORY, "custom/skills")
+    const customSkill: LoadedSkill = {
+      name: "custom-skill",
+      description: "From custom dir",
+      content: "Custom content",
+      scope: "project",
+      path: join(expectedDir, "custom-skill/SKILL.md"),
+    }
+    scanDirectorySpy.mockImplementation((opts: { directory: string; scope: string }) => {
+      if (opts.directory === expectedDir) return [customSkill]
+      return []
+    })
+    const result = await loadSkills({
+      serverUrl: SERVER_URL,
+      directory: DIRECTORY,
+      customDirs: ["custom/skills"],
+    })
+    expect(result.skills).toHaveLength(1)
+    expect(result.skills[0].name).toBe("custom-skill")
+  })
+
+  it("scans custom dir in addition to standard locations (3 total scanDirectory calls)", async () => {
+    const expectedDir = resolve(DIRECTORY, "custom/skills")
+    await loadSkills({
+      serverUrl: SERVER_URL,
+      directory: DIRECTORY,
+      customDirs: ["custom/skills"],
+    })
+    // project + custom + user = 3 calls
+    expect(scanDirectorySpy).toHaveBeenCalledTimes(3)
+    const calls = scanDirectorySpy.mock.calls.map((c) => (c[0] as { directory: string; scope: string }))
+    expect(calls.some((c) => c.directory === expectedDir && c.scope === "project")).toBe(true)
+  })
+
+  it("merges custom directory skills with standard locations", async () => {
+    const expectedDir = resolve(DIRECTORY, "custom/skills")
+    const customSkill: LoadedSkill = {
+      name: "custom-skill",
+      description: "Custom",
+      content: "Custom content",
+      scope: "project",
+      path: join(expectedDir, "SKILL.md"),
+    }
+    const projectSkill: LoadedSkill = {
+      name: "project-skill",
+      description: "Project",
+      content: "Project content",
+      scope: "project",
+      path: `${DIRECTORY}/.opencode/skills/project-skill/SKILL.md`,
+    }
+    scanDirectorySpy.mockImplementation((opts: { directory: string; scope: string }) => {
+      if (opts.directory === expectedDir) return [customSkill]
+      if (opts.directory.includes(".opencode")) return [projectSkill]
+      return []
+    })
+    const result = await loadSkills({
+      serverUrl: SERVER_URL,
+      directory: DIRECTORY,
+      customDirs: ["custom/skills"],
+    })
+    expect(result.skills).toHaveLength(2)
+    expect(result.skills.find((s) => s.name === "custom-skill")).toBeDefined()
+    expect(result.skills.find((s) => s.name === "project-skill")).toBeDefined()
+  })
+
+  it("resolves relative custom directories against project root", async () => {
+    await loadSkills({
+      serverUrl: SERVER_URL,
+      directory: DIRECTORY,
+      customDirs: ["relative/skills"],
+    })
+    const expectedDir = resolve(DIRECTORY, "relative/skills")
+    const calls = scanDirectorySpy.mock.calls.map((c) => (c[0] as { directory: string }))
+    expect(calls.some((c) => c.directory === expectedDir)).toBe(true)
+  })
+
+  it("works with empty customDirs array (same behavior as no customDirs)", async () => {
+    await loadSkills({ serverUrl: SERVER_URL, directory: DIRECTORY, customDirs: [] })
+    // Still just project + user = 2 calls
+    expect(scanDirectorySpy).toHaveBeenCalledTimes(2)
+  })
+
+  it("existing behavior unchanged when customDirs not provided", async () => {
+    await loadSkills({ serverUrl: SERVER_URL, directory: DIRECTORY })
+    expect(scanDirectorySpy).toHaveBeenCalledTimes(2)
+  })
+
+  it("rejects absolute paths in customDirs (path traversal protection)", async () => {
+    const customSkill: LoadedSkill = {
+      name: "dangerous-skill",
+      description: "Should not load",
+      content: "Dangerous content",
+      scope: "project",
+      path: "/etc/skills/SKILL.md",
+    }
+    scanDirectorySpy.mockImplementation((opts: { directory: string; scope: string }) => {
+      if (opts.directory === "/etc/skills") return [customSkill]
+      return []
+    })
+    const result = await loadSkills({
+      serverUrl: SERVER_URL,
+      directory: DIRECTORY,
+      customDirs: ["/etc/skills"],
+    })
+    // Absolute path rejected — only standard locations scanned (no custom skills loaded)
+    expect(result.skills.find((s) => s.name === "dangerous-skill")).toBeUndefined()
+  })
+
+  it("rejects paths with .. traversal above project root", async () => {
+    await loadSkills({
+      serverUrl: SERVER_URL,
+      directory: DIRECTORY,
+      customDirs: ["../../../etc"],
+    })
+    // Only project + user = 2 calls (the custom dir is rejected, not scanned)
+    expect(scanDirectorySpy).toHaveBeenCalledTimes(2)
   })
 })

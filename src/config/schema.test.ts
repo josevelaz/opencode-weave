@@ -139,4 +139,85 @@ describe("WeaveConfigSchema", () => {
     })
     expect(result.success).toBe(false)
   })
+
+  it("parses workflows.directories array", () => {
+    const result = WeaveConfigSchema.safeParse({
+      workflows: { directories: ["examples/workflows/github-speckit/workflows"] },
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.workflows?.directories).toEqual([
+        "examples/workflows/github-speckit/workflows",
+      ])
+    }
+  })
+
+  it("parses skill_directories array", () => {
+    const result = WeaveConfigSchema.safeParse({
+      skill_directories: ["examples/workflows/github-speckit/skills"],
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.skill_directories).toEqual([
+        "examples/workflows/github-speckit/skills",
+      ])
+    }
+  })
+
+  it("parses both workflows.directories and skill_directories together", () => {
+    const result = WeaveConfigSchema.safeParse({
+      workflows: { directories: ["custom/workflows"] },
+      skill_directories: ["custom/skills"],
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.workflows?.directories).toEqual(["custom/workflows"])
+      expect(result.data.skill_directories).toEqual(["custom/skills"])
+    }
+  })
+
+  it("parses empty object — workflows.directories and skill_directories are optional", () => {
+    const result = WeaveConfigSchema.safeParse({})
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.workflows?.directories).toBeUndefined()
+      expect(result.data.skill_directories).toBeUndefined()
+    }
+  })
+
+  it("rejects absolute paths in workflows.directories", () => {
+    const result = WeaveConfigSchema.safeParse({
+      workflows: { directories: ["/etc/shadow"] },
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it("rejects paths with .. traversal in workflows.directories", () => {
+    const result = WeaveConfigSchema.safeParse({
+      workflows: { directories: ["../../outside"] },
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it("rejects absolute paths in skill_directories", () => {
+    const result = WeaveConfigSchema.safeParse({
+      skill_directories: ["/usr/local/malicious"],
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it("rejects paths with .. traversal in skill_directories", () => {
+    const result = WeaveConfigSchema.safeParse({
+      skill_directories: ["subdir/../../outside"],
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it("accepts valid relative paths in directories config", () => {
+    const result = WeaveConfigSchema.safeParse({
+      workflows: { directories: ["examples/workflows/speckit/workflows"] },
+      skill_directories: ["examples/workflows/speckit/skills"],
+    })
+    expect(result.success).toBe(true)
+  })
 })

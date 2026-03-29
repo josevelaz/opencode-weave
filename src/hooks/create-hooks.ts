@@ -23,6 +23,8 @@ export function createHooks(args: {
 }) {
   const { pluginConfig, isHookEnabled, directory, analyticsEnabled = false } = args
 
+  const workflowDirs = pluginConfig.workflows?.directories
+
   const writeGuardState = createWriteGuardState()
   const writeGuard = createWriteGuard(writeGuardState)
 
@@ -63,12 +65,12 @@ export function createHooks(args: {
 
     workflowStart: isHookEnabled("workflow")
       ? (promptText: string, sessionId: string) =>
-          handleRunWorkflow({ promptText, sessionId, directory })
+          handleRunWorkflow({ promptText, sessionId, directory, workflowDirs })
       : null,
 
     workflowContinuation: isHookEnabled("workflow")
       ? (sessionId: string, lastAssistantMessage?: string, lastUserMessage?: string) =>
-          checkWorkflowContinuation({ sessionId, directory, lastAssistantMessage, lastUserMessage })
+          checkWorkflowContinuation({ sessionId, directory, lastAssistantMessage, lastUserMessage, workflowDirs })
       : null,
 
     workflowCommand: isHookEnabled("workflow")

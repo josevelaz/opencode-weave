@@ -23,6 +23,7 @@ export async function createTools(options: {
     serverUrl: ctx.serverUrl,
     directory: ctx.directory,
     disabledSkills: pluginConfig.disabled_skills ?? [],
+    customDirs: pluginConfig.skill_directories,
   })
 
   const resolveSkillsFn = createSkillResolver(skillResult)

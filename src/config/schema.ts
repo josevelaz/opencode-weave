@@ -1,4 +1,15 @@
 import { z } from "zod"
+import { isAbsolute } from "path"
+
+/**
+ * Zod schema for a safe relative directory path.
+ * Rejects absolute paths and paths containing `..` traversal segments.
+ * This is defense-in-depth — runtime resolution in resolveSafePath also sandboxes.
+ */
+const SafeRelativePathSchema = z.string().refine(
+  (p) => !isAbsolute(p) && !p.split(/[/\\]/).includes(".."),
+  { message: "Directory paths must be relative and must not contain '..' segments" },
+)
 
 export const AgentOverrideConfigSchema = z.object({
   model: z.string().optional(),
@@ -109,6 +120,8 @@ export const AnalyticsConfigSchema = z.object({
 
 export const WorkflowConfigSchema = z.object({
   disabled_workflows: z.array(z.string()).optional(),
+  /** Additional directories to scan for workflow definitions (alongside .opencode/workflows/) */
+  directories: z.array(SafeRelativePathSchema).optional(),
 })
 
 export const WeaveConfigSchema = z.object({
@@ -120,6 +133,8 @@ export const WeaveConfigSchema = z.object({
   disabled_tools: z.array(z.string()).optional(),
   disabled_agents: z.array(z.string()).optional(),
   disabled_skills: z.array(z.string()).optional(),
+  /** Additional directories to scan for skills (alongside .opencode/skills/) */
+  skill_directories: z.array(SafeRelativePathSchema).optional(),
   background: BackgroundConfigSchema.optional(),
   analytics: AnalyticsConfigSchema.optional(),
   tmux: TmuxConfigSchema.optional(),
