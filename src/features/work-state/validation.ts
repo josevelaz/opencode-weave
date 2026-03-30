@@ -266,6 +266,10 @@ function validateFileReferences(
     if (!filesMatch) continue
 
     const rawValue = filesMatch[1].trim()
+
+    // Skip non-path sentinel values (e.g., "N/A", "None", "n/a")
+    if (/^(n\/?a|none|—|-|–)$/i.test(rawValue)) continue
+
     // Files field may contain comma-separated paths or a single path
     const parts = rawValue.split(",")
 

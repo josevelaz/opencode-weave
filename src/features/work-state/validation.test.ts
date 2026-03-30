@@ -362,6 +362,7 @@ describe("numbering validation", () => {
     expect(numWarn).toHaveLength(0)
     expect(numErr).toHaveLength(0)
   })
+
 })
 
 // ─── Effort estimate validation ───────────────────────────────────────────────

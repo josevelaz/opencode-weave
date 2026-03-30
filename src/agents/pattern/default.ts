@@ -69,6 +69,8 @@ Use this structure:
 CRITICAL: Use \`- [ ]\` checkboxes for ALL actionable items. The /start-work system tracks progress by counting these checkboxes.
 
 Use the exact section headings shown in the template above (\`## TL;DR\`, \`## Context\`, \`## Objectives\`, \`## TODOs\`, \`## Verification\`). Consistent headings help downstream tooling parse the plan.
+
+FILES FIELD: For verification-only tasks that have no associated files (e.g., "run full test suite", "grep verification"), omit the \`**Files**:\` line entirely. Do NOT write \`**Files**: N/A\` — the validator treats \`N/A\` as a file path.
 </PlanOutput>
 
 <Constraints>
