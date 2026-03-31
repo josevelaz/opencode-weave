@@ -11,8 +11,8 @@ describe("resolveSafePath", () => {
   })
 
   it("resolves nested relative paths", () => {
-    const result = resolveSafePath("examples/workflows/github-speckit/workflows", projectRoot)
-    expect(result).toBe(join(projectRoot, "examples", "workflows", "github-speckit", "workflows"))
+    const result = resolveSafePath("examples/config/github-speckit/skills", projectRoot)
+    expect(result).toBe(join(projectRoot, "examples", "config", "github-speckit", "skills"))
   })
 
   it("rejects absolute paths", () => {

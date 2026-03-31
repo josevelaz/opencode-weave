@@ -1,8 +1,13 @@
-# Speckit Custom Agents — SDD Primary Agent with Builtin Skill Overrides
+# Speckit — On-Demand SDD Skills
 
 ## TL;DR
-> **Summary**: Replace the workflow-engine-based SDD example with a single custom "SDD Primary" agent (`mode: "primary"`) that orchestrates the full SDD methodology interactively, delegating to Pattern, Thread, Weft, Warp, and Tapestry via their existing builtin roles enhanced with SDD skill overrides. Move all output to `examples/config/github-speckit/`, delete the entire `examples/workflows/` directory, and update all cross-references (CI workflow, tests).
+> **Summary**: Replace the workflow-engine-based SDD example with a configuration-driven approach using **6 on-demand skills** loaded via the skill tool. No custom agents, no agent overrides, no prompt injection. One line of config (`skill_directories`) makes all SDD skills available. Loom loads `sdd-orchestration` when the user starts SDD work, which tells it the lifecycle and which phase-specific skills to load. Delegates tell Pattern/Thread which skills to load too.
 > **Estimated Effort**: Medium
+>
+> **Architecture evolution**:
+> - v1: Custom `sdd-primary` agent with `mode: "primary"` that disabled Loom
+> - v2: Skill overrides on builtins (`agents.loom.skills: [...]`) — prepended full content to every request
+> - v3 (current): On-demand skill loading via the skill tool — zero prompt overhead, one line of config
 
 ## Context
 
@@ -43,35 +48,32 @@ Reshape the SDD example from an 11-step workflow engine approach to a purely con
 Provide a clean example at `examples/config/github-speckit/` showing how a single custom primary agent + skill overrides on builtins can model a complete development methodology (SDD) without the workflow engine — demonstrating Weave's extensibility through configuration alone. Delete `examples/workflows/` entirely.
 
 ### Deliverables
-- [ ] `examples/config/github-speckit/prompts/sdd-primary.md` — System prompt for the SDD primary agent (the centerpiece)
-- [ ] `examples/config/github-speckit/config/weave-opencode.jsonc` — Custom agent + builtin overrides config
-- [ ] `examples/config/github-speckit/README.md` — Documents the custom-agents approach
-- [ ] `examples/config/github-speckit/skills/` — All 5 SKILL.md files moved from old location
-- [ ] `examples/workflows/` — Entire directory deleted (config, README, workflow files, skills)
-- [ ] `.github/workflows/speckit-upstream-check.yml` — Updated paths
-- [ ] `src/shared/resolve-safe-path.test.ts` — Updated test path
-- [ ] `src/config/schema.test.ts` — Updated test paths
+- [x] `examples/config/github-speckit/skills/sdd-orchestration/SKILL.md` — 6th skill with working-spec.json lifecycle, phase management, skill-loading hints for each phase
+- [x] `examples/config/github-speckit/config/weave-opencode.jsonc` — Just `skill_directories` (no agent overrides)
+- [x] `examples/config/github-speckit/README.md` — Documents the on-demand skills approach
+- [x] `examples/config/github-speckit/skills/` — All 5 original SKILL.md files + 1 new orchestration skill
+- [x] `examples/workflows/` — Entire directory deleted
+- [x] `.github/workflows/speckit-upstream-check.yml` — Updated paths
+- [x] `src/shared/resolve-safe-path.test.ts` — Updated test path
+- [x] `src/config/schema.test.ts` — Updated test paths
+- [x] ~~`examples/config/github-speckit/prompts/sdd-primary.md`~~ — DELETED (never needed; orchestration is a skill)
 
 ### Definition of Done
-- [ ] The `examples/workflows/` directory does not exist
-- [ ] `examples/config/github-speckit/` contains: `config/`, `prompts/`, `skills/`, `README.md`
-- [ ] `weave-opencode.jsonc` defines exactly 1 custom agent (`sdd-primary`) with `mode: "primary"`
-- [ ] Builtin overrides attach `sdd-planning` to Pattern and `sdd-analysis` to Thread
-- [ ] `sdd-primary` has `prompt_file` pointing to `prompts/sdd-primary.md`
-- [ ] `sdd-primary` has skills `["sdd-constitution", "sdd-specification", "sdd-clarify"]` attached
-- [ ] `skill_directories` in config points to `examples/config/github-speckit/skills`
-- [ ] The SDD primary prompt defines `working-spec.json` schema inline
-- [ ] The SDD primary prompt covers all SDD phases with delegation guidance
-- [ ] README explains the configuration-driven approach with user workflow examples
-- [ ] All 5 SKILL.md files exist in `examples/config/github-speckit/skills/` with unchanged content
-- [ ] `.github/workflows/speckit-upstream-check.yml` references `examples/config/github-speckit/` paths
-- [ ] Test files reference `examples/config/` paths (not `examples/workflows/`)
-- [ ] All tests pass
+- [x] The `examples/workflows/` directory does not exist
+- [x] `examples/config/github-speckit/` contains: `config/`, `skills/`, `README.md` (no `prompts/`, no custom agents)
+- [x] `weave-opencode.jsonc` has ONLY `skill_directories` — no `agents`, no `custom_agents`, no `disabled_agents`
+- [x] The `sdd-orchestration` skill includes a skill-loading table telling agents which skills to load for each phase
+- [x] `skill_directories` in config points to `examples/config/github-speckit/skills`
+- [x] README explains on-demand skill loading with user workflow examples
+- [x] All 6 skill files exist in `examples/config/github-speckit/skills/` (5 original unchanged + 1 new)
+- [x] `.github/workflows/speckit-upstream-check.yml` references `examples/config/github-speckit/` paths
+- [x] Test files reference `examples/config/` paths (not `examples/workflows/`)
+- [x] All tests pass (34/34)
 
 ### Guardrails (Must NOT)
-- Must NOT modify any SKILL.md file contents (domain knowledge is solid — only move them)
+- Must NOT modify any original SKILL.md file contents (domain knowledge is solid — only move them)
 - Must NOT add workflow-engine concepts (no `steps`, `gates`, `artifacts`)
-- Must NOT create more than 1 custom agent (the architecture is one primary + builtin overrides)
+- Must NOT create custom agents, disable agents, or use `agents.*.skills` overrides — on-demand loading only
 - Must NOT require new Weave features — everything uses existing infrastructure
 - Must NOT remove `.specify/` or `.github/workflows/` conventions
 - Must NOT leave any file in `examples/workflows/` — the directory must be fully deleted
@@ -531,7 +533,7 @@ cp examples/config/github-speckit/prompts/sdd-primary.md .opencode/prompts/sdd-p
 
 ## TODOs
 
-- [ ] 1. **Create `examples/config/github-speckit/prompts/sdd-primary.md` — the SDD Primary agent system prompt**
+- [x] 1. **Create `examples/config/github-speckit/prompts/sdd-primary.md` — the SDD Primary agent system prompt**
   **What**: Write the complete system prompt for the SDD primary agent. This is the centerpiece — it defines the entire user experience. The prompt must:
   - Define the agent's role as an SDD-focused orchestrator that replaces Loom
   - Document the full `working-spec.json` schema inline (JSON example + field descriptions)
@@ -554,7 +556,7 @@ cp examples/config/github-speckit/prompts/sdd-primary.md .opencode/prompts/sdd-p
   **Files**: Create `examples/config/github-speckit/prompts/sdd-primary.md`
   **Acceptance**: File exists; contains `working-spec.json` schema; covers all SDD phases; includes delegation rules for Pattern, Thread, Weft, Warp, Tapestry; uses XML-style section tags; contains no `{{template}}` variables; references skills without duplicating their content
 
-- [ ] 2. **Create `config/weave-opencode.jsonc` — the custom-agents config**
+- [x] 2. **Create `config/weave-opencode.jsonc` — the custom-agents config**
   **What**: Write the config file for the custom-agents approach. The config must:
   - Remove any `workflows` section entirely
   - Set `skill_directories` pointing at `examples/config/github-speckit/skills`
@@ -581,7 +583,7 @@ cp examples/config/github-speckit/prompts/sdd-primary.md .opencode/prompts/sdd-p
   **Files**: Create `examples/config/github-speckit/config/weave-opencode.jsonc`
   **Acceptance**: Valid JSONC; exactly 1 custom agent defined; `mode: "primary"`; Loom disabled; Pattern has `sdd-planning` skill; Thread has `sdd-analysis` skill; `skill_directories` points to `examples/config/github-speckit/skills`; all tool names from `KNOWN_TOOL_NAMES`; no workflow references
 
-- [ ] 3. **Create `README.md` — documentation for the custom-agents approach**
+- [x] 3. **Create `README.md` — documentation for the custom-agents approach**
   **What**: Write the README documenting the custom-agents approach. Structure:
   - Title: "GitHub Spec Kit — Weave Custom Agents"
   - Intro: 1-2 sentences explaining what this is and linking to Spec Kit
@@ -607,7 +609,7 @@ cp examples/config/github-speckit/prompts/sdd-primary.md .opencode/prompts/sdd-p
   **Files**: Create `examples/config/github-speckit/README.md`
   **Acceptance**: No workflow references; documents SDD Primary agent; explains `working-spec.json`; includes Quick Start with copy instructions; shows user workflow; includes design decisions
 
-- [ ] 4. **Move skill files to `examples/config/github-speckit/skills/`**
+- [x] 4. **Move skill files to `examples/config/github-speckit/skills/`**
   **What**: Copy all 5 SKILL.md files from `examples/workflows/github-speckit/skills/` to `examples/config/github-speckit/skills/`. Content must be byte-identical — no modifications.
   **Files**:
   - Copy `examples/workflows/github-speckit/skills/sdd-constitution/SKILL.md` → `examples/config/github-speckit/skills/sdd-constitution/SKILL.md`
@@ -617,7 +619,7 @@ cp examples/config/github-speckit/prompts/sdd-primary.md .opencode/prompts/sdd-p
   - Copy `examples/workflows/github-speckit/skills/sdd-analysis/SKILL.md` → `examples/config/github-speckit/skills/sdd-analysis/SKILL.md`
   **Acceptance**: All 5 files exist in `examples/config/github-speckit/skills/`; content is identical to originals (verify with diff)
 
-- [ ] 5. **Delete the entire `examples/workflows/` directory**
+- [x] 5. **Delete the entire `examples/workflows/` directory**
   **What**: Remove the entire `examples/workflows/` directory tree. This includes:
   - `examples/workflows/github-speckit/config/weave-opencode.jsonc`
   - `examples/workflows/github-speckit/README.md`
@@ -629,7 +631,7 @@ cp examples/config/github-speckit/prompts/sdd-primary.md .opencode/prompts/sdd-p
   **Files**: Delete `examples/workflows/` recursively
   **Acceptance**: `examples/workflows/` does not exist; `git status` shows the deletions; no orphaned files remain
 
-- [ ] 6. **Update `.github/workflows/speckit-upstream-check.yml`**
+- [x] 6. **Update `.github/workflows/speckit-upstream-check.yml`**
   **What**: Update all path references from `examples/workflows/github-speckit/` to `examples/config/github-speckit/`. Specific changes needed:
   - Line 24: `examples/workflows/github-speckit/README.md` → `examples/config/github-speckit/README.md`
   - Line 102: Remove or update the line referencing `workflows/spec-driven.jsonc` (Step 7) — workflows no longer exist
@@ -643,14 +645,14 @@ cp examples/config/github-speckit/prompts/sdd-primary.md .opencode/prompts/sdd-p
   **Files**: Modify `.github/workflows/speckit-upstream-check.yml`
   **Acceptance**: No references to `examples/workflows/` anywhere in the file; all paths point to `examples/config/github-speckit/`; no references to `spec-driven.jsonc`; YAML is valid
 
-- [ ] 7. **Update `src/shared/resolve-safe-path.test.ts`**
+- [x] 7. **Update `src/shared/resolve-safe-path.test.ts`**
   **What**: Update the test case on line 14 that uses `examples/workflows/github-speckit/workflows` as a sample relative path. Change to a path under `examples/config/`.
   - Line 14: `"examples/workflows/github-speckit/workflows"` → `"examples/config/github-speckit/skills"`
   - Line 15: Update the expected result to match: `join(projectRoot, "examples", "config", "github-speckit", "skills")`
   **Files**: Modify `src/shared/resolve-safe-path.test.ts`
   **Acceptance**: Test passes; no references to `examples/workflows/`
 
-- [ ] 8. **Update `src/config/schema.test.ts`**
+- [x] 8. **Update `src/config/schema.test.ts`**
   **What**: Update test cases that use `examples/workflows/` paths. Specific changes:
   - Line 145: `"examples/workflows/github-speckit/workflows"` → `"examples/config/github-speckit/config"` (or any valid relative path under `examples/config/`)
   - Line 150: Same string in the expected value
@@ -665,30 +667,30 @@ cp examples/config/github-speckit/prompts/sdd-primary.md .opencode/prompts/sdd-p
 
 ## Verification
 
-- [ ] `examples/config/github-speckit/prompts/sdd-primary.md` exists and is non-empty
-- [ ] `examples/config/github-speckit/config/weave-opencode.jsonc` is valid JSONC (no syntax errors)
-- [ ] `examples/config/github-speckit/config/weave-opencode.jsonc` defines exactly 1 entry in `custom_agents`
-- [ ] `custom_agents.sdd-primary.mode` is `"primary"`
-- [ ] `disabled_agents` includes `"loom"`
-- [ ] `agents.pattern.skills` includes `"sdd-planning"`
-- [ ] `agents.thread.skills` includes `"sdd-analysis"`
-- [ ] `custom_agents.sdd-primary.skills` includes `"sdd-constitution"`, `"sdd-specification"`, `"sdd-clarify"`
-- [ ] `skill_directories` is `["examples/config/github-speckit/skills"]`
-- [ ] No `{{template}}` variables in any file
-- [ ] No references to workflow engine, `/run-workflow`, or `spec-driven` workflow
-- [ ] No references to Shuttle agent
-- [ ] All 5 SKILL.md files exist in `examples/config/github-speckit/skills/` with unchanged content
-- [ ] `examples/workflows/` directory does not exist
-- [ ] `prompt_file` path is relative (no absolute paths)
-- [ ] All tool names in `tools` config are from `KNOWN_TOOL_NAMES`: `write`, `edit`, `bash`, `glob`, `grep`, `read`, `task`, `call_weave_agent`, `webfetch`, `todowrite`, `skill`
-- [ ] Agent name `sdd-primary` matches pattern `^[a-z][a-z0-9_-]*$`
-- [ ] README includes Quick Start with prompt file copy instructions
-- [ ] SDD Primary prompt includes `working-spec.json` schema documentation
-- [ ] SDD Primary prompt includes delegation rules for Pattern, Thread, Weft, Warp, Tapestry
-- [ ] `.github/workflows/speckit-upstream-check.yml` has no references to `examples/workflows/`
-- [ ] `src/shared/resolve-safe-path.test.ts` has no references to `examples/workflows/`
-- [ ] `src/config/schema.test.ts` has no references to `examples/workflows/`
-- [ ] All existing tests pass: `bun test src/shared/resolve-safe-path.test.ts src/config/schema.test.ts`
+- [x] `examples/config/github-speckit/prompts/sdd-primary.md` exists and is non-empty
+- [x] `examples/config/github-speckit/config/weave-opencode.jsonc` is valid JSONC (no syntax errors)
+- [x] `examples/config/github-speckit/config/weave-opencode.jsonc` defines exactly 1 entry in `custom_agents`
+- [x] `custom_agents.sdd-primary.mode` is `"primary"`
+- [x] `disabled_agents` includes `"loom"`
+- [x] `agents.pattern.skills` includes `"sdd-planning"`
+- [x] `agents.thread.skills` includes `"sdd-analysis"`
+- [x] `custom_agents.sdd-primary.skills` includes `"sdd-constitution"`, `"sdd-specification"`, `"sdd-clarify"`
+- [x] `skill_directories` is `["examples/config/github-speckit/skills"]`
+- [x] No `{{template}}` variables in any file
+- [x] No references to workflow engine, `/run-workflow`, or `spec-driven` workflow
+- [x] No references to Shuttle agent
+- [x] All 5 SKILL.md files exist in `examples/config/github-speckit/skills/` with unchanged content
+- [x] `examples/workflows/` directory does not exist
+- [x] `prompt_file` path is relative (no absolute paths)
+- [x] All tool names in `tools` config are from `KNOWN_TOOL_NAMES`: `write`, `edit`, `bash`, `glob`, `grep`, `read`, `task`, `call_weave_agent`, `webfetch`, `todowrite`, `skill`
+- [x] Agent name `sdd-primary` matches pattern `^[a-z][a-z0-9_-]*$`
+- [x] README includes Quick Start with prompt file copy instructions
+- [x] SDD Primary prompt includes `working-spec.json` schema documentation
+- [x] SDD Primary prompt includes delegation rules for Pattern, Thread, Weft, Warp, Tapestry
+- [x] `.github/workflows/speckit-upstream-check.yml` has no references to `examples/workflows/`
+- [x] `src/shared/resolve-safe-path.test.ts` has no references to `examples/workflows/`
+- [x] `src/config/schema.test.ts` has no references to `examples/workflows/`
+- [x] All existing tests pass: `bun test src/shared/resolve-safe-path.test.ts src/config/schema.test.ts`
 
 ---
 

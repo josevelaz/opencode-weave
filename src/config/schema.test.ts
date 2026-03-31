@@ -142,24 +142,24 @@ describe("WeaveConfigSchema", () => {
 
   it("parses workflows.directories array", () => {
     const result = WeaveConfigSchema.safeParse({
-      workflows: { directories: ["examples/workflows/github-speckit/workflows"] },
+      workflows: { directories: ["examples/config/github-speckit/config"] },
     })
     expect(result.success).toBe(true)
     if (result.success) {
       expect(result.data.workflows?.directories).toEqual([
-        "examples/workflows/github-speckit/workflows",
+        "examples/config/github-speckit/config",
       ])
     }
   })
 
   it("parses skill_directories array", () => {
     const result = WeaveConfigSchema.safeParse({
-      skill_directories: ["examples/workflows/github-speckit/skills"],
+      skill_directories: ["examples/config/github-speckit/skills"],
     })
     expect(result.success).toBe(true)
     if (result.success) {
       expect(result.data.skill_directories).toEqual([
-        "examples/workflows/github-speckit/skills",
+        "examples/config/github-speckit/skills",
       ])
     }
   })
@@ -215,8 +215,8 @@ describe("WeaveConfigSchema", () => {
 
   it("accepts valid relative paths in directories config", () => {
     const result = WeaveConfigSchema.safeParse({
-      workflows: { directories: ["examples/workflows/speckit/workflows"] },
-      skill_directories: ["examples/workflows/speckit/skills"],
+      workflows: { directories: ["examples/config/speckit/workflows"] },
+      skill_directories: ["examples/config/speckit/skills"],
     })
     expect(result.success).toBe(true)
   })

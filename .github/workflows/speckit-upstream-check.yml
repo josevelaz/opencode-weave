@@ -21,7 +21,7 @@ jobs:
         id: pinned
         run: |
           # Extract the pinned commit SHA from the README (format: @ `abc1234`)
-          PINNED=$(grep -oP "(?<=@ \`)[a-f0-9]+" examples/workflows/github-speckit/README.md | head -1 || echo "unknown")
+          PINNED=$(grep -oP "(?<=@ \`)[a-f0-9]+" examples/config/github-speckit/README.md | head -1 || echo "unknown")
           echo "sha=$PINNED" >> "$GITHUB_OUTPUT"
           echo "Pinned SHA: $PINNED"
 
@@ -94,21 +94,18 @@ jobs:
 
           ### Files to check (map to our skills)
 
-          - `.github/prompts/speckit.constitution.prompt.md` → `skills/sdd-constitution/SKILL.md`
-          - `.github/prompts/speckit.specify.prompt.md` → `skills/sdd-specification/SKILL.md`
-          - `.github/prompts/speckit.clarify.prompt.md` → `skills/sdd-clarify/SKILL.md`
-          - `.github/prompts/speckit.plan.prompt.md` → `skills/sdd-planning/SKILL.md`
-          - `.github/prompts/speckit.analyze.prompt.md` → `skills/sdd-analysis/SKILL.md`
-          - `.github/prompts/speckit.tasks.prompt.md` → `workflows/spec-driven.jsonc` (Step 7)
-          - `.github/prompts/speckit.implement.prompt.md` → `workflows/spec-driven.jsonc` (Step 9)
+          - `.github/prompts/speckit.constitution.prompt.md` → `examples/config/github-speckit/skills/sdd-constitution/SKILL.md`
+          - `.github/prompts/speckit.specify.prompt.md` → `examples/config/github-speckit/skills/sdd-specification/SKILL.md`
+          - `.github/prompts/speckit.clarify.prompt.md` → `examples/config/github-speckit/skills/sdd-clarify/SKILL.md`
+          - `.github/prompts/speckit.plan.prompt.md` → `examples/config/github-speckit/skills/sdd-planning/SKILL.md`
+          - `.github/prompts/speckit.analyze.prompt.md` → `examples/config/github-speckit/skills/sdd-analysis/SKILL.md`
 
           ### Action required
 
           1. Review the diff linked above
-          2. Update affected skills in `examples/workflows/github-speckit/skills/`
-          3. Update affected workflow steps in `examples/workflows/github-speckit/workflows/spec-driven.jsonc`
-          4. Update the pinned SHA in `examples/workflows/github-speckit/README.md` to the new SHA
-          5. Close this issue
+          2. Update affected skills in `examples/config/github-speckit/skills/`
+          3. Update the pinned SHA in `examples/config/github-speckit/README.md` to the new SHA
+          4. Close this issue
 
           > This issue was created automatically by the `speckit-upstream-check` workflow.
           BODY_EOF
@@ -122,6 +119,6 @@ jobs:
             /tmp/issue-body.md
 
           gh issue create \
-            --title "Spec Kit upstream updated — review examples/workflows/github-speckit/" \
+            --title "Spec Kit upstream updated — review examples/config/github-speckit/" \
             --label "upstream-sync" \
             --body-file /tmp/issue-body.md
