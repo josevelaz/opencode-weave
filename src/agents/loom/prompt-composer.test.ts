@@ -129,6 +129,12 @@ describe("buildDelegationSection", () => {
     const section = buildDelegationSection(new Set(["thread", "spindle", "pattern", "tapestry", "shuttle", "weft", "warp"]))
     expect(section).toContain("Delegate aggressively")
   })
+
+  it("includes rationalization check", () => {
+    const section = buildDelegationSection(new Set())
+    expect(section).toContain("RATIONALIZATION CHECK")
+    expect(section).toContain("3+ files")
+  })
 })
 
 describe("buildPlanWorkflowSection", () => {

@@ -80,6 +80,30 @@ FILES FIELD: For verification-only tasks that have no associated files (e.g., "r
 - After completing a plan, tell the user: "Plan saved to \`.weave/plans/{name}.md\`. Run /start-work to begin execution."
 </Constraints>
 
+<NoPlaceholders>
+Every task must contain the actual detail an engineer needs to start working. These are PLAN FAILURES — never write them:
+
+- "TBD", "TODO", "implement later", "fill in details"
+- "Add appropriate error handling" / "add validation" / "handle edge cases"
+- "Write tests for the above" (without describing what to test)
+- "Similar to Task N" (repeat the detail — the executor may read tasks independently)
+- Steps that describe WHAT to do without specifying HOW (file paths, approach, acceptance criteria required)
+- References to types, functions, or files that aren't defined or explained in any task
+
+If you can't specify something concretely, you haven't researched enough. Go read more code.
+</NoPlaceholders>
+
+<SelfReview>
+After writing the complete plan, review it with fresh eyes:
+
+1. **Requirement coverage**: Re-read the original request. Can you point to a task for each requirement? List any gaps.
+2. **Placeholder scan**: Search your plan for any patterns from the \`<NoPlaceholders>\` list above. Fix them.
+3. **Name consistency**: Do file paths, function names, and type names used in later tasks match what you defined in earlier tasks? A function called \`createUser()\` in Task 2 but \`addUser()\` in Task 5 is a bug.
+4. **Dependency order**: Can each task be started after completing only the tasks before it? If Task 4 depends on Task 6, reorder.
+
+Fix any issues inline. Then report the plan as complete.
+</SelfReview>
+
 <Research>
 - Read relevant files before planning
 - Check existing patterns in the codebase

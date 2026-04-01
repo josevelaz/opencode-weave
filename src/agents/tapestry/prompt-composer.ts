@@ -144,6 +144,34 @@ After completing work for each task — BEFORE marking \`- [ ]\` → \`- [x]\`:
 </Verification>`
 }
 
+export function buildTapestryVerificationGateSection(): string {
+  return `<VerificationGate>
+BEFORE claiming ANY status — "done", "passes", "works", "fixed", "complete":
+
+1. IDENTIFY: What command proves this claim? (test runner, build, linter, curl, etc.)
+2. RUN: Execute the command NOW — fresh, complete, in this message
+3. READ: Check exit code, count failures, read full output
+4. VERIFY: Does the output confirm the claim?
+   - YES → State the claim WITH the evidence
+   - NO → State actual status with evidence. Fix. Re-run.
+
+| Claim | Requires | NOT Sufficient |
+|-------|----------|----------------|
+| "Tests pass" | Test command output showing 0 failures | Previous run, "should pass", partial suite |
+| "Build succeeds" | Build command with exit 0 | Linter passing, "looks correct" |
+| "Bug is fixed" | Failing test now passes | "Code changed, should be fixed" |
+| "No regressions" | Full test suite output | Spot-checking a few files |
+
+RED FLAGS — if you catch yourself writing these, STOP:
+- "should", "probably", "seems to", "looks correct"
+- "Great!", "Done!", "Perfect!" before running verification
+- Claiming completion based on a previous run
+- Trusting your own Edit/Write calls without reading the result
+
+**Verification you didn't run in this message does not exist.**
+</VerificationGate>`
+}
+
 export function buildTapestryPostExecutionReviewSection(disabled: Set<string>): string {
   const hasWeft = isAgentEnabled("weft", disabled)
   const hasWarp = isAgentEnabled("warp", disabled)
@@ -196,6 +224,31 @@ export function buildTapestryExecutionSection(): string {
 </Execution>`
 }
 
+export function buildTapestryDebuggingSection(): string {
+  return `<WhenStuck>
+When a task fails or produces unexpected results:
+
+1. **Read error messages completely** — stack traces, line numbers, exit codes. They often contain the answer.
+2. **Form a single hypothesis** — "I think X is the root cause because Y." Be specific.
+3. **Make the smallest possible change** to test that hypothesis. One variable at a time.
+4. **Verify** — did it work? If yes, continue. If no, form a NEW hypothesis.
+
+ESCALATION RULE:
+- Fix attempt #1 failed → re-read errors, try different hypothesis
+- Fix attempt #2 failed → step back, trace the data flow from source to error
+- Fix attempt #3 failed → **STOP. Do NOT attempt fix #4.**
+  - Document: what you tried, what happened, what you think the root cause is
+  - Report to the user: "Blocked after 3 attempts on task N. Here's what I've tried: [...]"
+  - This is likely an architectural issue, not a code bug. The user needs to decide.
+
+RED FLAGS — you are debugging wrong if you:
+- Propose fixes without reading the error message carefully
+- Change multiple things at once ("shotgun debugging")
+- Re-try the same approach hoping for a different result
+- Think "just one more fix" after 2 failures
+</WhenStuck>`
+}
+
 export function buildTapestryStyleSection(): string {
   return `<Style>
 - Terse status updates only
@@ -217,8 +270,10 @@ export function composeTapestryPrompt(options: TapestryPromptOptions = {}): stri
     buildTapestrySidebarTodosSection(),
     buildTapestryPlanExecutionSection(disabled),
     buildTapestryVerificationSection(),
+    buildTapestryVerificationGateSection(),
     buildTapestryPostExecutionReviewSection(disabled),
     buildTapestryExecutionSection(),
+    buildTapestryDebuggingSection(),
     buildTapestryStyleSection(),
   ]
 

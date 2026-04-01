@@ -6,8 +6,10 @@ import {
   buildTapestrySidebarTodosSection,
   buildTapestryPlanExecutionSection,
   buildTapestryVerificationSection,
+  buildTapestryVerificationGateSection,
   buildTapestryPostExecutionReviewSection,
   buildTapestryExecutionSection,
+  buildTapestryDebuggingSection,
   buildTapestryStyleSection,
 } from "./prompt-composer"
 
@@ -24,8 +26,10 @@ describe("composeTapestryPrompt", () => {
     expect(prompt).toContain("<SidebarTodos>")
     expect(prompt).toContain("<PlanExecution>")
     expect(prompt).toContain("<Verification>")
+    expect(prompt).toContain("<VerificationGate>")
     expect(prompt).toContain("<PostExecutionReview>")
     expect(prompt).toContain("<Execution>")
+    expect(prompt).toContain("<WhenStuck>")
     expect(prompt).toContain("<Style>")
   })
 
@@ -135,6 +139,32 @@ describe("individual tapestry section builders", () => {
 
   it("buildTapestryExecutionSection contains top to bottom", () => {
     expect(buildTapestryExecutionSection()).toContain("top to bottom")
+  })
+
+  it("buildTapestryVerificationGateSection contains claims table", () => {
+    const section = buildTapestryVerificationGateSection()
+    expect(section).toContain("Tests pass")
+    expect(section).toContain("Build succeeds")
+    expect(section).toContain("NOT Sufficient")
+  })
+
+  it("buildTapestryVerificationGateSection contains red flags", () => {
+    const section = buildTapestryVerificationGateSection()
+    expect(section).toContain("RED FLAGS")
+    expect(section).toContain("should")
+    expect(section).toContain("probably")
+  })
+
+  it("buildTapestryDebuggingSection contains escalation rule", () => {
+    const section = buildTapestryDebuggingSection()
+    expect(section).toContain("ESCALATION RULE")
+    expect(section).toContain("STOP. Do NOT attempt fix #4")
+  })
+
+  it("buildTapestryDebuggingSection contains red flags for bad debugging", () => {
+    const section = buildTapestryDebuggingSection()
+    expect(section).toContain("shotgun debugging")
+    expect(section).toContain("single hypothesis")
   })
 
   it("buildTapestryStyleSection contains Dense > verbose", () => {
