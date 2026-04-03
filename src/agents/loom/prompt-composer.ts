@@ -92,10 +92,6 @@ export function buildDelegationSection(disabled: Set<string>): string {
   }
   lines.push("- Delegate aggressively to keep your context lean")
 
-  // Rationalization guard
-  lines.push("")
-  lines.push("RATIONALIZATION CHECK: If you catch yourself thinking \"this is just a quick fix\" but it touches 3+ files — delegate. Quick fixes that grow are the most common failure mode. When in doubt, delegate.")
-
   return `<Delegation>
 ${lines.join("\n")}
 </Delegation>`
