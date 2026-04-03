@@ -14,6 +14,7 @@ import type { CategoriesConfig, AgentOverrideConfig } from "../config/schema"
 import type { ResolveSkillsFn } from "./agent-builder"
 import type { ProjectFingerprint } from "../features/analytics/types"
 import type { AvailableAgent } from "./dynamic-prompt-builder"
+import { debug } from "../shared/log"
 
 export interface CreateBuiltinAgentsOptions {
   disabledAgents?: string[]
@@ -188,7 +189,10 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
   const result: Record<string, AgentConfig> = {}
 
   for (const [name, factory] of Object.entries(AGENT_FACTORIES) as [WeaveAgentName, AgentFactory][]) {
-    if (disabledSet.has(name)) continue
+    if (disabledSet.has(name)) {
+      debug(`Builtin agent "${name}" is disabled — skipping`)
+      continue
+    }
 
     const override = agentOverrides[name]
     const overrideModel = override?.model
@@ -200,6 +204,10 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
       systemDefaultModel,
       overrideModel,
     })
+
+    if (overrideModel) {
+      debug(`Builtin agent "${name}" model overridden via config`, { model: resolvedModel })
+    }
 
     // Use prompt-composer-aware constructors for loom and tapestry
     // so their prompts conditionally omit references to disabled agents

@@ -1,4 +1,5 @@
 import type { AgentMode, WeaveAgentName } from "./types"
+import { debug, warn } from "../shared/log"
 
 export type FallbackEntry = {
   providers: string[]
@@ -91,15 +92,22 @@ export function resolveAgentModel(agentName: string, options: ResolveAgentModelO
   const requirement = AGENT_MODEL_REQUIREMENTS[agentName as WeaveAgentName] as AgentModelRequirement | undefined
 
   // 1. Explicit override always wins
-  if (overrideModel) return overrideModel
+  if (overrideModel) {
+    debug(`Model resolved for "${agentName}"`, { via: "override", model: overrideModel })
+    return overrideModel
+  }
 
   // 2. UI-selected model — only for primary or all agents
   if (uiSelectedModel && (agentMode === "primary" || agentMode === "all")) {
+    debug(`Model resolved for "${agentName}"`, { via: "ui-selection", model: uiSelectedModel, agentMode })
     return uiSelectedModel
   }
 
   // 3. Category default model (only if available)
-  if (categoryModel && availableModels.has(categoryModel)) return categoryModel
+  if (categoryModel && availableModels.has(categoryModel)) {
+    debug(`Model resolved for "${agentName}"`, { via: "category", model: categoryModel })
+    return categoryModel
+  }
 
   // 4. Fallback chain — first available match (built-in or custom)
   const fallbackChain = requirement?.fallbackChain ?? customFallbackChain
@@ -107,25 +115,34 @@ export function resolveAgentModel(agentName: string, options: ResolveAgentModelO
     for (const entry of fallbackChain) {
       for (const provider of entry.providers) {
         const qualified = `${provider}/${entry.model}`
-        if (availableModels.has(qualified)) return qualified
-        if (availableModels.has(entry.model)) return entry.model
+        if (availableModels.has(qualified)) {
+          debug(`Model resolved for "${agentName}"`, { via: "fallback-chain", model: qualified })
+          return qualified
+        }
+        if (availableModels.has(entry.model)) {
+          debug(`Model resolved for "${agentName}"`, { via: "fallback-chain", model: entry.model })
+          return entry.model
+        }
       }
     }
   }
 
   // 5. System default
-  if (systemDefaultModel) return systemDefaultModel
+  if (systemDefaultModel) {
+    debug(`Model resolved for "${agentName}"`, { via: "system-default", model: systemDefaultModel })
+    return systemDefaultModel
+  }
 
   // 6. Best-guess offline: first entry in fallback chain
   if (fallbackChain && fallbackChain.length > 0) {
     const first = fallbackChain[0]
     if (first.providers.length > 0) {
-      return `${first.providers[0]}/${first.model}`
+      const guessed = `${first.providers[0]}/${first.model}`
+      debug(`Model resolved for "${agentName}" (offline best-guess — no available models matched)`, { via: "offline-guess", model: guessed })
+      return guessed
     }
   }
 
-  console.warn(
-    `[weave] No model resolved for agent "${agentName}" — falling back to default github-copilot/claude-opus-4.6`,
-  )
+  warn(`No model resolved for agent "${agentName}" — falling back to default github-copilot/claude-opus-4.6`, { agentName })
   return "github-copilot/claude-opus-4.6"
 }

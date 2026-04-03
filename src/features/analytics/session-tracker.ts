@@ -7,7 +7,7 @@ import type {
   TokenUsage,
 } from "./types"
 import { appendSessionSummary } from "./storage"
-import { log } from "../../shared/log"
+import { debug, warn } from "../../shared/log"
 
 /** Coerce a value to a finite non-negative number, defaulting to 0. */
 function safeNum(v: unknown): number {
@@ -194,7 +194,7 @@ export class SessionTracker {
     // Persist to JSONL — fire-and-forget
     try {
       appendSessionSummary(this.directory, summary)
-      log("[analytics] Session summary persisted", {
+      debug("[analytics] Session summary persisted", {
         sessionId,
         totalToolCalls,
         totalDelegations: session.delegations.length,
@@ -204,7 +204,7 @@ export class SessionTracker {
         } : {}),
       })
     } catch (err) {
-      log("[analytics] Failed to persist session summary (non-fatal)", {
+      warn("[analytics] Failed to persist session summary (non-fatal)", {
         sessionId,
         error: String(err),
       })

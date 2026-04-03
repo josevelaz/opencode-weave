@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test"
+import { describe, it, expect, beforeEach, afterEach, spyOn } from "bun:test"
 import * as fs from "fs"
 import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "fs"
 import { join } from "path"
@@ -10,7 +10,7 @@ import type { ToolsRecord } from "./types"
 import type { WeaveConfig } from "../config/schema"
 import { clearAll } from "../hooks/first-message-variant"
 import { clearAllTokenState, getState as getTokenState } from "../hooks"
-import { getLogFilePath } from "../shared/log"
+import * as sharedLog from "../shared/log"
 import { checkContinuation } from "../hooks/work-continuation"
 import { writeWorkState, createWorkState, readWorkState } from "../features/work-state/storage"
 import { WEAVE_DIR } from "../features/work-state/constants"
@@ -59,13 +59,6 @@ function makeMockConfigHandler(): ConfigHandler & { callCount: number } {
 beforeEach(() => {
   clearAll()
   clearAllTokenState()
-  // Clear log file before each test so delegation log assertions are isolated
-  const logFile = getLogFilePath()
-  try {
-    fs.writeFileSync(logFile, "")
-  } catch {
-    // File may not exist yet — log() will create it
-  }
 })
 
 describe("createPluginInterface", () => {
@@ -988,9 +981,9 @@ describe("createPluginInterface", () => {
 })
 
 describe("delegation logging via tool hooks", () => {
-  const logFile = getLogFilePath()
-
   it("tool.execute.before logs delegation:start with subagent_type when tool is 'task'", async () => {
+    const spy = spyOn(sharedLog, "logDelegation")
+
     const iface = createPluginInterface({
       pluginConfig: baseConfig,
       hooks: makeHooks(),
@@ -1004,14 +997,19 @@ describe("delegation logging via tool hooks", () => {
       { args: { subagent_type: "thread", description: "explore auth module", prompt: "look at auth" } },
     )
 
-    const content = fs.readFileSync(logFile, "utf8")
-    expect(content).toContain("[delegation:start]")
-    expect(content).toContain("agent=thread")
-    expect(content).toContain('"sessionId":"s1"')
-    expect(content).toContain('"toolCallId":"c1"')
+    expect(spy).toHaveBeenCalledTimes(1)
+    const event = spy.mock.calls[0][0]
+    expect(event.phase).toBe("start")
+    expect(event.agent).toBe("thread")
+    expect(event.sessionId).toBe("s1")
+    expect(event.toolCallId).toBe("c1")
+
+    spy.mockRestore()
   })
 
   it("tool.execute.before falls back to description when subagent_type is absent", async () => {
+    const spy = spyOn(sharedLog, "logDelegation")
+
     const iface = createPluginInterface({
       pluginConfig: baseConfig,
       hooks: makeHooks(),
@@ -1025,12 +1023,17 @@ describe("delegation logging via tool hooks", () => {
       { args: { description: "explore auth module" } },
     )
 
-    const content = fs.readFileSync(logFile, "utf8")
-    expect(content).toContain("[delegation:start]")
-    expect(content).toContain("agent=explore auth module")
+    expect(spy).toHaveBeenCalledTimes(1)
+    const event = spy.mock.calls[0][0]
+    expect(event.phase).toBe("start")
+    expect(event.agent).toBe("explore auth module")
+
+    spy.mockRestore()
   })
 
   it("tool.execute.before does not log delegation for non-task tools", async () => {
+    const spy = spyOn(sharedLog, "logDelegation")
+
     const iface = createPluginInterface({
       pluginConfig: baseConfig,
       hooks: makeHooks(),
@@ -1044,11 +1047,14 @@ describe("delegation logging via tool hooks", () => {
       { args: { file_path: "/some/file.ts" } },
     )
 
-    const content = fs.existsSync(logFile) ? fs.readFileSync(logFile, "utf8") : ""
-    expect(content).not.toContain("[delegation:start]")
+    expect(spy).not.toHaveBeenCalled()
+
+    spy.mockRestore()
   })
 
   it("tool.execute.after logs delegation:complete when tool is 'task'", async () => {
+    const spy = spyOn(sharedLog, "logDelegation")
+
     const iface = createPluginInterface({
       pluginConfig: baseConfig,
       hooks: makeHooks(),
@@ -1062,10 +1068,13 @@ describe("delegation logging via tool hooks", () => {
       {},
     )
 
-    const content = fs.readFileSync(logFile, "utf8")
-    expect(content).toContain("[delegation:complete]")
-    expect(content).toContain("agent=thread")
-    expect(content).toContain('"sessionId":"s2"')
+    expect(spy).toHaveBeenCalledTimes(1)
+    const event = spy.mock.calls[0][0]
+    expect(event.phase).toBe("complete")
+    expect(event.agent).toBe("thread")
+    expect(event.sessionId).toBe("s2")
+
+    spy.mockRestore()
   })
 })
 

@@ -1,4 +1,4 @@
-import { log } from "../shared/log"
+import { debug } from "../shared/log"
 
 export interface KeywordAction {
   keyword: string
@@ -38,7 +38,7 @@ export function processMessageForKeywords(
 ): string | undefined {
   const detected = detectKeywords(message, actions)
   if (detected.length > 0) {
-    log(`[keyword-detector] Detected keywords in session ${sessionId}: ${detected.map((a) => a.keyword).join(", ")}`)
+    debug(`[keyword-detector] Detected keywords in session ${sessionId}: ${detected.map((a) => a.keyword).join(", ")}`)
   }
   return buildKeywordInjection(detected)
 }

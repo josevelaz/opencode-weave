@@ -1,6 +1,6 @@
 import * as fs from "fs"
 import * as path from "path"
-import { log } from "../shared/log"
+import { debug, warn } from "../shared/log"
 
 const RULES_FILENAMES = ["AGENTS.md", ".rules", "CLAUDE.md"]
 
@@ -19,10 +19,10 @@ export function loadRulesForDirectory(directory: string): string | undefined {
   if (!rulesFile) return undefined
   try {
     const content = fs.readFileSync(rulesFile, "utf8")
-    log(`[rules-injector] Loaded rules from ${rulesFile}`)
+    debug(`[rules-injector] Loaded rules from ${rulesFile}`)
     return content
   } catch {
-    log(`[rules-injector] Failed to read rules file: ${rulesFile}`)
+    warn(`[rules-injector] Failed to read rules file: ${rulesFile}`)
     return undefined
   }
 }

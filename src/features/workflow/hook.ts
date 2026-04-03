@@ -3,7 +3,7 @@
  * manages workflow instances, and drives step transitions on session.idle.
  */
 
-import { log } from "../../shared/log"
+import { info } from "../../shared/log"
 import {
   discoverWorkflows,
   loadWorkflowDefinition,
@@ -327,7 +327,7 @@ function startNewWorkflow(
     directory,
   })
 
-  log("Workflow started", {
+  info("Workflow started", {
     workflowName: match.definition.name,
     goal,
     agent: action.agent,

@@ -1,6 +1,6 @@
 import * as fs from "fs"
 import * as path from "path"
-import { log } from "../../shared/log"
+import { debug, warn } from "../../shared/log"
 import type { LoadedSkill, SkillMetadata, SkillScope } from "./types"
 
 interface ParsedFrontmatter {
@@ -44,7 +44,7 @@ export function parseFrontmatter(text: string): ParsedFrontmatter {
       setMetadataField(metadata, key, rawValue.replace(/^['"]|['"]$/g, "")); i++
     }
   } catch (err) {
-    log("Failed to parse YAML frontmatter", { error: String(err) })
+    warn("Failed to parse YAML frontmatter", { error: String(err) })
     return { metadata: {}, content: text }
   }
   return { metadata, content: body }
@@ -72,7 +72,7 @@ export function scanDirectory(options: ScanDirectoryOptions): LoadedSkill[] {
   try {
     entries = fs.readdirSync(directory, { withFileTypes: true })
   } catch (err) {
-    log("Failed to read skills directory", { directory, error: String(err) }); return []
+    warn("Failed to read skills directory", { directory, error: String(err) }); return []
   }
   const skills: LoadedSkill[] = []
   for (const entry of entries) {
@@ -98,11 +98,11 @@ function loadSkillFile(filePath: string, scope: SkillScope): LoadedSkill | null 
   try {
     text = fs.readFileSync(filePath, "utf8")
   } catch (err) {
-    log("Failed to read skill file", { filePath, error: String(err) }); return null
+    warn("Failed to read skill file", { filePath, error: String(err) }); return null
   }
   const { metadata, content } = parseFrontmatter(text)
   if (!metadata.name) {
-    log("Skill file missing name in frontmatter — skipping", { filePath }); return null
+    debug("Skill file missing name in frontmatter — skipping", { filePath }); return null
   }
   return { name: metadata.name, description: metadata.description ?? "", content, scope, path: filePath, model: metadata.model }
 }

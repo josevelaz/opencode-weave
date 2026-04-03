@@ -1,37 +1,78 @@
-import * as fs from "fs"
-import * as path from "path"
-import * as os from "os"
+export type LogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR"
 
-function getLogDir(): string {
-  const home = os.homedir()
-  return path.join(home, ".opencode", "logs")
+const LEVEL_PRIORITY: Record<LogLevel, number> = {
+  DEBUG: 0,
+  INFO: 1,
+  WARN: 2,
+  ERROR: 3,
 }
 
-function resolveLogFile(): string {
-  const dir = getLogDir()
-  try {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
-    }
-  } catch {
-    // Fall back to cwd if home dir is not writable
+function parseLogLevel(value: string | undefined): LogLevel {
+  if (value === "DEBUG" || value === "INFO" || value === "WARN" || value === "ERROR") {
+    return value
   }
-  return path.join(dir, "weave-opencode.log")
+  return "INFO"
 }
 
-const LOG_FILE = resolveLogFile()
+let activeLevel: LogLevel = parseLogLevel(process.env.WEAVE_LOG_LEVEL)
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let client: { app: { log: (opts?: any) => Promise<unknown> } } | null = null
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function setClient(c: { app: { log: (opts?: any) => Promise<unknown> } } | null): void {
+  client = c
+}
+
+export function setLogLevel(level: LogLevel): void {
+  activeLevel = level
+}
+
+function shouldLog(level: LogLevel): boolean {
+  return LEVEL_PRIORITY[level] >= LEVEL_PRIORITY[activeLevel]
+}
+
+function emit(level: LogLevel, message: string, data?: unknown): void {
+  if (!shouldLog(level)) return
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const logFn = (client as any)?.app?.log
+  if (typeof logFn === "function") {
+    const extra =
+      data !== undefined
+        ? typeof data === "object" && data !== null
+          ? (data as Record<string, unknown>)
+          : { value: data }
+        : undefined
+    ;(logFn as (opts?: unknown) => Promise<unknown>)(
+      { body: { service: "weave", level: level.toLowerCase(), message, extra } },
+    ).catch(() => {})
+  } else {
+    if (level === "ERROR" || level === "WARN") {
+      console.error(`[weave:${level}] ${message}`, data ?? "")
+    }
+    // DEBUG and INFO are silently dropped before client is set
+  }
+}
+
+export function debug(message: string, data?: unknown): void {
+  emit("DEBUG", message, data)
+}
+
+export function info(message: string, data?: unknown): void {
+  emit("INFO", message, data)
+}
+
+export function warn(message: string, data?: unknown): void {
+  emit("WARN", message, data)
+}
+
+export function error(message: string, data?: unknown): void {
+  emit("ERROR", message, data)
+}
 
 export function log(message: string, data?: unknown): void {
-  try {
-    const timestamp = new Date().toISOString()
-    const entry = `[${timestamp}] ${message}${data !== undefined ? " " + JSON.stringify(data) : ""}\n`
-    fs.appendFileSync(LOG_FILE, entry) // lgtm[js/http-to-file-access]
-  } catch {
-  }
-}
-
-export function getLogFilePath(): string {
-  return LOG_FILE
+  info(message, data)
 }
 
 export interface DelegationEvent {

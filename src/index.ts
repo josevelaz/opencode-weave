@@ -7,9 +7,14 @@ import { createHooks } from "./hooks/create-hooks"
 import { createPluginInterface } from "./plugin/plugin-interface"
 import { createAnalytics } from "./features/analytics"
 import { getOrCreateFingerprint } from "./features/analytics/fingerprint"
+import { setClient, setLogLevel } from "./shared/log"
 
 const WeavePlugin: Plugin = async (ctx) => {
   const pluginConfig = loadWeaveConfig(ctx.directory, ctx)
+  setClient(ctx.client)
+  if (pluginConfig.log_level) {
+    setLogLevel(pluginConfig.log_level)
+  }
   const disabledHooks = new Set(pluginConfig.disabled_hooks ?? [])
   const isHookEnabled = (name: string) => !disabledHooks.has(name)
   const analyticsEnabled = pluginConfig.analytics?.enabled === true

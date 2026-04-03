@@ -2,7 +2,7 @@ import * as fs from "fs"
 import * as path from "path"
 import * as os from "os"
 import { parse as parseJsonc } from "jsonc-parser"
-import { log } from "../../shared/log"
+import { warn, error as logError } from "../../shared/log"
 import { resolveSafePath } from "../../shared/resolve-safe-path"
 import { WorkflowDefinitionSchema } from "./schema"
 import type { WorkflowDefinition } from "./types"
@@ -26,7 +26,7 @@ export function loadWorkflowDefinition(filePath: string): WorkflowDefinition | n
   try {
     raw = fs.readFileSync(filePath, "utf-8")
   } catch (err) {
-    log("Failed to read workflow definition file", { filePath, error: String(err) })
+    logError("Failed to read workflow definition file", { filePath, error: String(err) })
     return null
   }
 
@@ -34,13 +34,13 @@ export function loadWorkflowDefinition(filePath: string): WorkflowDefinition | n
   try {
     parsed = parseJsonc(raw)
   } catch (err) {
-    log("Failed to parse workflow definition JSONC", { filePath, error: String(err) })
+    logError("Failed to parse workflow definition JSONC", { filePath, error: String(err) })
     return null
   }
 
   const result = WorkflowDefinitionSchema.safeParse(parsed)
   if (!result.success) {
-    log("Workflow definition failed validation", {
+    warn("Workflow definition failed validation", {
       filePath,
       errors: result.error.issues.map((i) => i.message),
     })
@@ -61,7 +61,7 @@ function scanWorkflowDirectory(directory: string, scope: "project" | "user"): Di
   try {
     entries = fs.readdirSync(directory, { withFileTypes: true })
   } catch (err) {
-    log("Failed to read workflows directory", { directory, error: String(err) })
+    warn("Failed to read workflows directory", { directory, error: String(err) })
     return []
   }
 

@@ -1,5 +1,5 @@
 import * as fs from "fs"
-import { log } from "../shared/log"
+import { warn } from "../shared/log"
 
 export interface WriteGuardState {
   readFiles: Set<string>
@@ -26,7 +26,7 @@ export function checkWriteAllowed(state: WriteGuardState, filePath: string): Wri
     return { allowed: true }
   }
   const warning = `⚠️ Write guard: Attempting to write to '${filePath}' without reading it first. Read the file before overwriting to avoid data loss.`
-  log(`[write-guard] BLOCKED write to unread file: ${filePath}`)
+  warn(`[write-guard] BLOCKED write to unread file: ${filePath}`)
   return { allowed: false, warning }
 }
 

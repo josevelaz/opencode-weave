@@ -5,7 +5,7 @@ import { parse } from "jsonc-parser"
 import { WeaveConfigSchema, type WeaveConfig } from "./schema"
 import type { DeepPartial } from "../shared/types"
 import { mergeConfigs } from "./merge"
-import { log } from "../shared/log"
+import { warn, error as logError, debug } from "../shared/log"
 
 function readJsoncFile(filePath: string): DeepPartial<WeaveConfig> {
   try {
@@ -13,11 +13,11 @@ function readJsoncFile(filePath: string): DeepPartial<WeaveConfig> {
     const errors: { error: number; offset: number; length: number }[] = []
     const parsed = parse(text, errors) as DeepPartial<WeaveConfig> | null
     if (errors.length > 0) {
-      log(`JSONC parse warnings in ${filePath}: ${errors.length} issue(s)`)
+      warn(`JSONC parse warnings in ${filePath}: ${errors.length} issue(s)`)
     }
     return parsed ?? {}
   } catch (e) {
-    log(`Failed to read config file ${filePath}`, e)
+    logError(`Failed to read config file ${filePath}`, e)
     return {}
   }
 }
@@ -41,6 +41,11 @@ export function loadWeaveConfig(
   const userConfigPath = detectConfigFile(userBasePath)
   const projectConfigPath = detectConfigFile(projectBasePath)
 
+  debug("Loading Weave config", {
+    userConfig: userConfigPath ?? "(none)",
+    projectConfig: projectConfigPath ?? "(none)",
+  })
+
   const userRaw: DeepPartial<WeaveConfig> = userConfigPath
     ? readJsoncFile(userConfigPath)
     : {}
@@ -53,12 +58,20 @@ export function loadWeaveConfig(
 
   const result = WeaveConfigSchema.safeParse(merged)
   if (!result.success) {
-    log(
+    logError(
       "WeaveConfig validation errors — using defaults",
       result.error.issues,
     )
     return WeaveConfigSchema.parse({})
   }
+
+  debug("Weave config loaded successfully", {
+    hasAgentOverrides: !!result.data.agents && Object.keys(result.data.agents).length > 0,
+    disabledAgents: result.data.disabled_agents ?? [],
+    customAgents: result.data.custom_agents ? Object.keys(result.data.custom_agents) : [],
+    logLevel: result.data.log_level ?? "(default)",
+    analyticsEnabled: result.data.analytics?.enabled ?? false,
+  })
 
   return result.data
 }

@@ -3,7 +3,7 @@ import { join } from "path"
 import { arch } from "os"
 import type { ProjectFingerprint, DetectedStack } from "./types"
 import { writeFingerprint, readFingerprint } from "./storage"
-import { log } from "../../shared/log"
+import { debug, warn } from "../../shared/log"
 import { getWeaveVersion } from "../../shared/version"
 
 /** Marker files that indicate specific technologies */
@@ -240,14 +240,14 @@ export function fingerprintProject(directory: string): ProjectFingerprint | null
   try {
     const fingerprint = generateFingerprint(directory)
     writeFingerprint(directory, fingerprint)
-    log("[analytics] Project fingerprinted", {
+    debug("[analytics] Project fingerprinted", {
       stack: fingerprint.stack.map((s) => s.name),
       primaryLanguage: fingerprint.primaryLanguage,
       packageManager: fingerprint.packageManager,
     })
     return fingerprint
   } catch (err) {
-    log("[analytics] Fingerprinting failed (non-fatal)", { error: String(err) })
+    warn("[analytics] Fingerprinting failed (non-fatal)", { error: String(err) })
     return null
   }
 }
@@ -265,14 +265,14 @@ export function getOrCreateFingerprint(directory: string): ProjectFingerprint | 
       if (existing.weaveVersion === currentVersion) {
         return existing
       }
-      log("[analytics] Fingerprint version mismatch — regenerating", {
+      debug("[analytics] Fingerprint version mismatch — regenerating", {
         cached: existing.weaveVersion ?? "none",
         current: currentVersion,
       })
     }
     return fingerprintProject(directory)
   } catch (err) {
-    log("[analytics] getOrCreateFingerprint failed (non-fatal)", { error: String(err) })
+    warn("[analytics] getOrCreateFingerprint failed (non-fatal)", { error: String(err) })
     return null
   }
 }

@@ -7,7 +7,7 @@ import { aggregateTokensDetailed } from "./plan-token-aggregator"
 import { writeMetricsReport } from "./storage"
 import { getPlanName, getPlanProgress } from "../work-state/storage"
 import { calculateQualityScore } from "./quality-score"
-import { log } from "../../shared/log"
+import { debug, warn } from "../../shared/log"
 
 /**
  * Generate a metrics report for a completed plan.
@@ -57,7 +57,7 @@ export function generateMetricsReport(
         totalTokens,
       })
     } catch (qualityErr) {
-      log("[analytics] Failed to calculate quality score (non-fatal)", {
+      warn("[analytics] Failed to calculate quality score (non-fatal)", {
         error: String(qualityErr),
       })
     }
@@ -86,11 +86,11 @@ export function generateMetricsReport(
     // 8. Write to storage
     const written = writeMetricsReport(directory, report)
     if (!written) {
-      log("[analytics] Failed to write metrics report (non-fatal)")
+      warn("[analytics] Failed to write metrics report (non-fatal)")
       return null
     }
 
-    log("[analytics] Metrics report generated", {
+    debug("[analytics] Metrics report generated", {
       plan: report.planName,
       coverage: adherence.coverage,
       precision: adherence.precision,
@@ -99,7 +99,7 @@ export function generateMetricsReport(
 
     return report
   } catch (err) {
-    log("[analytics] Failed to generate metrics report (non-fatal)", {
+    warn("[analytics] Failed to generate metrics report (non-fatal)", {
       error: String(err),
     })
     return null

@@ -11,7 +11,7 @@ import { createBuiltinAgents, registerCustomAgentMetadata } from "./agents/built
 import { buildCustomAgent, buildCustomAgentMetadata } from "./agents/custom-agent-factory"
 import { updateBuiltinDisplayName } from "./shared/agent-display-names"
 import { addBuiltinNameVariant } from "./agents/agent-builder"
-import { log } from "./shared/log"
+import { debug } from "./shared/log"
 
 export interface WeaveManagers {
   configHandler: ConfigHandler
@@ -73,7 +73,7 @@ export function createManagers(options: {
           // Only swallow "not a built-in agent" errors (non-builtin key in agents section).
           // Re-throw unexpected errors so programming bugs surface.
           if (err instanceof Error && err.message.includes("not a built-in agent")) {
-            log(`Skipping display_name override for non-builtin agent "${name}"`)
+            debug(`Skipping display_name override for non-builtin agent "${name}"`)
           } else {
             throw err
           }

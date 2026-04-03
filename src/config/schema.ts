@@ -140,6 +140,8 @@ export const WeaveConfigSchema = z.object({
   tmux: TmuxConfigSchema.optional(),
   experimental: ExperimentalConfigSchema.optional(),
   workflows: WorkflowConfigSchema.optional(),
+  /** Log level for Weave's structured logger. Overrides WEAVE_LOG_LEVEL env var. */
+  log_level: z.enum(["DEBUG", "INFO", "WARN", "ERROR"]).optional(),
 })
 
 export type AgentOverrideConfig = z.infer<typeof AgentOverrideConfigSchema>

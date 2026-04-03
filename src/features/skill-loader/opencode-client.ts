@@ -1,4 +1,4 @@
-import { log } from "../../shared/log"
+import { warn, error as logError } from "../../shared/log"
 import type { LoadedSkill, SkillScope } from "./types"
 
 interface OpenCodeSkill {
@@ -23,11 +23,11 @@ export async function fetchSkillsFromOpenCode(
   try {
     response = await fetch(url, { signal: AbortSignal.timeout(3000) })
   } catch (err) {
-    log("Failed to fetch skills from OpenCode — skills will not be loaded", { url, error: String(err) })
+    logError("Failed to fetch skills from OpenCode — skills will not be loaded", { url, error: String(err) })
     return []
   }
   if (!response.ok) {
-    log("OpenCode /skill endpoint returned non-OK status — skills will not be loaded", {
+    warn("OpenCode /skill endpoint returned non-OK status — skills will not be loaded", {
       url,
       status: response.status,
     })
@@ -37,11 +37,11 @@ export async function fetchSkillsFromOpenCode(
   try {
     data = await response.json()
   } catch (err) {
-    log("Failed to parse skills response from OpenCode", { url, error: String(err) })
+    logError("Failed to parse skills response from OpenCode", { url, error: String(err) })
     return []
   }
   if (!Array.isArray(data)) {
-    log("Unexpected skills response shape from OpenCode — expected array", { url })
+    warn("Unexpected skills response shape from OpenCode — expected array", { url })
     return []
   }
   const skills: LoadedSkill[] = []

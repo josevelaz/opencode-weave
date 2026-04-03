@@ -220,4 +220,33 @@ describe("WeaveConfigSchema", () => {
     })
     expect(result.success).toBe(true)
   })
+
+  it("parses log_level DEBUG", () => {
+    const result = WeaveConfigSchema.safeParse({ log_level: "DEBUG" })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.log_level).toBe("DEBUG")
+    }
+  })
+
+  it("parses log_level INFO", () => {
+    const result = WeaveConfigSchema.safeParse({ log_level: "INFO" })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.log_level).toBe("INFO")
+    }
+  })
+
+  it("rejects invalid log_level TRACE", () => {
+    const result = WeaveConfigSchema.safeParse({ log_level: "TRACE" })
+    expect(result.success).toBe(false)
+  })
+
+  it("parses empty object — log_level is optional and undefined", () => {
+    const result = WeaveConfigSchema.safeParse({})
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.log_level).toBeUndefined()
+    }
+  })
 })

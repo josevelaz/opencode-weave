@@ -11,7 +11,7 @@
  * to finalize the todos.
  */
 import type { PluginContext } from "../plugin/types"
-import { log } from "../shared/log"
+import { debug, warn } from "../shared/log"
 import { resolveTodoWriter, type TodoItem, type TodoWriter } from "./todo-writer"
 
 export const FINALIZE_TODOS_MARKER = "<!-- weave:finalize-todos -->"
@@ -36,9 +36,9 @@ export function createTodoContinuationEnforcer(
   // Log which path will be active (async — don't await here, it's informational)
   todoWriterPromise.then((writer) => {
     if (writer) {
-      log("[todo-continuation-enforcer] Direct write: available")
+      debug("[todo-continuation-enforcer] Direct write: available")
     } else {
-      log("[todo-continuation-enforcer] Direct write: unavailable, will fall back to LLM prompt")
+      debug("[todo-continuation-enforcer] Direct write: unavailable, will fall back to LLM prompt")
     }
   }).catch(() => {
     // ignore
@@ -69,7 +69,7 @@ export function createTodoContinuationEnforcer(
           t.status === "in_progress" ? { ...t, status: "completed" } : t,
         )
         todoWriter({ sessionID, todos: updatedTodos })
-        log("[todo-continuation-enforcer] Finalized via direct write (0 tokens)", {
+        debug("[todo-continuation-enforcer] Finalized via direct write (0 tokens)", {
           sessionID,
           count: inProgressTodos.length,
         })
@@ -91,7 +91,7 @@ Use todowrite NOW to mark all of them as "completed" (or "cancelled" if abandone
             ],
           },
         })
-        log("[todo-continuation-enforcer] Finalized via LLM prompt (fallback)", {
+        debug("[todo-continuation-enforcer] Finalized via LLM prompt (fallback)", {
           sessionID,
           count: inProgressTodos.length,
         })
@@ -100,7 +100,7 @@ Use todowrite NOW to mark all of them as "completed" (or "cancelled" if abandone
       // Re-arm so the next session.idle can retry (the mark on line 62
       // would otherwise permanently block future attempts).
       todoFinalizedSessions.delete(sessionID)
-      log("[todo-continuation-enforcer] Failed to check/finalize todos (non-fatal, will retry)", {
+      warn("[todo-continuation-enforcer] Failed to check/finalize todos (non-fatal, will retry)", {
         sessionID,
         error: String(err),
       })

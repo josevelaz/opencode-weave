@@ -3,7 +3,7 @@ import * as os from 'os'
 import type { LoadedSkill, SkillDiscoveryResult } from './types'
 import { fetchSkillsFromOpenCode } from './opencode-client'
 import { scanDirectory } from './discovery'
-import { log } from '../../shared/log'
+import { debug } from '../../shared/log'
 import { resolveSafePath } from '../../shared/resolve-safe-path'
 
 export interface LoadSkillsOptions {
@@ -68,7 +68,7 @@ export async function loadSkills(options: LoadSkillsOptions): Promise<SkillDisco
   const skills = mergeSkillSources(apiSkills, fsSkills)
 
   if (apiSkills.length === 0 && fsSkills.length > 0) {
-    log('OpenCode API returned no skills — using filesystem fallback', {
+    debug('OpenCode API returned no skills — using filesystem fallback', {
       fsSkillCount: fsSkills.length,
       fsSkillNames: fsSkills.map((s) => s.name),
     })

@@ -7,6 +7,7 @@ import { resolveAgentModel } from "./model-resolution"
 import type { FallbackEntry } from "./model-resolution"
 import { registerAgentDisplayName } from "../shared/agent-display-names"
 import { registerAgentNameVariants } from "./agent-builder"
+import { debug } from "../shared/log"
 
 /** Known tool names that can be granted/denied via config */
 const KNOWN_TOOL_NAMES = new Set([
@@ -71,11 +72,17 @@ export function buildCustomAgent(
 
   // Resolve prompt: prompt_file takes priority if both specified
   let prompt = config.prompt ?? ""
+  let promptSource = "inline"
   if (config.prompt_file) {
     const fileContent = loadPromptFile(config.prompt_file, configDir)
     if (fileContent) {
       prompt = fileContent
+      promptSource = `file:${config.prompt_file}`
+    } else {
+      promptSource = `file:${config.prompt_file} (not found — falling back to inline)`
     }
+  } else if (config.skills?.length) {
+    promptSource = `skills:[${config.skills.join(",")}]`
   }
 
   // Resolve skills and prepend to prompt
@@ -105,6 +112,14 @@ export function buildCustomAgent(
   const displayName = config.display_name ?? name
   registerAgentDisplayName(name, displayName)
   registerAgentNameVariants(name, displayName !== name ? [name, displayName] : undefined)
+
+  debug(`Custom agent "${name}" built`, {
+    model,
+    displayName,
+    mode,
+    promptSource,
+    hasPrompt: !!prompt,
+  })
 
   // Build the agent config
   const agentConfig: AgentConfig = {

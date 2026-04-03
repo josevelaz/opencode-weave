@@ -6,7 +6,7 @@ import type { CreatedHooks } from "../hooks/create-hooks"
 import type { PluginContext } from "./types"
 import type { SessionTracker } from "../features/analytics"
 import { getAgentDisplayName } from "../shared/agent-display-names"
-import { log, logDelegation } from "../shared/log"
+import { logDelegation, debug, info, warn, error } from "../shared/log"
 import {
   setContextLimit,
   updateUsage,
@@ -71,14 +71,14 @@ export function createPluginInterface(args: {
       // Spread existing first so user agents are preserved; Weave agents win on collision.
       const existingAgents = (config.agent ?? {}) as Record<string, unknown>
       if (Object.keys(existingAgents).length > 0) {
-        log("[config] Merging Weave agents over existing agents", {
+        debug("[config] Merging Weave agents over existing agents", {
           existingCount: Object.keys(existingAgents).length,
           weaveCount: Object.keys(result.agents).length,
           existingKeys: Object.keys(existingAgents),
         })
         const collisions = Object.keys(result.agents).filter(key => key in existingAgents)
         if (collisions.length > 0) {
-          log("[config] Weave agents overriding user-defined agents with same name", {
+          info("[config] Weave agents overriding user-defined agents with same name", {
             overriddenKeys: collisions,
           })
         }
@@ -148,6 +148,12 @@ export function createPluginInterface(args: {
         // Switch agent by mutating output.message.agent (OpenCode reads this to route the message)
         if (result.switchAgent && message) {
           message.agent = getAgentDisplayName(result.switchAgent)
+          debug("[start-work] Switching agent for plan execution", {
+            sessionId: sessionID,
+            agent: result.switchAgent,
+            displayName: message.agent,
+            hasContextInjection: !!result.contextInjection,
+          })
         }
 
         if (result.contextInjection && parts) {
@@ -182,6 +188,11 @@ export function createPluginInterface(args: {
 
           if (result.switchAgent && message) {
             message.agent = getAgentDisplayName(result.switchAgent)
+            debug("[workflow] Switching agent for workflow execution", {
+              sessionId: sessionID,
+              agent: result.switchAgent,
+              displayName: message.agent,
+            })
           }
 
           if (result.contextInjection && parts) {
@@ -250,6 +261,10 @@ export function createPluginInterface(args: {
             }
             if (cmdResult.switchAgent && message) {
               message.agent = getAgentDisplayName(cmdResult.switchAgent)
+              debug("[workflow] Switching agent via workflow command", {
+                agent: cmdResult.switchAgent,
+                displayName: message.agent,
+              })
             }
           }
         }
@@ -283,7 +298,7 @@ export function createPluginInterface(args: {
           const state = readWorkState(directory)
           if (state && !state.paused) {
             pauseWork(directory)
-            log("[work-continuation] Auto-paused: user message received during active plan", { sessionId: sessionID })
+            info("[work-continuation] Auto-paused: user message received during active plan", { sessionId: sessionID })
           }
         }
       }
@@ -299,7 +314,7 @@ export function createPluginInterface(args: {
       const maxTokens = input.model?.limit?.context ?? 0
       if (sessionId && maxTokens > 0) {
         setContextLimit(sessionId, maxTokens)
-        log("[context-window] Captured context limit", { sessionId, maxTokens })
+        debug("[context-window] Captured context limit", { sessionId, maxTokens })
       }
 
       // Analytics: capture agent name
@@ -349,7 +364,7 @@ export function createPluginInterface(args: {
           try {
             tracker.endSession(evt.properties.info.id)
           } catch (err) {
-            log("[analytics] Failed to end session (non-fatal)", { error: String(err) })
+            warn("[analytics] Failed to end session (non-fatal)", { error: String(err) })
           }
 
           // Generate metrics report if a plan just completed
@@ -363,7 +378,7 @@ export function createPluginInterface(args: {
                 }
               }
             } catch (err) {
-              log("[analytics] Failed to generate metrics report on session end (non-fatal)", { error: String(err) })
+              warn("[analytics] Failed to generate metrics report on session end (non-fatal)", { error: String(err) })
             }
           }
         }
@@ -401,7 +416,7 @@ export function createPluginInterface(args: {
                   sessionId: info.sessionID,
                 })
                 if (result.action !== "none") {
-                  log("[context-window] Threshold crossed", {
+                  warn("[context-window] Threshold crossed", {
                     sessionId: info.sessionID,
                     action: result.action,
                     usagePct: result.usagePct,
@@ -455,14 +470,14 @@ export function createPluginInterface(args: {
         const evt = event as { type: string; properties: { command: string } }
         if (evt.properties?.command === "session.interrupt") {
           pauseWork(directory)
-          log("[work-continuation] User interrupt detected — work paused")
+          info("[work-continuation] User interrupt detected — work paused")
 
           // Also pause any active workflow
           if (directory) {
             const activeWorkflow = getActiveWorkflowInstance(directory)
             if (activeWorkflow && activeWorkflow.status === "running") {
               pauseWorkflow(directory, "User interrupt")
-              log("[workflow] User interrupt detected — workflow paused")
+              info("[workflow] User interrupt detected — workflow paused")
             }
           }
         }
@@ -506,12 +521,12 @@ export function createPluginInterface(args: {
                       : {}),
                   },
                 })
-                log("[workflow] Injected workflow continuation prompt", {
+                debug("[workflow] Injected workflow continuation prompt", {
                   sessionId,
                   agent: result.switchAgent,
                 })
               } catch (err) {
-                log("[workflow] Failed to inject workflow continuation", { sessionId, error: String(err) })
+                error("[workflow] Failed to inject workflow continuation", { sessionId, error: String(err) })
               }
               return // Workflow owns the idle loop — skip work-continuation and todo finalization
             }
@@ -533,14 +548,14 @@ export function createPluginInterface(args: {
                   parts: [{ type: "text", text: result.continuationPrompt }],
                 },
               })
-              log("[work-continuation] Injected continuation prompt", { sessionId })
-              continuationFired = true
-            } catch (err) {
-              log("[work-continuation] Failed to inject continuation", { sessionId, error: String(err) })
-            }
-          } else if (result.continuationPrompt) {
-            // client not available — log for diagnostics
-            log("[work-continuation] continuationPrompt available but no client", { sessionId })
+                debug("[work-continuation] Injected continuation prompt", { sessionId })
+                continuationFired = true
+              } catch (err) {
+                error("[work-continuation] Failed to inject continuation", { sessionId, error: String(err) })
+              }
+            } else if (result.continuationPrompt) {
+              // client not available — log for diagnostics
+              debug("[work-continuation] continuationPrompt available but no client", { sessionId })
           }
         }
       }

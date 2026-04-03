@@ -5,7 +5,7 @@
  * Defense-in-depth against OpenCode's context compaction clearing the todo list.
  */
 import type { PluginContext } from "../plugin/types"
-import { log } from "../shared/log"
+import { debug, warn } from "../shared/log"
 import { resolveTodoWriter } from "./todo-writer"
 
 export type TodoSnapshot = {
@@ -23,13 +23,13 @@ export function createCompactionTodoPreserver(client: PluginContext["client"]) {
       const todos = (response.data ?? []) as TodoSnapshot[]
       if (todos.length > 0) {
         snapshots.set(sessionID, todos)
-        log("[compaction-todo-preserver] Captured snapshot", {
+        debug("[compaction-todo-preserver] Captured snapshot", {
           sessionID,
           count: todos.length,
         })
       }
     } catch (err) {
-      log("[compaction-todo-preserver] Failed to capture snapshot (non-fatal)", {
+      warn("[compaction-todo-preserver] Failed to capture snapshot (non-fatal)", {
         sessionID,
         error: String(err),
       })
@@ -47,7 +47,7 @@ export function createCompactionTodoPreserver(client: PluginContext["client"]) {
       const response = await client.session.todo({ path: { id: sessionID } })
       const currentTodos = (response.data ?? []) as TodoSnapshot[]
       if (currentTodos.length > 0) {
-        log("[compaction-todo-preserver] Todos survived compaction, skipping restore", {
+        debug("[compaction-todo-preserver] Todos survived compaction, skipping restore", {
           sessionID,
           currentCount: currentTodos.length,
         })
@@ -59,18 +59,18 @@ export function createCompactionTodoPreserver(client: PluginContext["client"]) {
       const todoWriter = await resolveTodoWriter()
       if (todoWriter) {
         todoWriter({ sessionID, todos: snapshot })
-        log("[compaction-todo-preserver] Restored todos via direct write", {
+        debug("[compaction-todo-preserver] Restored todos via direct write", {
           sessionID,
           count: snapshot.length,
         })
       } else {
-        log("[compaction-todo-preserver] Direct write unavailable — todos cannot be restored", {
+        warn("[compaction-todo-preserver] Direct write unavailable — todos cannot be restored", {
           sessionID,
           count: snapshot.length,
         })
       }
     } catch (err) {
-      log("[compaction-todo-preserver] Failed to restore todos (non-fatal)", {
+      warn("[compaction-todo-preserver] Failed to restore todos (non-fatal)", {
         sessionID,
         error: String(err),
       })
@@ -100,7 +100,7 @@ export function createCompactionTodoPreserver(client: PluginContext["client"]) {
         ""
       if (sessionID) {
         snapshots.delete(sessionID)
-        log("[compaction-todo-preserver] Cleaned up snapshot on session delete", { sessionID })
+        debug("[compaction-todo-preserver] Cleaned up snapshot on session delete", { sessionID })
       }
       return
     }

@@ -1,4 +1,4 @@
-import { log } from "../shared/log"
+import { warn } from "../shared/log"
 
 export interface ContextWindowState {
   usedTokens: number
@@ -27,12 +27,12 @@ export function checkContextWindow(
 
   if (usagePct >= thresholds.criticalPct) {
     const message = buildRecoveryMessage(state, usagePct)
-    log(`[context-window] CRITICAL ${(usagePct * 100).toFixed(1)}% used in session ${state.sessionId}`)
+    warn(`[context-window] CRITICAL ${(usagePct * 100).toFixed(1)}% used in session ${state.sessionId}`)
     return { action: "recover", usagePct, message }
   }
 
   if (usagePct >= thresholds.warningPct) {
-    log(`[context-window] WARNING ${(usagePct * 100).toFixed(1)}% used in session ${state.sessionId}`)
+    warn(`[context-window] WARNING ${(usagePct * 100).toFixed(1)}% used in session ${state.sessionId}`)
     return { action: "warn", usagePct, message: buildWarningMessage(usagePct) }
   }
 
