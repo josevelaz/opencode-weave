@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.5] - 2026-04-05
+
+### Fixed
+
+- **Fix invalid `custom_agents` nuking entire config** — a validation error in `custom_agents` (e.g. a typo in `mode`) previously replaced the entire config with empty defaults, silently wiping all builtin agent overrides. Config loading now strips only the failing section and preserves everything else ([#30](https://github.com/pgermishuys/opencode-weave/issues/30))
+- Config validation warnings now include the exact field path and expected values (e.g. `my-agent.mode: Invalid option: expected one of "subagent"|"primary"|"all"`)
+- Move SDK client initialization before config loading so validation warnings reach the OpenCode app log instead of being lost to stderr
+
+### Added
+
+- `/weave-health` command — in-TUI config diagnostics showing loaded files, validation issues, agent status, and log location hints
+- E2e tests for custom agent loading and builtin agent survival alongside `custom_agents`
+
 ## [0.7.4] - 2026-04-05
 
 ### Changed
