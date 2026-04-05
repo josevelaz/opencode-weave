@@ -33,3 +33,46 @@ jobs:
       - name: Audit dependencies for known vulnerabilities
         run: bunx audit-ci --low
         continue-on-error: true
+
+  e2e:
+    name: CLI E2E — Plugin Loading
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build plugin
+        run: bun run build
+
+      - name: Install opencode CLI
+        run: curl -fsSL https://opencode.ai/install | bash
+
+      - name: Configure opencode to load Weave plugin
+        run: |
+          mkdir -p .opencode
+          cat > .opencode/config.json << 'EOF'
+          {
+            "$schema": "https://opencode.ai/config.json",
+            "plugin": [
+              "file://."
+            ]
+          }
+          EOF
+
+      - name: Verify opencode loads Weave plugin
+        run: |
+          export PATH="$HOME/.opencode/bin:$PATH"
+          opencode --version
+          opencode debug agent "Loom (Main Orchestrator)" | head -5
+
+      - name: Run CLI e2e tests
+        run: |
+          export PATH="$HOME/.opencode/bin:$PATH"
+          bun test src/e2e-cli.test.ts
