@@ -1,8 +1,13 @@
-import { describe, it, expect } from "bun:test"
+import { describe, it, expect, afterEach } from "bun:test"
 import { generateHealthReport } from "./health-report"
 import type { ConfigLoadResult } from "../config/loader"
+import { getAgentDisplayName, resetDisplayNames, updateBuiltinDisplayName } from "../shared/agent-display-names"
 
 describe("generateHealthReport", () => {
+  afterEach(() => {
+    resetDisplayNames()
+  })
+
   it("reports healthy when no diagnostics", () => {
     const loadResult: ConfigLoadResult = {
       config: {},
@@ -61,6 +66,48 @@ describe("generateHealthReport", () => {
     expect(report).toContain("Builtin: 2/8")
     expect(report).toContain("Custom: 1")
     expect(report).toContain("my-reviewer")
+  })
+
+  it("classifies raw builtin agent keys correctly for /weave-health runtime input", () => {
+    const loadResult: ConfigLoadResult = {
+      config: {},
+      loadedFiles: [],
+      diagnostics: [],
+    }
+    const agents = {
+      loom: {},
+      tapestry: {},
+      shuttle: {},
+      pattern: {},
+      thread: {},
+      spindle: {},
+      warp: {},
+      weft: {},
+    }
+
+    const report = generateHealthReport(loadResult, agents)
+    expect(report).toContain("Builtin: 8/8 (loom, tapestry, shuttle, pattern, thread, spindle, warp, weft)")
+    expect(report).toContain("Custom: 0")
+  })
+
+  it("classifies builtins correctly when display names are overridden", () => {
+    updateBuiltinDisplayName("loom", "My Loom")
+    updateBuiltinDisplayName("thread", "Codebase explorer (thread)")
+
+    const loadResult: ConfigLoadResult = {
+      config: {},
+      loadedFiles: [],
+      diagnostics: [],
+    }
+    const agents = {
+      loom: {},
+      thread: {},
+      [getAgentDisplayName("tapestry")]: {},
+    }
+
+    const report = generateHealthReport(loadResult, agents)
+    expect(report).toContain("Builtin: 3/8")
+    expect(report).toContain("Custom: 0")
   })
 
   it("shows disabled agents", () => {

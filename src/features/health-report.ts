@@ -1,6 +1,6 @@
 import type { WeaveConfig } from "../config/schema"
 import type { ConfigLoadResult, ConfigDiagnostic } from "../config/loader"
-import { getAgentDisplayName } from "../shared/agent-display-names"
+import { getAgentConfigKey } from "../shared/agent-display-names"
 
 /**
  * Generate a human-readable health report from the config load result.
@@ -55,11 +55,10 @@ export function generateHealthReport(
 
   // ── Agents ──
   lines.push("### Loaded Agents")
-  const builtinKeys = ["loom", "tapestry", "shuttle", "pattern", "thread", "spindle", "warp", "weft"]
-  const builtinDisplayNames = new Set(builtinKeys.map((k) => getAgentDisplayName(k)))
+  const builtinKeys = new Set(["loom", "tapestry", "shuttle", "pattern", "thread", "spindle", "warp", "weft"])
   const agentNames = Object.keys(agents)
-  const builtinAgents = agentNames.filter((n) => builtinDisplayNames.has(n))
-  const customAgents = agentNames.filter((n) => !builtinDisplayNames.has(n))
+  const builtinAgents = agentNames.filter((n) => builtinKeys.has(getAgentConfigKey(n)))
+  const customAgents = agentNames.filter((n) => !builtinKeys.has(getAgentConfigKey(n)))
 
   lines.push(`- Builtin: ${builtinAgents.length}/8 (${builtinAgents.join(", ")})`)
   if (customAgents.length > 0) {
