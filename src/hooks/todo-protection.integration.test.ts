@@ -338,7 +338,7 @@ describe("Scenario 4b: todo-continuation-enforcer LLM fallback via plugin-interf
     expect(injectedPrompts[0].sessionId).toBe("ses_2")
     const body = injectedPrompts[0].body as { parts: Array<{ text: string }> }
     const text = body.parts[0].text
-    expect(text).toContain(FINALIZE_TODOS_MARKER)
+    expect(text).not.toContain(FINALIZE_TODOS_MARKER)
     expect(text).toContain("Deploy")
     // Completed item should not appear in the in_progress list
     expect(text).not.toContain("Test")

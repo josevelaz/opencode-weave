@@ -82,11 +82,8 @@ export function createTodoContinuationEnforcer(
             parts: [
               {
                 type: "text",
-                text: `${FINALIZE_TODOS_MARKER}
-You have finished your work but left these todos as in_progress:
-${inProgressItems}
-
-Use todowrite NOW to mark all of them as "completed" (or "cancelled" if abandoned). Do not do any other work — just update the todos and stop.`,
+                text: `You have finished your work but left these todos as in_progress:
+${inProgressItems}`,
               },
             ],
           },

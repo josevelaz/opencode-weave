@@ -1995,7 +1995,7 @@ describe("workflow integration in plugin-interface", () => {
 
       expect(promptAsyncCalls.length).toBe(1)
       expect(promptAsyncCalls[0].path.id).toBe("sess-finalize-1")
-      expect(promptAsyncCalls[0].body.parts[0].text).toContain("<!-- weave:finalize-todos -->")
+      expect(promptAsyncCalls[0].body.parts[0].text).not.toContain("<!-- weave:finalize-todos -->")
       expect(promptAsyncCalls[0].body.parts[0].text).toContain('"Task 1"')
     })
 

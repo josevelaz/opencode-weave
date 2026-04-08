@@ -123,7 +123,7 @@ describe("createTodoContinuationEnforcer", () => {
       expect(mockClient.promptAsyncCalls.length).toBe(1)
     })
 
-    it("finalize prompt includes FINALIZE_TODOS_MARKER", async () => {
+    it("finalize prompt does not include FINALIZE_TODOS_MARKER", async () => {
       const todos: TodoInfo[] = [
         { content: "Deploy app", status: "in_progress", priority: "high" },
       ]
@@ -138,7 +138,7 @@ describe("createTodoContinuationEnforcer", () => {
       const call = mockClient.promptAsyncCalls[0]
       const body = call.body as { parts: Array<{ type: string; text: string }> }
       const text = body.parts[0].text
-      expect(text).toContain(FINALIZE_TODOS_MARKER)
+      expect(text).not.toContain(FINALIZE_TODOS_MARKER)
     })
 
     it("finalize prompt lists the specific in_progress items", async () => {
