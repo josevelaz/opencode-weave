@@ -21,7 +21,7 @@ export function validatePlan(planPath: string, projectDir: string): ValidationRe
     errors.push({
       severity: "error",
       category: "structure",
-      message: `Plan path is outside the allowed directory (${PLANS_DIR}/): ${planPath}`,
+      message: `Plan path is outside the allowed directory (${PLANS_DIR}/): \`${planPath}\``,
     })
     return { valid: false, errors, warnings }
   }
@@ -31,7 +31,7 @@ export function validatePlan(planPath: string, projectDir: string): ValidationRe
     errors.push({
       severity: "error",
       category: "structure",
-      message: `Plan file not found: ${planPath}`,
+      message: `Plan file not found: \`${planPath}\``,
     })
     return { valid: false, errors, warnings }
   }
@@ -288,7 +288,7 @@ function validateFileReferences(
         warnings.push({
           severity: "warning",
           category: "file-references",
-          message: `Absolute file path not allowed in plan references: ${filePath}`,
+          message: `Absolute file path not allowed in plan references: \`${filePath}\``,
         })
         continue
       }
@@ -300,7 +300,7 @@ function validateFileReferences(
         warnings.push({
           severity: "warning",
           category: "file-references",
-          message: `File reference escapes project directory (path traversal): ${filePath}`,
+          message: `File reference escapes project directory (path traversal): \`${filePath}\``,
         })
         continue
       }
@@ -309,7 +309,7 @@ function validateFileReferences(
         warnings.push({
           severity: "warning",
           category: "file-references",
-          message: `Referenced file does not exist (may be created by an earlier task): ${filePath}`,
+          message: `Referenced file does not exist (may be created by an earlier task): \`${filePath}\``,
         })
       }
     }

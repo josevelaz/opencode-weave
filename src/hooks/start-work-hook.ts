@@ -73,7 +73,7 @@ export function handleStartWork(input: StartWorkInput): StartWorkResult {
       }
       appendSessionId(directory, sessionId)
       resumeWork(directory)
-      const resumeContext = buildResumeContext(existingState.active_plan, existingState.plan_name, progress, existingState.start_sha)
+      const resumeContext = buildResumeContext(existingState.active_plan, existingState.plan_name, progress, existingState.start_sha, directory)
       if (validation.warnings.length > 0) {
         return {
           switchAgent: "tapestry",
@@ -176,7 +176,7 @@ function handleExplicitPlan(
   const state = createWorkState(matched, sessionId, "tapestry", directory)
   writeWorkState(directory, state)
 
-  const freshContext = buildFreshContext(matched, getPlanName(matched), progress, state.start_sha)
+  const freshContext = buildFreshContext(matched, getPlanName(matched), progress, state.start_sha, directory)
   if (validation.warnings.length > 0) {
     return {
       switchAgent: "tapestry",
@@ -231,7 +231,7 @@ function handlePlanDiscovery(
     const state = createWorkState(plan, sessionId, "tapestry", directory)
     writeWorkState(directory, state)
 
-    const freshContext = buildFreshContext(plan, getPlanName(plan), progress, state.start_sha)
+    const freshContext = buildFreshContext(plan, getPlanName(plan), progress, state.start_sha, directory)
     if (validation.warnings.length > 0) {
       return {
         switchAgent: "tapestry",
@@ -298,11 +298,13 @@ function buildFreshContext(
   planName: string,
   progress: { total: number; completed: number },
   startSha?: string,
+  directory?: string,
 ): string {
   const shaLine = startSha ? `\n**Start SHA**: ${startSha}` : ""
+  const dirLine = directory ? `\n**Working directory**: \`${directory}\`` : ""
   return `## Starting Plan: ${planName}
-**Plan file**: ${planPath}
-**Progress**: ${progress.completed}/${progress.total} tasks completed${shaLine}
+**Plan file**: \`${planPath}\`
+**Progress**: ${progress.completed}/${progress.total} tasks completed${shaLine}${dirLine}
 
 Read the plan file now and begin executing from the first unchecked \`- [ ]\` task.
 
@@ -319,13 +321,15 @@ function buildResumeContext(
   planName: string,
   progress: { total: number; completed: number },
   startSha?: string,
+  directory?: string,
 ): string {
   const remaining = progress.total - progress.completed
   const shaLine = startSha ? `\n**Start SHA**: ${startSha}` : ""
+  const dirLine = directory ? `\n**Working directory**: \`${directory}\`` : ""
   return `## Resuming Plan: ${planName}
-**Plan file**: ${planPath}
+**Plan file**: \`${planPath}\`
 **Progress**: ${progress.completed}/${progress.total} tasks completed
-**Status**: RESUMING — continuing from where the previous session left off.${shaLine}
+**Status**: RESUMING — continuing from where the previous session left off.${shaLine}${dirLine}
 
 Read the plan file now and continue from the first unchecked \`- [ ]\` task.
 

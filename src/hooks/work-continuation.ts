@@ -83,7 +83,8 @@ export function checkContinuation(input: ContinuationInput): ContinuationResult 
 You have an active work plan with incomplete tasks. Continue working.
 
 **Plan**: ${state.plan_name}
-**File**: ${state.active_plan}
+**File**: \`${state.active_plan}\`
+**Working directory**: \`${directory}\`
 **Progress**: ${progress.completed}/${progress.total} tasks completed (${remaining} remaining)
 
 1. Read the plan file NOW to check exact current progress

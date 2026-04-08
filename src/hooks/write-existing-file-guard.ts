@@ -25,7 +25,7 @@ export function checkWriteAllowed(state: WriteGuardState, filePath: string): Wri
   if (state.readFiles.has(filePath)) {
     return { allowed: true }
   }
-  const warning = `⚠️ Write guard: Attempting to write to '${filePath}' without reading it first. Read the file before overwriting to avoid data loss.`
+  const warning = `⚠️ Write guard: Attempting to write to \`${filePath}\` without reading it first. Read the file before overwriting to avoid data loss.`
   warn(`[write-guard] BLOCKED write to unread file: ${filePath}`)
   return { allowed: false, warning }
 }
