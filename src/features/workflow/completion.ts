@@ -98,7 +98,7 @@ function checkPlanCreated(context: CompletionContext): CompletionCheckResult {
     return {
       complete: true,
       artifacts: { plan_path: matchingPlan },
-      summary: `Plan created at ${matchingPlan}`,
+      summary: `Plan created at \`${matchingPlan}\``,
     }
   }
 
@@ -108,7 +108,7 @@ function checkPlanCreated(context: CompletionContext): CompletionCheckResult {
     return {
       complete: true,
       artifacts: { plan_path: directPath },
-      summary: `Plan created at ${directPath}`,
+      summary: `Plan created at \`${directPath}\``,
     }
   }
 
@@ -124,7 +124,7 @@ function checkPlanComplete(context: CompletionContext): CompletionCheckResult {
 
   const planPath = join(directory, ".weave", "plans", `${planName}.md`)
   if (!existsSync(planPath)) {
-    return { complete: false, reason: `Plan file not found: ${planPath}` }
+    return { complete: false, reason: `Plan file not found: \`${planPath}\`` }
   }
 
   const progress = getPlanProgress(planPath)

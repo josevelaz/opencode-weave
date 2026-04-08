@@ -37,7 +37,7 @@ export function checkPatternWrite(
   if (!normalizedPath.includes(`${WEAVE_DIR_SEGMENT}/`)) {
     return {
       allowed: false,
-      reason: `Pattern agent can only write to .weave/ directory. Attempted: ${filePath}`,
+      reason: `Pattern agent can only write to .weave/ directory. Attempted: \`${filePath}\``,
     }
   }
 
@@ -45,7 +45,7 @@ export function checkPatternWrite(
   if (!normalizedPath.endsWith(".md")) {
     return {
       allowed: false,
-      reason: `Pattern agent can only write .md files. Attempted: ${filePath}`,
+      reason: `Pattern agent can only write .md files. Attempted: \`${filePath}\``,
     }
   }
 
