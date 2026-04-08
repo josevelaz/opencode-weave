@@ -1,4 +1,4 @@
-import type { AgentMode, WeaveAgentName } from "./types"
+import type { AgentMode, AgentModelResolutionSource, AgentRuntimeModelPlan, WeaveAgentName } from "./types"
 import { debug, warn } from "../shared/log"
 
 export type FallbackEntry = {
@@ -77,72 +77,149 @@ export type ResolveAgentModelOptions = {
   categoryModel?: string
   overrideModel?: string
   systemDefaultModel?: string
-  /** Custom fallback chain for agents not in AGENT_MODEL_REQUIREMENTS */
+  /** Optional fallback chain override from config */
   customFallbackChain?: FallbackEntry[]
+}
+
+export type ResolveAgentModelResult = AgentRuntimeModelPlan
+
+function pushUniqueModel(models: string[], model: string | undefined): void {
+  if (!model) return
+  if (!models.includes(model)) {
+    models.push(model)
+  }
+}
+
+function resolveFallbackChainModels(fallbackChain: FallbackEntry[] | undefined, availableModels: Set<string>): { orderedModels: string[], selectedFallbackModel?: string } {
+  const orderedModels: string[] = []
+  let selectedFallbackModel: string | undefined
+
+  if (!fallbackChain) {
+    return { orderedModels, selectedFallbackModel }
+  }
+
+  for (const entry of fallbackChain) {
+    let entryMatched = false
+
+    for (const provider of entry.providers) {
+      const qualified = `${provider}/${entry.model}`
+
+      if (availableModels.has(qualified)) {
+        pushUniqueModel(orderedModels, qualified)
+        if (!selectedFallbackModel) {
+          selectedFallbackModel = qualified
+        }
+        entryMatched = true
+        break
+      }
+    }
+
+    if (entryMatched) {
+      continue
+    }
+
+    if (availableModels.has(entry.model)) {
+      pushUniqueModel(orderedModels, entry.model)
+      if (!selectedFallbackModel) {
+        selectedFallbackModel = entry.model
+      }
+      continue
+    }
+
+    for (const provider of entry.providers) {
+      pushUniqueModel(orderedModels, `${provider}/${entry.model}`)
+    }
+    pushUniqueModel(orderedModels, entry.model)
+  }
+
+  return { orderedModels, selectedFallbackModel }
+}
+
+export function resolveAgentModelPlan(agentName: string, options: ResolveAgentModelOptions): ResolveAgentModelResult {
+  const { availableModels, agentMode, uiSelectedModel, categoryModel, overrideModel, systemDefaultModel, customFallbackChain } = options
+  const requirement = AGENT_MODEL_REQUIREMENTS[agentName as WeaveAgentName] as AgentModelRequirement | undefined
+  const fallbackChain = customFallbackChain ?? requirement?.fallbackChain
+  const { orderedModels: fallbackOrderedModels, selectedFallbackModel } = resolveFallbackChainModels(fallbackChain, availableModels)
+
+  let selectedModel: string
+  let resolutionSource: AgentModelResolutionSource
+
+  if (overrideModel) {
+    selectedModel = overrideModel
+    resolutionSource = "override"
+  } else if (uiSelectedModel && (agentMode === "primary" || agentMode === "all")) {
+    selectedModel = uiSelectedModel
+    resolutionSource = "ui-selection"
+  } else if (categoryModel && availableModels.has(categoryModel)) {
+    selectedModel = categoryModel
+    resolutionSource = "category"
+  } else if (selectedFallbackModel) {
+    selectedModel = selectedFallbackModel
+    resolutionSource = "fallback-chain"
+  } else if (systemDefaultModel) {
+    selectedModel = systemDefaultModel
+    resolutionSource = "system-default"
+  } else if (fallbackOrderedModels.length > 0) {
+    selectedModel = fallbackOrderedModels[0]
+    resolutionSource = "offline-guess"
+  } else {
+    selectedModel = "github-copilot/claude-opus-4.6"
+    resolutionSource = "hardcoded-default"
+  }
+
+  const orderedModels: string[] = []
+  pushUniqueModel(orderedModels, selectedModel)
+  for (const model of fallbackOrderedModels) {
+    pushUniqueModel(orderedModels, model)
+  }
+  if (systemDefaultModel) {
+    pushUniqueModel(orderedModels, systemDefaultModel)
+  }
+  pushUniqueModel(orderedModels, "github-copilot/claude-opus-4.6")
+
+  const fallbackModels = orderedModels.filter((model) => model !== selectedModel)
+
+  debug(`Model resolved for "${agentName}"`, {
+    via: resolutionSource,
+    model: selectedModel,
+    agentMode,
+  })
+
+  if (resolutionSource === "hardcoded-default") {
+    warn(`No model resolved for agent "${agentName}" — falling back to default github-copilot/claude-opus-4.6`, { agentName })
+  }
+
+  return {
+    agentName,
+    selectedModel,
+    orderedModels,
+    fallbackModels,
+    resolutionSource,
+  }
+}
+
+/**
+ * Parse fallback_models strings like ["github-copilot/claude-sonnet-4.6", "anthropic/claude-sonnet-4"]
+ * into model-resolution fallback entries.
+ */
+export function parseFallbackModels(models: string[]): FallbackEntry[] {
+  return models.map((model) => {
+    if (model.includes("/")) {
+      const [provider, unqualifiedModel] = model.split("/", 2)
+      return { providers: [provider], model: unqualifiedModel }
+    }
+
+    return { providers: ["github-copilot"], model }
+  })
 }
 
 /**
  * Resolve the model for an agent. Accepts any string agent name.
- * Built-in agents use AGENT_MODEL_REQUIREMENTS for fallback chains.
- * Custom agents use the customFallbackChain option, or fall through
+ * Built-in agents use AGENT_MODEL_REQUIREMENTS for fallback chains unless
+ * config provides a fallback override. Custom agents use the
+ * customFallbackChain option, or fall through
  * to system default / hardcoded fallback.
  */
 export function resolveAgentModel(agentName: string, options: ResolveAgentModelOptions): string {
-  const { availableModels, agentMode, uiSelectedModel, categoryModel, overrideModel, systemDefaultModel, customFallbackChain } = options
-  const requirement = AGENT_MODEL_REQUIREMENTS[agentName as WeaveAgentName] as AgentModelRequirement | undefined
-
-  // 1. Explicit override always wins
-  if (overrideModel) {
-    debug(`Model resolved for "${agentName}"`, { via: "override", model: overrideModel })
-    return overrideModel
-  }
-
-  // 2. UI-selected model — only for primary or all agents
-  if (uiSelectedModel && (agentMode === "primary" || agentMode === "all")) {
-    debug(`Model resolved for "${agentName}"`, { via: "ui-selection", model: uiSelectedModel, agentMode })
-    return uiSelectedModel
-  }
-
-  // 3. Category default model (only if available)
-  if (categoryModel && availableModels.has(categoryModel)) {
-    debug(`Model resolved for "${agentName}"`, { via: "category", model: categoryModel })
-    return categoryModel
-  }
-
-  // 4. Fallback chain — first available match (built-in or custom)
-  const fallbackChain = requirement?.fallbackChain ?? customFallbackChain
-  if (fallbackChain) {
-    for (const entry of fallbackChain) {
-      for (const provider of entry.providers) {
-        const qualified = `${provider}/${entry.model}`
-        if (availableModels.has(qualified)) {
-          debug(`Model resolved for "${agentName}"`, { via: "fallback-chain", model: qualified })
-          return qualified
-        }
-        if (availableModels.has(entry.model)) {
-          debug(`Model resolved for "${agentName}"`, { via: "fallback-chain", model: entry.model })
-          return entry.model
-        }
-      }
-    }
-  }
-
-  // 5. System default
-  if (systemDefaultModel) {
-    debug(`Model resolved for "${agentName}"`, { via: "system-default", model: systemDefaultModel })
-    return systemDefaultModel
-  }
-
-  // 6. Best-guess offline: first entry in fallback chain
-  if (fallbackChain && fallbackChain.length > 0) {
-    const first = fallbackChain[0]
-    if (first.providers.length > 0) {
-      const guessed = `${first.providers[0]}/${first.model}`
-      debug(`Model resolved for "${agentName}" (offline best-guess — no available models matched)`, { via: "offline-guess", model: guessed })
-      return guessed
-    }
-  }
-
-  warn(`No model resolved for agent "${agentName}" — falling back to default github-copilot/claude-opus-4.6`, { agentName })
-  return "github-copilot/claude-opus-4.6"
+  return resolveAgentModelPlan(agentName, options).selectedModel
 }

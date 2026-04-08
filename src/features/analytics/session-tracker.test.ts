@@ -327,14 +327,25 @@ describe("SessionTracker", () => {
       tracker.trackModel("s1", "claude-sonnet-4-20250514")
       const session = tracker.getSession("s1")!
       expect(session.model).toBe("claude-sonnet-4-20250514")
+      expect(session.modelsAttempted).toEqual(["claude-sonnet-4-20250514"])
     })
 
-    it("is idempotent — first call wins", () => {
+    it("updates the session model to the latest attempt and preserves history", () => {
       tracker.startSession("s1")
       tracker.trackModel("s1", "claude-opus-4")
       tracker.trackModel("s1", "claude-sonnet-4-20250514")
       const session = tracker.getSession("s1")!
-      expect(session.model).toBe("claude-opus-4")
+      expect(session.model).toBe("claude-sonnet-4-20250514")
+      expect(session.modelsAttempted).toEqual(["claude-opus-4", "claude-sonnet-4-20250514"])
+    })
+
+    it("dedupes repeated model attempts", () => {
+      tracker.startSession("s1")
+      tracker.trackModel("s1", "claude-opus-4")
+      tracker.trackModel("s1", "claude-opus-4")
+      tracker.trackModel("s1", "claude-sonnet-4-20250514")
+      const session = tracker.getSession("s1")!
+      expect(session.modelsAttempted).toEqual(["claude-opus-4", "claude-sonnet-4-20250514"])
     })
 
     it("is safe to call for untracked sessions — no-op, no throw", () => {
@@ -347,6 +358,16 @@ describe("SessionTracker", () => {
       tracker.trackModel("s1", "claude-sonnet-4-20250514")
       const summary = tracker.endSession("s1")!
       expect(summary.model).toBe("claude-sonnet-4-20250514")
+      expect(summary.modelsAttempted).toEqual(["claude-sonnet-4-20250514"])
+    })
+
+    it("endSession keeps the final successful model instead of the first failed one", () => {
+      tracker.startSession("s1")
+      tracker.trackModel("s1", "github-copilot/claude-opus-4.6")
+      tracker.trackModel("s1", "openai/gpt-5")
+      const summary = tracker.endSession("s1")!
+      expect(summary.model).toBe("openai/gpt-5")
+      expect(summary.modelsAttempted).toEqual(["github-copilot/claude-opus-4.6", "openai/gpt-5"])
     })
 
     it("omits model from summary when not set", () => {
@@ -363,6 +384,7 @@ describe("SessionTracker", () => {
       const summaries = readSessionSummaries(tempDir)
       expect(summaries.length).toBe(1)
       expect(summaries[0].model).toBe("gpt-4o")
+      expect(summaries[0].modelsAttempted).toEqual(["gpt-4o"])
     })
 
     it("old JSONL entries without model field parse correctly (undefined)", () => {

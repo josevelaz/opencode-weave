@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { createBuiltinAgents, AGENT_METADATA } from "./builtin-agents"
+import { createBuiltinAgents, createBuiltinAgentRuntimePlans, AGENT_METADATA } from "./builtin-agents"
 
 const ALL_AGENT_NAMES = ["loom", "tapestry", "shuttle", "pattern", "thread", "spindle", "weft", "warp"]
 
@@ -36,6 +36,33 @@ describe("createBuiltinAgents", () => {
       availableModels: new Set(["gpt-4o-custom"]),
     })
     expect(agents["loom"]?.model).toBe("gpt-4o-custom")
+  })
+
+  it("applies fallback_models from agentOverrides during builtin model resolution", () => {
+    const agents = createBuiltinAgents({
+      agentOverrides: { loom: { fallback_models: ["openai/gpt-5"] } },
+      availableModels: new Set(["openai/gpt-5"]),
+    })
+    expect(agents["loom"]?.model).toBe("openai/gpt-5")
+  })
+
+  it("defaults unqualified fallback_models entries to github-copilot", () => {
+    const agents = createBuiltinAgents({
+      agentOverrides: { weft: { fallback_models: ["claude-sonnet-4.6"] } },
+      availableModels: new Set(["github-copilot/claude-sonnet-4.6"]),
+    })
+    expect(agents["weft"]?.model).toBe("github-copilot/claude-sonnet-4.6")
+  })
+
+  it("exposes runtime fallback metadata for builtins", () => {
+    const plans = createBuiltinAgentRuntimePlans({
+      agentOverrides: { loom: { fallback_models: ["openai/gpt-5", "anthropic/claude-opus-4"] } },
+      availableModels: new Set(["openai/gpt-5"]),
+    })
+
+    expect(plans["loom"]?.selectedModel).toBe("openai/gpt-5")
+    expect(plans["loom"]?.orderedModels[0]).toBe("openai/gpt-5")
+    expect(plans["loom"]?.fallbackModels).toContain("anthropic/claude-opus-4")
   })
 
   it("applies prompt_append from agentOverrides", () => {

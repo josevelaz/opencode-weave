@@ -41,6 +41,7 @@ const WeavePlugin: Plugin = async (ctx) => {
     tools: toolsResult.tools,
     configHandler: managers.configHandler,
     agents: managers.agents,
+    runtimeModelPlans: managers.runtimeModelPlans,
     client: ctx.client,
     directory: ctx.directory,
     tracker: analytics?.tracker,

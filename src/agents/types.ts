@@ -99,6 +99,25 @@ export type AgentOverrideConfig = Partial<AgentConfig> & {
  */
 export type AgentOverrides = Partial<Record<WeaveAgentName, AgentOverrideConfig>>
 
+export type AgentModelResolutionSource =
+  | "override"
+  | "ui-selection"
+  | "category"
+  | "fallback-chain"
+  | "system-default"
+  | "offline-guess"
+  | "hardcoded-default"
+
+export interface AgentRuntimeModelPlan {
+  agentName: string
+  selectedModel: string
+  orderedModels: string[]
+  fallbackModels: string[]
+  resolutionSource: AgentModelResolutionSource
+}
+
+export type RuntimeModelPlanRegistry = Record<string, AgentRuntimeModelPlan>
+
 function extractModelName(model: string): string {
   return model.includes("/") ? (model.split("/").pop() ?? model) : model
 }

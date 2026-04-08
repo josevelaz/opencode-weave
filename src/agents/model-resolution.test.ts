@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { resolveAgentModel, AGENT_MODEL_REQUIREMENTS } from "./model-resolution"
+import { resolveAgentModel, resolveAgentModelPlan, AGENT_MODEL_REQUIREMENTS } from "./model-resolution"
 
 describe("AGENT_MODEL_REQUIREMENTS", () => {
   it("has entries for all 6 agents", () => {
@@ -93,6 +93,40 @@ describe("resolveAgentModel", () => {
       agentMode: "subagent",
     })
     expect(result).toBe("anthropic/claude-opus-4")
+  })
+
+  it("uses provided fallback chain instead of builtin defaults when configured", () => {
+    const result = resolveAgentModel("loom", {
+      availableModels: new Set(["openai/gpt-5"]),
+      agentMode: "subagent",
+      customFallbackChain: [{ providers: ["openai"], model: "gpt-5" }],
+    })
+    expect(result).toBe("openai/gpt-5")
+  })
+
+  it("returns runtime metadata without changing selected model", () => {
+    const result = resolveAgentModelPlan("loom", {
+      availableModels: new Set(["anthropic/claude-opus-4"]),
+      agentMode: "subagent",
+    })
+
+    expect(result.selectedModel).toBe("anthropic/claude-opus-4")
+    expect(result.resolutionSource).toBe("fallback-chain")
+    expect(result.orderedModels[0]).toBe("anthropic/claude-opus-4")
+    expect(result.fallbackModels).toContain("github-copilot/claude-opus-4.6")
+    expect(result.fallbackModels).toContain("openai/gpt-5")
+  })
+
+  it("keeps selected override model at the head of the ordered runtime plan", () => {
+    const result = resolveAgentModelPlan("loom", {
+      availableModels: available,
+      agentMode: "primary",
+      overrideModel: "anthropic/claude-opus-4",
+    })
+
+    expect(result.selectedModel).toBe("anthropic/claude-opus-4")
+    expect(result.orderedModels[0]).toBe("anthropic/claude-opus-4")
+    expect(result.fallbackModels).toContain("github-copilot/claude-opus-4.6")
   })
 
   it("uses system default when nothing else available", () => {

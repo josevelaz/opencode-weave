@@ -70,6 +70,8 @@ export interface SessionSummary {
   agentName?: string
   /** Model ID used in this session (e.g., "claude-sonnet-4-20250514") */
   model?: string
+  /** Deduplicated ordered models attempted during the session */
+  modelsAttempted?: string[]
   /** Total dollar cost accumulated across all messages */
   totalCost?: number
   /** Aggregated token usage across all messages (absent for old entries or sessions with no messages) */
@@ -258,6 +260,8 @@ export interface TrackedSession {
   agentName?: string
   /** Model ID used in this session (e.g., "claude-sonnet-4-20250514") */
   model?: string
+  /** Deduplicated ordered models attempted during the session */
+  modelsAttempted?: string[]
   /** Accumulated dollar cost across all messages */
   totalCost: number
   /** Cumulative token usage across all messages */

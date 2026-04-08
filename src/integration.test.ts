@@ -179,6 +179,16 @@ describe("createManagers — builtin display_name override", () => {
     expect(agents["weft"]?.description).toBe("My Reviewer")
   })
 
+  it("runtime model plans are addressable by builtin display name", () => {
+    const config = WeaveConfigSchema.parse({
+      agents: { loom: { display_name: "My Loom" } },
+    })
+    const { runtimeModelPlans } = createManagers({ ctx: mockCtx, pluginConfig: config })
+
+    expect(runtimeModelPlans["loom"]).toBeDefined()
+    expect(runtimeModelPlans["My Loom"]).toBe(runtimeModelPlans["loom"])
+  })
+
   it("setting display_name on a disabled builtin agent does NOT crash", async () => {
     const config = WeaveConfigSchema.parse({
       disabled_agents: ["weft"],

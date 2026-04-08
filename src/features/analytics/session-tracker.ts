@@ -15,6 +15,14 @@ function safeNum(v: unknown): number {
   return Number.isFinite(n) && n >= 0 ? n : 0
 }
 
+function pushUnique(values: string[] | undefined, value: string): string[] {
+  const next = values ? [...values] : []
+  if (!next.includes(value)) {
+    next.push(value)
+  }
+  return next
+}
+
 /**
  * SessionTracker tracks tool usage and delegations across sessions,
  * producing SessionSummary records when sessions end.
@@ -114,15 +122,15 @@ export class SessionTracker {
   }
 
   /**
-   * Set the model ID for a session. Only sets on first call (captures primary model).
+   * Track the current model ID for a session.
+   * Keeps the latest attempt as `session.model` and a deduped history in `modelsAttempted`.
    * Safe to call for untracked sessions (no-op, no throw).
    */
   trackModel(sessionId: string, modelId: string): void {
     const session = this.sessions.get(sessionId)
     if (!session) return
-    if (!session.model) {
-      session.model = modelId
-    }
+    session.model = modelId
+    session.modelsAttempted = pushUnique(session.modelsAttempted, modelId)
   }
 
   /**
@@ -187,6 +195,7 @@ export class SessionTracker {
       totalDelegations: session.delegations.length,
       agentName: session.agentName,
       model: session.model,
+      modelsAttempted: session.modelsAttempted?.length ? session.modelsAttempted : undefined,
       totalCost: session.totalCost > 0 ? session.totalCost : undefined,
       tokenUsage: session.tokenUsage.totalMessages > 0 ? session.tokenUsage : undefined,
     }

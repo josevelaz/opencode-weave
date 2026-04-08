@@ -1,10 +1,9 @@
 import type { AgentConfig } from "@opencode-ai/sdk"
 import type { CustomAgentConfig } from "../config/schema"
-import type { AgentPromptMetadata } from "./types"
+import type { AgentPromptMetadata, AgentRuntimeModelPlan } from "./types"
 import type { ResolveSkillsFn } from "./agent-builder"
 import { loadPromptFile } from "./prompt-loader"
-import { resolveAgentModel } from "./model-resolution"
-import type { FallbackEntry } from "./model-resolution"
+import { parseFallbackModels, resolveAgentModelPlan } from "./model-resolution"
 import { registerAgentDisplayName } from "../shared/agent-display-names"
 import { registerAgentNameVariants } from "./agent-builder"
 import { debug } from "../shared/log"
@@ -35,20 +34,6 @@ export interface BuildCustomAgentOptions {
   uiSelectedModel?: string
   /** Base directory for resolving relative prompt_file paths */
   configDir?: string
-}
-
-/**
- * Parse a fallback_models array like ["github-copilot/claude-sonnet-4.6", "anthropic/claude-sonnet-4"]
- * into FallbackEntry[] for model resolution.
- */
-function parseFallbackModels(models: string[]): FallbackEntry[] {
-  return models.map((m) => {
-    if (m.includes("/")) {
-      const [provider, model] = m.split("/", 2)
-      return { providers: [provider], model }
-    }
-    return { providers: ["github-copilot"], model: m }
-  })
 }
 
 /**
@@ -95,18 +80,12 @@ export function buildCustomAgent(
 
   // Resolve model
   const mode = config.mode ?? "subagent"
-  const customFallbackChain = config.fallback_models?.length
-    ? parseFallbackModels(config.fallback_models)
-    : undefined
-
-  const model = resolveAgentModel(name, {
+  const runtimePlan = createCustomAgentRuntimePlan(name, config, {
     availableModels,
-    agentMode: mode,
-    overrideModel: config.model,
     systemDefaultModel,
     uiSelectedModel,
-    customFallbackChain,
   })
+  const model = runtimePlan.selectedModel
 
   // Register display name
   const displayName = config.display_name ?? name
@@ -145,6 +124,27 @@ export function buildCustomAgent(
   }
 
   return agentConfig
+}
+
+export function createCustomAgentRuntimePlan(
+  name: string,
+  config: CustomAgentConfig,
+  options: Pick<BuildCustomAgentOptions, "availableModels" | "systemDefaultModel" | "uiSelectedModel"> = {},
+): AgentRuntimeModelPlan {
+  const { availableModels = new Set(), systemDefaultModel, uiSelectedModel } = options
+  const mode = config.mode ?? "subagent"
+  const customFallbackChain = config.fallback_models?.length
+    ? parseFallbackModels(config.fallback_models)
+    : undefined
+
+  return resolveAgentModelPlan(name, {
+    availableModels,
+    agentMode: mode,
+    overrideModel: config.model,
+    systemDefaultModel,
+    uiSelectedModel,
+    customFallbackChain,
+  })
 }
 
 /**

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
 import { writeFileSync, mkdirSync, rmSync } from "fs"
 import { join } from "path"
-import { buildCustomAgent, buildCustomAgentMetadata } from "./custom-agent-factory"
+import { buildCustomAgent, buildCustomAgentMetadata, createCustomAgentRuntimePlan } from "./custom-agent-factory"
 import { AGENT_DISPLAY_NAMES, getAgentDisplayName } from "../shared/agent-display-names"
 import type { CustomAgentConfig } from "../config/schema"
 
@@ -185,6 +185,21 @@ describe("buildCustomAgent", () => {
       systemDefaultModel: "fallback/model",
     })
     expect(agent.model).toBe("fallback/model")
+  })
+
+  it("exposes runtime fallback metadata for custom agents", () => {
+    const config: CustomAgentConfig = {
+      prompt: "Test.",
+      fallback_models: ["openai/gpt-5", "anthropic/claude-sonnet-4"],
+    }
+
+    const plan = createCustomAgentRuntimePlan("test-agent", config, {
+      availableModels: new Set(["openai/gpt-5"]),
+    })
+
+    expect(plan.selectedModel).toBe("openai/gpt-5")
+    expect(plan.orderedModels[0]).toBe("openai/gpt-5")
+    expect(plan.fallbackModels).toContain("anthropic/claude-sonnet-4")
   })
 })
 

@@ -7,9 +7,9 @@ import { createThreadAgent } from "./thread"
 import { createSpindleAgent } from "./spindle"
 import { createWeftAgent } from "./weft"
 import { createWarpAgent } from "./warp"
-import { resolveAgentModel } from "./model-resolution"
+import { parseFallbackModels, resolveAgentModelPlan } from "./model-resolution"
 import { buildAgent } from "./agent-builder"
-import type { AgentFactory, AgentPromptMetadata, WeaveAgentName } from "./types"
+import type { AgentFactory, AgentPromptMetadata, RuntimeModelPlanRegistry, WeaveAgentName } from "./types"
 import type { CategoriesConfig, AgentOverrideConfig } from "../config/schema"
 import type { ResolveSkillsFn } from "./agent-builder"
 import type { ProjectFingerprint } from "../features/analytics/types"
@@ -175,9 +175,6 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
     disabledAgents = [],
     agentOverrides = {},
     categories,
-    uiSelectedModel,
-    systemDefaultModel,
-    availableModels = new Set<string>(),
     disabledSkills,
     resolveSkills,
     fingerprint,
@@ -187,6 +184,7 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
   const disabledSet = new Set(disabledAgents)
 
   const result: Record<string, AgentConfig> = {}
+  const runtimePlans = createBuiltinAgentRuntimePlans(options)
 
   for (const [name, factory] of Object.entries(AGENT_FACTORIES) as [WeaveAgentName, AgentFactory][]) {
     if (disabledSet.has(name)) {
@@ -196,14 +194,7 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
 
     const override = agentOverrides[name]
     const overrideModel = override?.model
-
-    const resolvedModel = resolveAgentModel(name, {
-      availableModels,
-      agentMode: factory.mode,
-      uiSelectedModel,
-      systemDefaultModel,
-      overrideModel,
-    })
+    const resolvedModel = runtimePlans[name]?.selectedModel ?? "github-copilot/claude-opus-4.6"
 
     if (overrideModel) {
       debug(`Builtin agent "${name}" model overridden via config`, { model: resolvedModel })
@@ -244,4 +235,37 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
   }
 
   return result
+}
+
+export function createBuiltinAgentRuntimePlans(options: CreateBuiltinAgentsOptions = {}): RuntimeModelPlanRegistry {
+  const {
+    disabledAgents = [],
+    agentOverrides = {},
+    uiSelectedModel,
+    systemDefaultModel,
+    availableModels = new Set<string>(),
+  } = options
+
+  const disabledSet = new Set(disabledAgents)
+  const plans: RuntimeModelPlanRegistry = {}
+
+  for (const [name, factory] of Object.entries(AGENT_FACTORIES) as [WeaveAgentName, AgentFactory][]) {
+    if (disabledSet.has(name)) continue
+
+    const override = agentOverrides[name]
+    const overrideFallbackChain = override?.fallback_models?.length
+      ? parseFallbackModels(override.fallback_models)
+      : undefined
+
+    plans[name] = resolveAgentModelPlan(name, {
+      availableModels,
+      agentMode: factory.mode,
+      uiSelectedModel,
+      systemDefaultModel,
+      overrideModel: override?.model,
+      customFallbackChain: overrideFallbackChain,
+    })
+  }
+
+  return plans
 }

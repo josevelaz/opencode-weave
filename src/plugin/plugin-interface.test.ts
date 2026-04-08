@@ -14,6 +14,17 @@ import * as sharedLog from "../shared/log"
 import { checkContinuation } from "../hooks/work-continuation"
 import { writeWorkState, createWorkState, readWorkState } from "../features/work-state/storage"
 import { WEAVE_DIR } from "../features/work-state/constants"
+import type { RuntimeModelPlanRegistry } from "../agents/types"
+
+type PromptAsyncCall = {
+  path: { id: string }
+  body: {
+    parts: Array<{ type: string; text?: string }>
+    agent?: string
+    model?: { providerID: string; modelID: string }
+    messageID?: string
+  }
+}
 
 const baseConfig: WeaveConfig = {}
 
@@ -1615,6 +1626,352 @@ describe("workflow integration in plugin-interface", () => {
       // The workflowContinuation hook mock above doesn't check for active instances.
       // This test verifies the message text tracking mechanism works.
       // The actual continuation won't fire because the mock checks lastAssistantMessage.
+    })
+  })
+
+  describe("runtime failover wiring", () => {
+    it("replays the captured prompt with the next fallback model on session.error", async () => {
+      const promptAsyncCalls: PromptAsyncCall[] = []
+      const mockClient = {
+        session: {
+          promptAsync: async (opts: PromptAsyncCall) => {
+            promptAsyncCalls.push(opts)
+          },
+        },
+      } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+
+      const runtimeModelPlans: RuntimeModelPlanRegistry = {
+        loom: {
+          agentName: "loom",
+          selectedModel: "github-copilot/claude-opus-4.6",
+          orderedModels: ["github-copilot/claude-opus-4.6", "openai/gpt-5"],
+          fallbackModels: ["openai/gpt-5"],
+          resolutionSource: "fallback-chain",
+        },
+        "Loom (Main Orchestrator)": {
+          agentName: "loom",
+          selectedModel: "github-copilot/claude-opus-4.6",
+          orderedModels: ["github-copilot/claude-opus-4.6", "openai/gpt-5"],
+          fallbackModels: ["openai/gpt-5"],
+          resolutionSource: "fallback-chain",
+        },
+      }
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+        runtimeModelPlans,
+      })
+
+      await iface["chat.message"](
+        {
+          sessionID: "sess-failover-1",
+          agent: "Loom (Main Orchestrator)",
+          model: { providerID: "github-copilot", modelID: "claude-opus-4.6" },
+          messageID: "msg-1",
+        } as Parameters<typeof iface["chat.message"]>[0],
+        {
+          message: { id: "msg-1", agent: "Loom (Main Orchestrator)" } as never,
+          parts: [{ type: "text", text: "Please continue." }],
+        },
+      )
+
+      await iface["chat.params"](
+        {
+          sessionID: "sess-failover-1",
+          agent: "Loom (Main Orchestrator)",
+          model: { id: "github-copilot/claude-opus-4.6", limit: { context: 100_000 } },
+        } as Parameters<typeof iface["chat.params"]>[0],
+        {} as never,
+      )
+
+      await iface.event({
+        event: {
+          type: "session.error",
+          properties: {
+            sessionID: "sess-failover-1",
+            error: { name: "APIError", data: { statusCode: 429, isRetryable: true, message: "quota exceeded" } },
+          },
+        } as Parameters<typeof iface.event>[0]["event"],
+      })
+
+      expect(promptAsyncCalls.length).toBe(1)
+      expect(promptAsyncCalls[0].path.id).toBe("sess-failover-1")
+      expect(promptAsyncCalls[0].body.agent).toBe("Loom (Main Orchestrator)")
+      expect(promptAsyncCalls[0].body.messageID).toBe("msg-1")
+      expect(promptAsyncCalls[0].body.model).toEqual({ providerID: "openai", modelID: "gpt-5" })
+      expect(promptAsyncCalls[0].body.parts[0].text).toBe("Please continue.")
+    })
+
+    it("skips start-work/workflow mutation when processing a replayed failover prompt", async () => {
+      const promptAsyncCalls: PromptAsyncCall[] = []
+      const mockClient = {
+        session: {
+          promptAsync: async (opts: PromptAsyncCall) => {
+            promptAsyncCalls.push(opts)
+          },
+        },
+      } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+
+      let startWorkCalls = 0
+      const hooks = makeHooks({
+        startWork: (_promptText: string, _sessionId: string) => {
+          startWorkCalls++
+          return { contextInjection: "Injected", switchAgent: "tapestry" }
+        },
+      })
+
+      const runtimeModelPlans: RuntimeModelPlanRegistry = {
+        loom: {
+          agentName: "loom",
+          selectedModel: "github-copilot/claude-opus-4.6",
+          orderedModels: ["github-copilot/claude-opus-4.6", "openai/gpt-5"],
+          fallbackModels: ["openai/gpt-5"],
+          resolutionSource: "fallback-chain",
+        },
+        "Loom (Main Orchestrator)": {
+          agentName: "loom",
+          selectedModel: "github-copilot/claude-opus-4.6",
+          orderedModels: ["github-copilot/claude-opus-4.6", "openai/gpt-5"],
+          fallbackModels: ["openai/gpt-5"],
+          resolutionSource: "fallback-chain",
+        },
+      }
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks,
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+        runtimeModelPlans,
+      })
+
+      await iface["chat.message"](
+        {
+          sessionID: "sess-failover-2",
+          agent: "Loom (Main Orchestrator)",
+          model: { providerID: "github-copilot", modelID: "claude-opus-4.6" },
+          messageID: "msg-2",
+        } as Parameters<typeof iface["chat.message"]>[0],
+        {
+          message: { id: "msg-2", agent: "Loom (Main Orchestrator)" } as never,
+          parts: [{ type: "text", text: "<session-context> hi" }],
+        },
+      )
+
+      await iface["chat.params"](
+        {
+          sessionID: "sess-failover-2",
+          agent: "Loom (Main Orchestrator)",
+          model: { id: "github-copilot/claude-opus-4.6", limit: { context: 100_000 } },
+        } as Parameters<typeof iface["chat.params"]>[0],
+        {} as never,
+      )
+
+      await iface.event({
+        event: {
+          type: "session.error",
+          properties: {
+            sessionID: "sess-failover-2",
+            error: { name: "APIError", data: { statusCode: 429, isRetryable: true, message: "quota exceeded" } },
+          },
+        } as Parameters<typeof iface.event>[0]["event"],
+      })
+
+      const replayOutput = {
+        message: { id: "msg-2", agent: "Loom (Main Orchestrator)" } as never,
+        parts: [{ type: "text", text: "<session-context> hi" }],
+      }
+      await iface["chat.message"](
+        {
+          sessionID: "sess-failover-2",
+          agent: "Loom (Main Orchestrator)",
+          model: { providerID: "openai", modelID: "gpt-5" },
+          messageID: "msg-2",
+        } as Parameters<typeof iface["chat.message"]>[0],
+        replayOutput,
+      )
+
+      expect(promptAsyncCalls.length).toBe(1)
+      expect(startWorkCalls).toBe(1)
+      expect(replayOutput.message.agent).toBe("Loom (Main Orchestrator)")
+      expect(replayOutput.parts[0].text).toBe("<session-context> hi")
+    })
+
+    it("does not replay on non-retryable runtime failures", async () => {
+      const promptAsyncCalls: PromptAsyncCall[] = []
+      const mockClient = {
+        session: {
+          promptAsync: async (opts: PromptAsyncCall) => {
+            promptAsyncCalls.push(opts)
+          },
+        },
+      } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+
+      const runtimeModelPlans: RuntimeModelPlanRegistry = {
+        loom: {
+          agentName: "loom",
+          selectedModel: "github-copilot/claude-opus-4.6",
+          orderedModels: ["github-copilot/claude-opus-4.6", "openai/gpt-5"],
+          fallbackModels: ["openai/gpt-5"],
+          resolutionSource: "fallback-chain",
+        },
+        "Loom (Main Orchestrator)": {
+          agentName: "loom",
+          selectedModel: "github-copilot/claude-opus-4.6",
+          orderedModels: ["github-copilot/claude-opus-4.6", "openai/gpt-5"],
+          fallbackModels: ["openai/gpt-5"],
+          resolutionSource: "fallback-chain",
+        },
+      }
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+        runtimeModelPlans,
+      })
+
+      await iface["chat.message"](
+        {
+          sessionID: "sess-failover-3",
+          agent: "Loom (Main Orchestrator)",
+          model: { providerID: "github-copilot", modelID: "claude-opus-4.6" },
+          messageID: "msg-3",
+        } as Parameters<typeof iface["chat.message"]>[0],
+        {
+          message: { id: "msg-3", agent: "Loom (Main Orchestrator)" } as never,
+          parts: [{ type: "text", text: "Please continue." }],
+        },
+      )
+
+      await iface["chat.params"](
+        {
+          sessionID: "sess-failover-3",
+          agent: "Loom (Main Orchestrator)",
+          model: { id: "github-copilot/claude-opus-4.6", limit: { context: 100_000 } },
+        } as Parameters<typeof iface["chat.params"]>[0],
+        {} as never,
+      )
+
+      await iface.event({
+        event: {
+          type: "session.error",
+          properties: {
+            sessionID: "sess-failover-3",
+            error: { name: "APIError", data: { statusCode: 401, isRetryable: false, message: "bad key" } },
+          },
+        } as Parameters<typeof iface.event>[0]["event"],
+      })
+
+      expect(promptAsyncCalls.length).toBe(0)
+    })
+
+    it("replays the post-workflowCommand prompt snapshot", async () => {
+      const promptAsyncCalls: PromptAsyncCall[] = []
+      const mockClient = {
+        session: {
+          promptAsync: async (opts: PromptAsyncCall) => {
+            promptAsyncCalls.push(opts)
+          },
+        },
+      } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+
+      const hooks = makeHooks({
+        workflowCommand: (_message: string) => ({
+          handled: true,
+          contextInjection: "Workflow command context",
+          switchAgent: "weft",
+        }),
+      })
+
+      const runtimeModelPlans: RuntimeModelPlanRegistry = {
+        loom: {
+          agentName: "loom",
+          selectedModel: "github-copilot/claude-opus-4.6",
+          orderedModels: ["github-copilot/claude-opus-4.6", "openai/gpt-5"],
+          fallbackModels: ["openai/gpt-5"],
+          resolutionSource: "fallback-chain",
+        },
+        "Loom (Main Orchestrator)": {
+          agentName: "loom",
+          selectedModel: "github-copilot/claude-opus-4.6",
+          orderedModels: ["github-copilot/claude-opus-4.6", "openai/gpt-5"],
+          fallbackModels: ["openai/gpt-5"],
+          resolutionSource: "fallback-chain",
+        },
+        weft: {
+          agentName: "weft",
+          selectedModel: "github-copilot/claude-opus-4.6",
+          orderedModels: ["github-copilot/claude-opus-4.6", "openai/gpt-5"],
+          fallbackModels: ["openai/gpt-5"],
+          resolutionSource: "fallback-chain",
+        },
+        Weft: {
+          agentName: "weft",
+          selectedModel: "github-copilot/claude-opus-4.6",
+          orderedModels: ["github-copilot/claude-opus-4.6", "openai/gpt-5"],
+          fallbackModels: ["openai/gpt-5"],
+          resolutionSource: "fallback-chain",
+        },
+      }
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks,
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+        runtimeModelPlans,
+      })
+
+      await iface["chat.message"](
+        {
+          sessionID: "sess-failover-4",
+          agent: "Loom (Main Orchestrator)",
+          model: { providerID: "github-copilot", modelID: "claude-opus-4.6" },
+          messageID: "msg-4",
+        } as Parameters<typeof iface["chat.message"]>[0],
+        {
+          message: { id: "msg-4", agent: "Loom (Main Orchestrator)" } as never,
+          parts: [{ type: "text", text: "approve deployment" }],
+        },
+      )
+
+      await iface["chat.params"](
+        {
+          sessionID: "sess-failover-4",
+          agent: "Weft",
+          model: { id: "github-copilot/claude-opus-4.6", limit: { context: 100_000 } },
+        } as Parameters<typeof iface["chat.params"]>[0],
+        {} as never,
+      )
+
+      await iface.event({
+        event: {
+          type: "session.error",
+          properties: {
+            sessionID: "sess-failover-4",
+            error: { name: "APIError", data: { statusCode: 429, isRetryable: true, message: "quota exceeded" } },
+          },
+        } as Parameters<typeof iface.event>[0]["event"],
+      })
+
+      expect(promptAsyncCalls.length).toBe(1)
+      expect(promptAsyncCalls[0].body.agent).toBe("Weft")
+      expect(promptAsyncCalls[0].body.parts[0].text).toContain("approve deployment")
+      expect(promptAsyncCalls[0].body.parts[0].text).toContain("Workflow command context")
+      expect(promptAsyncCalls[0].body.model).toEqual({ providerID: "openai", modelID: "gpt-5" })
     })
   })
 

@@ -1,10 +1,11 @@
-import type { PluginInterface, ToolsRecord } from "./types"
+import type { PluginInterface, RuntimeFailoverClient, ToolsRecord } from "./types"
 import type { AgentConfig } from "@opencode-ai/sdk"
 import type { WeaveConfig } from "../config/schema"
 import type { ConfigHandler } from "../managers/config-handler"
 import type { CreatedHooks } from "../hooks/create-hooks"
 import type { PluginContext } from "./types"
 import type { SessionTracker } from "../features/analytics"
+import type { RuntimeModelPlanRegistry } from "../agents/types"
 import { getAgentDisplayName } from "../shared/agent-display-names"
 import { logDelegation, debug, info, warn, error } from "../shared/log"
 import {
@@ -26,6 +27,7 @@ import { formatMetricsMarkdown } from "../features/analytics/format-metrics"
 import { generateMetricsReport } from "../features/analytics/generate-metrics-report"
 import { getLastConfigLoadResult } from "../config/loader"
 import { generateHealthReport } from "../features/health-report"
+import { createRuntimeFailoverCoordinator } from "./runtime-failover"
 
 export function createPluginInterface(args: {
   pluginConfig: WeaveConfig
@@ -33,11 +35,12 @@ export function createPluginInterface(args: {
   tools: ToolsRecord
   configHandler: ConfigHandler
   agents: Record<string, AgentConfig>
+  runtimeModelPlans?: RuntimeModelPlanRegistry
   client?: PluginContext["client"]
   directory?: string
   tracker?: SessionTracker
 }): PluginInterface {
-  const { pluginConfig, hooks, tools, configHandler, agents, client, directory = "", tracker } = args
+  const { pluginConfig, hooks, tools, configHandler, agents, runtimeModelPlans = {}, client, directory = "", tracker } = args
 
   /**
    * Track assistant message text from message.part.updated events.
@@ -59,6 +62,11 @@ export function createPluginInterface(args: {
     hooks.todoContinuationEnforcerEnabled && client
       ? createTodoContinuationEnforcer(client)
       : null
+
+  const runtimeFailover = createRuntimeFailoverCoordinator({
+    runtimeModelPlans,
+    client: client as RuntimeFailoverClient | undefined,
+  })
 
   return {
     tool: tools,
@@ -99,6 +107,19 @@ export function createPluginInterface(args: {
 
     "chat.message": async (input, _output) => {
       const { sessionID } = input
+      const outputMessage = (_output as Record<string, unknown>).message as Record<string, unknown> | undefined
+      const isFailoverReplay = runtimeFailover.markReplayConsumed(sessionID)
+
+      if (isFailoverReplay) {
+        runtimeFailover.captureChatMessage({
+          sessionId: sessionID,
+          agent: typeof outputMessage?.agent === "string" ? outputMessage.agent : input.agent,
+          messageId: typeof outputMessage?.id === "string" ? outputMessage.id : input.messageID,
+          model: input.model,
+          parts: _output.parts as Array<Record<string, unknown>> | undefined,
+        })
+        return
+      }
 
       if (hooks.firstMessageVariant) {
         if (hooks.firstMessageVariant.shouldApplyVariant(sessionID)) {
@@ -272,6 +293,14 @@ export function createPluginInterface(args: {
         }
       }
 
+      runtimeFailover.captureChatMessage({
+        sessionId: sessionID,
+        agent: typeof outputMessage?.agent === "string" ? outputMessage.agent : input.agent,
+        messageId: typeof outputMessage?.id === "string" ? outputMessage.id : input.messageID,
+        model: input.model,
+        parts: _output.parts as Array<Record<string, unknown>> | undefined,
+      })
+
       // Auto-pause work when a user message arrives that is NOT a /start-work command,
       // NOT a continuation prompt injected by the work-continuation hook,
       // and NOT a workflow continuation prompt.
@@ -328,6 +357,12 @@ export function createPluginInterface(args: {
       if (tracker && hooks.analyticsEnabled && sessionId && input.model?.id) {
         tracker.trackModel(sessionId, input.model.id)
       }
+
+      runtimeFailover.captureResolvedModel({
+        sessionId,
+        agent: input.agent,
+        model: input.model,
+      })
     },
 
     "chat.headers": async (_input, _output) => {
@@ -383,6 +418,32 @@ export function createPluginInterface(args: {
               warn("[analytics] Failed to generate metrics report on session end (non-fatal)", { error: String(err) })
             }
           }
+        }
+      }
+
+      if (event.type === "session.error") {
+        const evt = event as {
+          type: string
+          properties: {
+            sessionID?: string
+            error?: {
+              name?: string
+              message?: string
+              data?: { message?: string; statusCode?: number; isRetryable?: boolean }
+            }
+          }
+        }
+
+        try {
+          await runtimeFailover.handleSessionError({
+            sessionId: evt.properties?.sessionID,
+            error: evt.properties?.error,
+          })
+        } catch (err) {
+          error("[runtime-failover] Failed to replay prompt", {
+            sessionId: evt.properties?.sessionID,
+            error: String(err),
+          })
         }
       }
 
@@ -506,6 +567,9 @@ export function createPluginInterface(args: {
       if (hooks.workflowContinuation && event.type === "session.idle") {
         const evt = event as { type: string; properties: { sessionID: string } }
         const sessionId = evt.properties?.sessionID ?? ""
+        if (sessionId) {
+          runtimeFailover.markAttemptSucceeded(sessionId)
+        }
         if (sessionId && directory) {
           const activeWorkflow = getActiveWorkflowInstance(directory)
           if (activeWorkflow && activeWorkflow.status === "running") {

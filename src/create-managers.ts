@@ -2,13 +2,15 @@ import type { PluginInput } from "@opencode-ai/plugin"
 import type { AgentConfig } from "@opencode-ai/sdk"
 import type { WeaveConfig } from "./config/schema"
 import type { ResolveSkillsFn } from "./agents/agent-builder"
+import type { RuntimeModelPlanRegistry } from "./agents/types"
 import type { ProjectFingerprint } from "./features/analytics/types"
 import type { AvailableAgent } from "./agents/dynamic-prompt-builder"
 import { ConfigHandler } from "./managers/config-handler"
 import { BackgroundManager } from "./managers/background-manager"
 import { SkillMcpManager } from "./managers/skill-mcp-manager"
-import { createBuiltinAgents, registerCustomAgentMetadata } from "./agents/builtin-agents"
-import { buildCustomAgent, buildCustomAgentMetadata } from "./agents/custom-agent-factory"
+import { createBuiltinAgents, createBuiltinAgentRuntimePlans, registerCustomAgentMetadata } from "./agents/builtin-agents"
+import { buildCustomAgent, buildCustomAgentMetadata, createCustomAgentRuntimePlan } from "./agents/custom-agent-factory"
+import { getAgentDisplayName } from "./shared/agent-display-names"
 import { updateBuiltinDisplayName } from "./shared/agent-display-names"
 import { addBuiltinNameVariant } from "./agents/agent-builder"
 import { debug } from "./shared/log"
@@ -18,6 +20,7 @@ export interface WeaveManagers {
   backgroundManager: BackgroundManager
   skillMcpManager: SkillMcpManager
   agents: Record<string, AgentConfig>
+  runtimeModelPlans: RuntimeModelPlanRegistry
 }
 
 export function createManagers(options: {
@@ -45,6 +48,16 @@ export function createManagers(options: {
   }
 
   // Step 2: Build builtins WITH custom agent metadata for Loom's prompt
+  const runtimeModelPlans = createBuiltinAgentRuntimePlans({
+    disabledAgents: pluginConfig.disabled_agents,
+    agentOverrides: pluginConfig.agents,
+  })
+
+  for (const [name, plan] of Object.entries(runtimeModelPlans)) {
+    const displayName = getAgentDisplayName(name)
+    runtimeModelPlans[displayName] = plan
+  }
+
   const agents = createBuiltinAgents({
     disabledAgents: pluginConfig.disabled_agents,
     agentOverrides: pluginConfig.agents,
@@ -63,6 +76,9 @@ export function createManagers(options: {
         try {
           updateBuiltinDisplayName(name, displayName)
           addBuiltinNameVariant(name, displayName)
+          if (runtimeModelPlans[name]) {
+            runtimeModelPlans[displayName] = runtimeModelPlans[name]
+          }
           // MANDATORY: Guard against disabled agents where agents[name] is undefined.
           // createBuiltinAgents() skips disabled agents, so agents[name] may not exist.
           // Spreading undefined produces a broken config — this guard is required.
@@ -91,11 +107,16 @@ export function createManagers(options: {
       // Prevent custom agents from overriding built-in agents
       if (agents[name] !== undefined) continue
 
+      runtimeModelPlans[name] = createCustomAgentRuntimePlan(name, customConfig, {})
+
       agents[name] = buildCustomAgent(name, customConfig, {
         resolveSkills,
         disabledSkills: pluginConfig.disabled_skills ? new Set(pluginConfig.disabled_skills) : undefined,
         configDir,
       })
+
+      const displayName = getAgentDisplayName(name)
+      runtimeModelPlans[displayName] = runtimeModelPlans[name]
 
       // Register metadata for Loom's dynamic prompt integration
       const metadata = buildCustomAgentMetadata(name, customConfig)
@@ -109,5 +130,5 @@ export function createManagers(options: {
   })
   const skillMcpManager = new SkillMcpManager()
 
-  return { configHandler, backgroundManager, skillMcpManager, agents }
+  return { configHandler, backgroundManager, skillMcpManager, agents, runtimeModelPlans }
 }
