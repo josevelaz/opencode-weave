@@ -1,6 +1,7 @@
 import type { PluginInput } from "@opencode-ai/plugin"
 import type { AgentConfig } from "@opencode-ai/sdk"
 import type { WeaveConfig } from "./config/schema"
+import type { ResolvedContinuationConfig } from "./config/continuation"
 import type { ResolveSkillsFn } from "./agents/agent-builder"
 import type { ProjectFingerprint } from "./features/analytics/types"
 import type { AvailableAgent } from "./agents/dynamic-prompt-builder"
@@ -23,11 +24,12 @@ export interface WeaveManagers {
 export function createManagers(options: {
   ctx: PluginInput
   pluginConfig: WeaveConfig
+  continuation: ResolvedContinuationConfig
   resolveSkills?: ResolveSkillsFn
   fingerprint?: ProjectFingerprint | null
   configDir?: string
 }): WeaveManagers {
-  const { pluginConfig, resolveSkills, fingerprint, configDir } = options
+  const { pluginConfig, continuation, resolveSkills, fingerprint, configDir } = options
 
   // Step 1: Build custom agent metadata FIRST so Loom's prompt can include triggers
   const customAgentMetadata: AvailableAgent[] = []
@@ -51,6 +53,7 @@ export function createManagers(options: {
     resolveSkills,
     fingerprint,
     customAgentMetadata,
+    continuation,
   })
 
   // Step 2.5: Apply builtin display name overrides from config.

@@ -7,10 +7,13 @@
  */
 
 import { isAgentEnabled } from "../prompt-utils"
+import type { ResolvedContinuationConfig } from "../../config/continuation"
 
 export interface TapestryPromptOptions {
   /** Set of disabled agent names (lowercase config keys) */
   disabledAgents?: Set<string>
+  /** Resolved continuation settings shared with runtime hooks */
+  continuation?: ResolvedContinuationConfig
 }
 
 export function buildTapestryRoleSection(disabled: Set<string> = new Set()): string {
@@ -106,6 +109,27 @@ When activated by /start-work with a plan file:
 
 NEVER stop mid-plan unless explicitly told to or completely blocked.
 </PlanExecution>`
+}
+
+export function buildTapestryContinuationHintSection(
+  continuation?: ResolvedContinuationConfig,
+): string | null {
+  if (!continuation) {
+    return null
+  }
+
+  const hasResumePrompt =
+    continuation.recovery.compaction ||
+    continuation.idle.work ||
+    continuation.idle.workflow
+
+  if (!hasResumePrompt) {
+    return null
+  }
+
+  return `<Continuation>
+- If Weave injects a recovery or continuation prompt, resume from persisted plan/workflow state instead of restarting from scratch.
+</Continuation>`
 }
 
 export function buildTapestryVerificationSection(): string {
@@ -210,17 +234,19 @@ export function buildTapestryStyleSection(): string {
  */
 export function composeTapestryPrompt(options: TapestryPromptOptions = {}): string {
   const disabled = options.disabledAgents ?? new Set()
+  const continuationHint = buildTapestryContinuationHintSection(options.continuation)
 
   const sections = [
     buildTapestryRoleSection(disabled),
     buildTapestryDisciplineSection(),
     buildTapestrySidebarTodosSection(),
     buildTapestryPlanExecutionSection(disabled),
+    continuationHint,
     buildTapestryVerificationSection(),
     buildTapestryPostExecutionReviewSection(disabled),
     buildTapestryExecutionSection(),
     buildTapestryStyleSection(),
-  ]
+  ].filter((section): section is string => Boolean(section))
 
   return sections.join("\n\n")
 }

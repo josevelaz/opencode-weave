@@ -118,6 +118,27 @@ export const AnalyticsConfigSchema = z.object({
   use_fingerprint: z.boolean().optional(),
 })
 
+export const ContinuationRecoveryConfigSchema = z.object({
+  /** Whether Weave should inject a resume prompt after session compaction/context restoration. */
+  compaction: z.boolean().optional(),
+})
+
+export const ContinuationIdleConfigSchema = z.object({
+  /** Master switch for generic session.idle prompt injection. */
+  enabled: z.boolean().optional(),
+  /** Idle prompt for active /start-work plans with remaining tasks. */
+  work: z.boolean().optional(),
+  /** Idle prompt for active workflows waiting to continue. */
+  workflow: z.boolean().optional(),
+  /** Prompt fallback for lingering in_progress todos when silent repair is unavailable. */
+  todo_prompt: z.boolean().optional(),
+})
+
+export const ContinuationConfigSchema = z.object({
+  recovery: ContinuationRecoveryConfigSchema.optional(),
+  idle: ContinuationIdleConfigSchema.optional(),
+})
+
 export const WorkflowConfigSchema = z.object({
   disabled_workflows: z.array(z.string()).optional(),
   /** Additional directories to scan for workflow definitions (alongside .opencode/workflows/) */
@@ -137,6 +158,7 @@ export const WeaveConfigSchema = z.object({
   skill_directories: z.array(SafeRelativePathSchema).optional(),
   background: BackgroundConfigSchema.optional(),
   analytics: AnalyticsConfigSchema.optional(),
+  continuation: ContinuationConfigSchema.optional(),
   tmux: TmuxConfigSchema.optional(),
   experimental: ExperimentalConfigSchema.optional(),
   workflows: WorkflowConfigSchema.optional(),
@@ -152,6 +174,9 @@ export type CategoryConfig = z.infer<typeof CategoryConfigSchema>
 export type CategoriesConfig = z.infer<typeof CategoriesConfigSchema>
 export type BackgroundConfig = z.infer<typeof BackgroundConfigSchema>
 export type AnalyticsConfig = z.infer<typeof AnalyticsConfigSchema>
+export type ContinuationRecoveryConfig = z.infer<typeof ContinuationRecoveryConfigSchema>
+export type ContinuationIdleConfig = z.infer<typeof ContinuationIdleConfigSchema>
+export type ContinuationConfig = z.infer<typeof ContinuationConfigSchema>
 export type TmuxConfig = z.infer<typeof TmuxConfigSchema>
 export type ExperimentalConfig = z.infer<typeof ExperimentalConfigSchema>
 export type WorkflowConfig = z.infer<typeof WorkflowConfigSchema>

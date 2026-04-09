@@ -57,7 +57,9 @@ export function createPluginInterface(args: {
   // Hook 3: todo continuation enforcer (extracted from inline logic, needs client)
   const todoContinuationEnforcer =
     hooks.todoContinuationEnforcerEnabled && client
-      ? createTodoContinuationEnforcer(client)
+      ? createTodoContinuationEnforcer(client, {
+          allowPromptFallback: hooks.continuation.idle.todo_prompt,
+        })
       : null
 
   return {
@@ -342,6 +344,36 @@ export function createPluginInterface(args: {
         await compactionPreserver.handleEvent(event as { type: string; properties?: unknown })
       }
 
+      if (event.type === "session.compacted" && client && hooks.continuation.recovery.compaction) {
+        const evt = event as { type: string; properties?: { sessionID?: string; info?: { id?: string } } }
+        const sessionId = evt.properties?.sessionID ?? evt.properties?.info?.id ?? ""
+        if (sessionId && hooks.compactionRecovery) {
+          const result = hooks.compactionRecovery(sessionId)
+          if (result.continuationPrompt) {
+            try {
+              await client.session.promptAsync({
+                path: { id: sessionId },
+                body: {
+                  parts: [{ type: "text", text: result.continuationPrompt }],
+                  ...(result.switchAgent
+                    ? { agent: getAgentDisplayName(result.switchAgent) }
+                    : {}),
+                },
+              })
+              debug("[compaction-recovery] Injected recovery prompt", {
+                sessionId,
+                agent: result.switchAgent,
+              })
+            } catch (err) {
+              error("[compaction-recovery] Failed to inject recovery prompt", {
+                sessionId,
+                error: String(err),
+              })
+            }
+          }
+        }
+      }
+
       if (hooks.firstMessageVariant) {
         if (event.type === "session.created") {
           const evt = event as { type: string; properties: { info: { id: string } } }
@@ -503,7 +535,7 @@ export function createPluginInterface(args: {
       // This MUST run BEFORE work-continuation to prevent double-prompting.
       // If a workflow instance is active, it owns the idle loop.
       let continuationFired = false
-      if (hooks.workflowContinuation && event.type === "session.idle") {
+      if (hooks.workflowContinuation && hooks.continuation.idle.workflow && event.type === "session.idle") {
         const evt = event as { type: string; properties: { sessionID: string } }
         const sessionId = evt.properties?.sessionID ?? ""
         if (sessionId && directory) {
@@ -537,7 +569,7 @@ export function createPluginInterface(args: {
       }
 
       // Work continuation: nudge idle sessions with active plans
-      if (hooks.workContinuation && event.type === "session.idle") {
+      if (hooks.workContinuation && hooks.continuation.idle.work && event.type === "session.idle") {
         const evt = event as { type: string; properties: { sessionID: string } }
         const sessionId = evt.properties?.sessionID ?? ""
         if (sessionId) {

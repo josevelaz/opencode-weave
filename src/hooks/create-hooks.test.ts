@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "bun:test"
 import { createHooks } from "./create-hooks"
 import { clearAll } from "./first-message-variant"
 import type { WeaveConfig } from "../config/schema"
+import { DEFAULT_CONTINUATION_CONFIG } from "../config/continuation"
 
 const baseConfig: WeaveConfig = {}
 
@@ -23,7 +24,12 @@ beforeEach(() => {
 
 describe("createHooks", () => {
   it("returns all hook keys when all enabled", () => {
-    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
+    const hooks = createHooks({
+      pluginConfig: baseConfig,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
+      isHookEnabled: allEnabled,
+      directory: "",
+    })
 
     expect(hooks).toHaveProperty("checkContextWindow")
     expect(hooks).toHaveProperty("writeGuard")
@@ -35,11 +41,13 @@ describe("createHooks", () => {
     expect(hooks).toHaveProperty("todoDescriptionOverride")
     expect(hooks).toHaveProperty("compactionTodoPreserverEnabled")
     expect(hooks).toHaveProperty("todoContinuationEnforcerEnabled")
+    expect(hooks).toHaveProperty("continuation")
   })
 
   it("disabled hooks return null for context-window-monitor", () => {
     const hooks = createHooks({
       pluginConfig: baseConfig,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
       isHookEnabled: disableHook("context-window-monitor"),
       directory: "",
     })
@@ -50,6 +58,7 @@ describe("createHooks", () => {
   it("disabled hooks return null for rules-injector", () => {
     const hooks = createHooks({
       pluginConfig: baseConfig,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
       isHookEnabled: disableHook("rules-injector"),
       directory: "",
     })
@@ -59,7 +68,12 @@ describe("createHooks", () => {
   })
 
   it("enabled hooks return non-null values", () => {
-    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
+    const hooks = createHooks({
+      pluginConfig: baseConfig,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
+      isHookEnabled: allEnabled,
+      directory: "",
+    })
 
     expect(hooks.checkContextWindow).not.toBeNull()
     expect(hooks.writeGuard).not.toBeNull()
@@ -72,6 +86,7 @@ describe("createHooks", () => {
   it("writeGuard is null when write-existing-file-guard disabled", () => {
     const hooks = createHooks({
       pluginConfig: baseConfig,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
       isHookEnabled: disableHook("write-existing-file-guard"),
       directory: "",
     })
@@ -80,7 +95,12 @@ describe("createHooks", () => {
   })
 
   it("all hooks null when none enabled", () => {
-    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: noneEnabled, directory: "" })
+    const hooks = createHooks({
+      pluginConfig: baseConfig,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
+      isHookEnabled: noneEnabled,
+      directory: "",
+    })
 
     expect(hooks.checkContextWindow).toBeNull()
     expect(hooks.writeGuard).toBeNull()
@@ -93,6 +113,7 @@ describe("createHooks", () => {
   it("firstMessageVariant is null when first-message-variant disabled", () => {
     const hooks = createHooks({
       pluginConfig: baseConfig,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
       isHookEnabled: disableHook("first-message-variant"),
       directory: "",
     })
@@ -101,7 +122,12 @@ describe("createHooks", () => {
   })
 
   it("checkContextWindow calls through correctly when enabled", () => {
-    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
+    const hooks = createHooks({
+      pluginConfig: baseConfig,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
+      isHookEnabled: allEnabled,
+      directory: "",
+    })
 
     const result = hooks.checkContextWindow!({
       sessionId: "test-session",
@@ -114,13 +140,19 @@ describe("createHooks", () => {
   })
 
   it("verificationReminder exists in returned hooks when all enabled", () => {
-    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
+    const hooks = createHooks({
+      pluginConfig: baseConfig,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
+      isHookEnabled: allEnabled,
+      directory: "",
+    })
     expect(hooks).toHaveProperty("verificationReminder")
   })
 
   it("verificationReminder is null when verification-reminder hook disabled", () => {
     const hooks = createHooks({
       pluginConfig: baseConfig,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
       isHookEnabled: disableHook("verification-reminder"),
       directory: "",
     })
@@ -128,7 +160,12 @@ describe("createHooks", () => {
   })
 
   it("verificationReminder is non-null when enabled", () => {
-    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
+    const hooks = createHooks({
+      pluginConfig: baseConfig,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
+      isHookEnabled: allEnabled,
+      directory: "",
+    })
     expect(hooks.verificationReminder).not.toBeNull()
   })
 
@@ -141,6 +178,7 @@ describe("createHooks", () => {
     }
     const hooks = createHooks({
       pluginConfig: configWithCustomThresholds,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
       isHookEnabled: allEnabled,
       directory: "",
     })
@@ -157,6 +195,7 @@ describe("createHooks", () => {
   it("default thresholds (80%/95%) used when not configured", () => {
     const hooks = createHooks({
       pluginConfig: baseConfig,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
       isHookEnabled: allEnabled,
       directory: "",
     })
@@ -179,6 +218,7 @@ describe("createHooks", () => {
     }
     const hooks = createHooks({
       pluginConfig: configWithCustomThresholds,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
       isHookEnabled: allEnabled,
       directory: "",
     })
@@ -193,13 +233,19 @@ describe("createHooks", () => {
   })
 
   it("analyticsEnabled defaults to false when not passed", () => {
-    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
+    const hooks = createHooks({
+      pluginConfig: baseConfig,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
+      isHookEnabled: allEnabled,
+      directory: "",
+    })
     expect(hooks.analyticsEnabled).toBe(false)
   })
 
   it("analyticsEnabled is true when explicitly passed", () => {
     const hooks = createHooks({
       pluginConfig: baseConfig,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
       isHookEnabled: allEnabled,
       directory: "",
       analyticsEnabled: true,
@@ -210,6 +256,7 @@ describe("createHooks", () => {
   it("analyticsEnabled is false even when all hooks enabled", () => {
     const hooks = createHooks({
       pluginConfig: baseConfig,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
       isHookEnabled: allEnabled,
       directory: "",
     })
@@ -218,21 +265,32 @@ describe("createHooks", () => {
 
   describe("todo-description-override hook", () => {
     it("todoDescriptionOverride is non-null when enabled", () => {
-      const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
+        const hooks = createHooks({
+          pluginConfig: baseConfig,
+          continuation: DEFAULT_CONTINUATION_CONFIG,
+          isHookEnabled: allEnabled,
+          directory: "",
+        })
       expect(hooks.todoDescriptionOverride).not.toBeNull()
     })
 
     it("todoDescriptionOverride is null when disabled", () => {
       const hooks = createHooks({
-        pluginConfig: baseConfig,
-        isHookEnabled: disableHook("todo-description-override"),
-        directory: "",
+          pluginConfig: baseConfig,
+          continuation: DEFAULT_CONTINUATION_CONFIG,
+          isHookEnabled: disableHook("todo-description-override"),
+          directory: "",
       })
       expect(hooks.todoDescriptionOverride).toBeNull()
     })
 
     it("todoDescriptionOverride when enabled mutates description for todowrite", () => {
-      const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
+        const hooks = createHooks({
+          pluginConfig: baseConfig,
+          continuation: DEFAULT_CONTINUATION_CONFIG,
+          isHookEnabled: allEnabled,
+          directory: "",
+        })
       const output = { description: "original", parameters: {} }
       hooks.todoDescriptionOverride!({ toolID: "todowrite" }, output)
       expect(output.description).not.toBe("original")
@@ -241,43 +299,82 @@ describe("createHooks", () => {
 
   describe("compaction-todo-preserver enablement", () => {
     it("compactionTodoPreserverEnabled is true when enabled", () => {
-      const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
+        const hooks = createHooks({
+          pluginConfig: baseConfig,
+          continuation: DEFAULT_CONTINUATION_CONFIG,
+          isHookEnabled: allEnabled,
+          directory: "",
+        })
       expect(hooks.compactionTodoPreserverEnabled).toBe(true)
     })
 
     it("compactionTodoPreserverEnabled is false when disabled", () => {
       const hooks = createHooks({
-        pluginConfig: baseConfig,
-        isHookEnabled: disableHook("compaction-todo-preserver"),
-        directory: "",
+          pluginConfig: baseConfig,
+          continuation: DEFAULT_CONTINUATION_CONFIG,
+          isHookEnabled: disableHook("compaction-todo-preserver"),
+          directory: "",
       })
       expect(hooks.compactionTodoPreserverEnabled).toBe(false)
     })
 
     it("compactionTodoPreserverEnabled is false when all hooks disabled", () => {
-      const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: noneEnabled, directory: "" })
+        const hooks = createHooks({
+          pluginConfig: baseConfig,
+          continuation: DEFAULT_CONTINUATION_CONFIG,
+          isHookEnabled: noneEnabled,
+          directory: "",
+        })
       expect(hooks.compactionTodoPreserverEnabled).toBe(false)
     })
   })
 
   describe("todo-continuation-enforcer enablement", () => {
     it("todoContinuationEnforcerEnabled is true when enabled", () => {
-      const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled, directory: "" })
+        const hooks = createHooks({
+          pluginConfig: baseConfig,
+          continuation: DEFAULT_CONTINUATION_CONFIG,
+          isHookEnabled: allEnabled,
+          directory: "",
+        })
       expect(hooks.todoContinuationEnforcerEnabled).toBe(true)
     })
 
     it("todoContinuationEnforcerEnabled is false when disabled", () => {
       const hooks = createHooks({
-        pluginConfig: baseConfig,
-        isHookEnabled: disableHook("todo-continuation-enforcer"),
-        directory: "",
+          pluginConfig: baseConfig,
+          continuation: DEFAULT_CONTINUATION_CONFIG,
+          isHookEnabled: disableHook("todo-continuation-enforcer"),
+          directory: "",
       })
       expect(hooks.todoContinuationEnforcerEnabled).toBe(false)
     })
 
     it("todoContinuationEnforcerEnabled is false when all hooks disabled", () => {
-      const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: noneEnabled, directory: "" })
-      expect(hooks.todoContinuationEnforcerEnabled).toBe(false)
+        const hooks = createHooks({
+          pluginConfig: baseConfig,
+          continuation: DEFAULT_CONTINUATION_CONFIG,
+          isHookEnabled: noneEnabled,
+          directory: "",
+        })
+        expect(hooks.todoContinuationEnforcerEnabled).toBe(false)
+      })
+    })
+
+  it("returns the provided resolved continuation config", () => {
+    const hooks = createHooks({
+      pluginConfig: baseConfig,
+      continuation: {
+        recovery: { compaction: false },
+        idle: { enabled: true, work: true, workflow: false, todo_prompt: true },
+      },
+      isHookEnabled: allEnabled,
+      directory: "",
+    })
+
+    expect(hooks.continuation).toEqual({
+      recovery: { compaction: false },
+      idle: { enabled: true, work: true, workflow: false, todo_prompt: true },
     })
   })
 })

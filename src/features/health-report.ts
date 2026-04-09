@@ -1,5 +1,6 @@
 import type { WeaveConfig } from "../config/schema"
 import type { ConfigLoadResult, ConfigDiagnostic } from "../config/loader"
+import { resolveContinuationConfig } from "../config/continuation"
 import { getAgentConfigKey } from "../shared/agent-display-names"
 
 /**
@@ -86,10 +87,70 @@ export function generateHealthReport(
     lines.push("")
   }
 
+  // ── Continuation behavior ──
+  lines.push("### Continuation Behavior")
+  const continuation = resolveContinuationConfig(config.continuation)
+  const disabledHooks = new Set(config.disabled_hooks ?? [])
+  lines.push(`- Compaction recovery prompt: ${describeContinuationState({
+    enabled: continuation.recovery.compaction,
+    hookDisabled: disabledHooks.has("work-continuation"),
+    enabledReason: continuation.recovery.compaction ? "enabled" : "disabled by config",
+    disabledReason: "disabled by config",
+    hookReason: "disabled by hook: work-continuation",
+    defaultReason: "enabled",
+  })}`)
+  lines.push(`- Idle work prompts: ${describeContinuationState({
+    enabled: continuation.idle.work,
+    hookDisabled: disabledHooks.has("work-continuation"),
+    enabledReason: "enabled",
+    disabledReason: "disabled by config/default",
+    hookReason: "disabled by hook: work-continuation",
+    defaultReason: "disabled by default",
+  })}`)
+  lines.push(`- Idle workflow prompts: ${describeContinuationState({
+    enabled: continuation.idle.workflow,
+    hookDisabled: disabledHooks.has("workflow"),
+    enabledReason: "enabled",
+    disabledReason: "disabled by config/default",
+    hookReason: "disabled by hook: workflow",
+    defaultReason: "disabled by default",
+  })}`)
+  lines.push(`- Idle todo fallback prompt: ${describeContinuationState({
+    enabled: continuation.idle.todo_prompt,
+    hookDisabled: disabledHooks.has("todo-continuation-enforcer"),
+    enabledReason: "enabled",
+    disabledReason: "disabled by config/default",
+    hookReason: "disabled by hook: todo-continuation-enforcer",
+    defaultReason: "disabled by default",
+  })}`)
+  lines.push("- Manual resume remains available via `/start-work` and `/run-workflow`.")
+  lines.push("")
+
   // ── Log location hint ──
   lines.push("### Logs")
   lines.push("Detailed logs: `~/.local/share/opencode/log/` (grep for `service=weave`)")
   lines.push("Real-time: `opencode --print-logs --log-level WARN`")
 
   return lines.join("\n")
+}
+
+function describeContinuationState(input: {
+  enabled: boolean
+  hookDisabled: boolean
+  enabledReason: string
+  disabledReason: string
+  hookReason: string
+  defaultReason: string
+}): string {
+  if (input.hookDisabled) {
+    return input.hookReason
+  }
+
+  if (input.enabled) {
+    return input.enabledReason
+  }
+
+  return input.disabledReason === "disabled by config/default"
+    ? input.defaultReason
+    : input.disabledReason
 }

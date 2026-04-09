@@ -123,6 +123,21 @@ describe("WeaveConfigSchema", () => {
     }
   })
 
+  it("parses continuation config with recovery and idle overrides", () => {
+    const result = WeaveConfigSchema.safeParse({
+      continuation: {
+        recovery: { compaction: false },
+        idle: { enabled: true, workflow: false },
+      },
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.continuation?.recovery?.compaction).toBe(false)
+      expect(result.data.continuation?.idle?.enabled).toBe(true)
+      expect(result.data.continuation?.idle?.workflow).toBe(false)
+    }
+  })
+
   it("parses experimental config", () => {
     const result = WeaveConfigSchema.safeParse({
       experimental: {

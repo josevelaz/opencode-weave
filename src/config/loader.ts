@@ -7,6 +7,7 @@ import { WeaveConfigSchema, type WeaveConfig } from "./schema"
 import type { DeepPartial } from "../shared/types"
 import { mergeConfigs } from "./merge"
 import { warn, error as logError, debug } from "../shared/log"
+import { resolveContinuationConfig } from "./continuation"
 
 // ── Diagnostics ────────────────────────────────────────────────────
 
@@ -129,6 +130,7 @@ export function loadWeaveConfig(
     customAgents: result.data.custom_agents ? Object.keys(result.data.custom_agents) : [],
     logLevel: result.data.log_level ?? "(default)",
     analyticsEnabled: result.data.analytics?.enabled ?? false,
+    continuation: resolveContinuationConfig(result.data.continuation),
   })
 
   lastLoadResult = { config: result.data, loadedFiles, diagnostics: [] }

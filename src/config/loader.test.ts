@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
 import { loadWeaveConfig } from "./loader"
+import { resolveContinuationConfig } from "./continuation"
 
 function createTmpDir(): string {
   return mkdtempSync(join(tmpdir(), "weave-loader-test-"))
@@ -26,6 +27,66 @@ describe("loadWeaveConfig", () => {
     // All optional fields should be undefined or default
     expect(config.agents).toBeUndefined()
     expect(config.disabled_hooks).toBeUndefined()
+    expect(resolveContinuationConfig(config.continuation)).toEqual({
+      recovery: { compaction: true },
+      idle: {
+        enabled: false,
+        work: false,
+        workflow: false,
+        todo_prompt: false,
+      },
+    })
+  })
+
+  it("resolves partial idle continuation blocks through the parent enabled flag", () => {
+    const opencodeDir = join(testDir, ".opencode")
+    mkdirSync(opencodeDir, { recursive: true })
+    writeFileSync(
+      join(opencodeDir, "weave-opencode.json"),
+      JSON.stringify({
+        continuation: {
+          idle: { enabled: true, workflow: false },
+        },
+      }),
+    )
+
+    const config = loadWeaveConfig(testDir)
+
+    expect(resolveContinuationConfig(config.continuation)).toEqual({
+      recovery: { compaction: true },
+      idle: {
+        enabled: true,
+        work: true,
+        workflow: false,
+        todo_prompt: true,
+      },
+    })
+  })
+
+  it("lets explicit idle child overrides beat the parent enabled flag", () => {
+    const opencodeDir = join(testDir, ".opencode")
+    mkdirSync(opencodeDir, { recursive: true })
+    writeFileSync(
+      join(opencodeDir, "weave-opencode.json"),
+      JSON.stringify({
+        continuation: {
+          recovery: { compaction: false },
+          idle: { enabled: false, work: true, todo_prompt: true },
+        },
+      }),
+    )
+
+    const config = loadWeaveConfig(testDir)
+
+    expect(resolveContinuationConfig(config.continuation)).toEqual({
+      recovery: { compaction: false },
+      idle: {
+        enabled: false,
+        work: true,
+        workflow: false,
+        todo_prompt: true,
+      },
+    })
   })
 
   it("loads project config from .opencode/weave-opencode.json", () => {

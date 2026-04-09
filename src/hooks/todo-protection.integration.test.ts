@@ -21,6 +21,7 @@ import type { CreatedHooks } from "./create-hooks"
 import type { ToolsRecord } from "../plugin/types"
 import type { WeaveConfig } from "../config/schema"
 import type { ConfigHandler } from "../managers/config-handler"
+import { DEFAULT_CONTINUATION_CONFIG } from "../config/continuation"
 
 // ─── Shared test infrastructure ──────────────────────────────────────────────
 
@@ -78,6 +79,8 @@ function makeHooks(overrides?: Partial<CreatedHooks>): CreatedHooks {
     todoDescriptionOverride: null,
     compactionTodoPreserverEnabled: false,
     todoContinuationEnforcerEnabled: true,
+    compactionRecovery: null,
+    continuation: DEFAULT_CONTINUATION_CONFIG,
     ...overrides,
   }
 }
@@ -198,6 +201,39 @@ describe("Scenario 2: compaction-todo-preserver snapshot capture", () => {
     await expect(
       (iface.event as Function)({ event: { type: "session.compacted", properties: { sessionID: "ses_1" } } })
     ).resolves.toBeUndefined()
+  })
+
+  it("can inject a post-compaction recovery prompt independently of idle nudges", async () => {
+    const { store, injectedPrompts, client } = makeTodoStore()
+    store.set("ses_1", [{ content: "Task A", status: "in_progress", priority: "high" }])
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks: makeHooks({
+        compactionTodoPreserverEnabled: true,
+        continuation: {
+          recovery: { compaction: true },
+          idle: { enabled: false, work: false, workflow: false, todo_prompt: false },
+        },
+        compactionRecovery: () => ({ continuationPrompt: "resume after compaction", switchAgent: null }),
+      }),
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+      client: client as unknown as Parameters<typeof createPluginInterface>[0]["client"],
+    })
+
+    await (iface["experimental.session.compacting"] as Function)({ sessionID: "ses_1" })
+    store.set("ses_1", [])
+
+    await expect(
+      (iface.event as Function)({ event: { type: "session.compacted", properties: { sessionID: "ses_1" } } })
+    ).resolves.toBeUndefined()
+
+    expect(injectedPrompts.some((entry) => {
+      const body = entry.body as { parts: Array<{ text: string }> }
+      return entry.sessionId === "ses_1" && body.parts[0]?.text === "resume after compaction"
+    })).toBe(true)
   })
 
   it("is a no-op when compactionTodoPreserverEnabled is false", async () => {
@@ -323,7 +359,13 @@ describe("Scenario 4b: todo-continuation-enforcer LLM fallback via plugin-interf
 
     const iface = createPluginInterface({
       pluginConfig: baseConfig,
-      hooks: makeHooks({ todoContinuationEnforcerEnabled: true }),
+      hooks: makeHooks({
+        todoContinuationEnforcerEnabled: true,
+        continuation: {
+          recovery: { compaction: true },
+          idle: { enabled: false, work: false, workflow: false, todo_prompt: true },
+        },
+      }),
       tools: emptyTools,
       configHandler: makeMockConfigHandler(),
       agents: {},
@@ -338,10 +380,38 @@ describe("Scenario 4b: todo-continuation-enforcer LLM fallback via plugin-interf
     expect(injectedPrompts[0].sessionId).toBe("ses_2")
     const body = injectedPrompts[0].body as { parts: Array<{ text: string }> }
     const text = body.parts[0].text
-    expect(text).not.toContain(FINALIZE_TODOS_MARKER)
+    expect(text).toContain(FINALIZE_TODOS_MARKER)
     expect(text).toContain("Deploy")
     // Completed item should not appear in the in_progress list
     expect(text).not.toContain("Test")
+  })
+
+  it("does not inject finalize prompt when fallback prompting is disabled", async () => {
+    const { store, injectedPrompts, client } = makeTodoStore()
+    store.set("ses_2", [
+      { content: "Deploy", status: "in_progress", priority: "high" },
+    ])
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks: makeHooks({
+        todoContinuationEnforcerEnabled: true,
+        continuation: {
+          recovery: { compaction: true },
+          idle: { enabled: false, work: false, workflow: false, todo_prompt: false },
+        },
+      }),
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+      client: client as unknown as Parameters<typeof createPluginInterface>[0]["client"],
+    })
+
+    await (iface.event as Function)({
+      event: { type: "session.idle", properties: { sessionID: "ses_2" } },
+    })
+
+    expect(injectedPrompts).toHaveLength(0)
   })
 })
 
@@ -357,7 +427,13 @@ describe("Scenario 5: no in_progress todos → no finalization", () => {
 
     const iface = createPluginInterface({
       pluginConfig: baseConfig,
-      hooks: makeHooks({ todoContinuationEnforcerEnabled: true }),
+      hooks: makeHooks({
+        todoContinuationEnforcerEnabled: true,
+        continuation: {
+          recovery: { compaction: true },
+          idle: { enabled: false, work: false, workflow: false, todo_prompt: true },
+        },
+      }),
       tools: emptyTools,
       configHandler: makeMockConfigHandler(),
       agents: {},
@@ -376,7 +452,13 @@ describe("Scenario 5: no in_progress todos → no finalization", () => {
 
     const iface = createPluginInterface({
       pluginConfig: baseConfig,
-      hooks: makeHooks({ todoContinuationEnforcerEnabled: true }),
+      hooks: makeHooks({
+        todoContinuationEnforcerEnabled: true,
+        continuation: {
+          recovery: { compaction: true },
+          idle: { enabled: false, work: false, workflow: false, todo_prompt: true },
+        },
+      }),
       tools: emptyTools,
       configHandler: makeMockConfigHandler(),
       agents: {},
@@ -400,7 +482,13 @@ describe("Scenario 6: one-shot finalization guard", () => {
 
     const iface = createPluginInterface({
       pluginConfig: baseConfig,
-      hooks: makeHooks({ todoContinuationEnforcerEnabled: true }),
+      hooks: makeHooks({
+        todoContinuationEnforcerEnabled: true,
+        continuation: {
+          recovery: { compaction: true },
+          idle: { enabled: false, work: false, workflow: false, todo_prompt: true },
+        },
+      }),
       tools: emptyTools,
       configHandler: makeMockConfigHandler(),
       agents: {},
@@ -430,7 +518,13 @@ describe("Scenario 7: re-arm after user message", () => {
 
     const iface = createPluginInterface({
       pluginConfig: baseConfig,
-      hooks: makeHooks({ todoContinuationEnforcerEnabled: true }),
+      hooks: makeHooks({
+        todoContinuationEnforcerEnabled: true,
+        continuation: {
+          recovery: { compaction: true },
+          idle: { enabled: false, work: false, workflow: false, todo_prompt: true },
+        },
+      }),
       tools: emptyTools,
       configHandler: makeMockConfigHandler(),
       agents: {},
@@ -462,7 +556,13 @@ describe("Scenario 7: re-arm after user message", () => {
 
     const iface = createPluginInterface({
       pluginConfig: baseConfig,
-      hooks: makeHooks({ todoContinuationEnforcerEnabled: true }),
+      hooks: makeHooks({
+        todoContinuationEnforcerEnabled: true,
+        continuation: {
+          recovery: { compaction: true },
+          idle: { enabled: false, work: false, workflow: false, todo_prompt: true },
+        },
+      }),
       tools: emptyTools,
       configHandler: makeMockConfigHandler(),
       agents: {},
@@ -498,7 +598,13 @@ describe("Scenario 8: session deletion cleanup", () => {
 
     const iface = createPluginInterface({
       pluginConfig: baseConfig,
-      hooks: makeHooks({ todoContinuationEnforcerEnabled: true }),
+      hooks: makeHooks({
+        todoContinuationEnforcerEnabled: true,
+        continuation: {
+          recovery: { compaction: true },
+          idle: { enabled: false, work: false, workflow: false, todo_prompt: true },
+        },
+      }),
       tools: emptyTools,
       configHandler: makeMockConfigHandler(),
       agents: {},

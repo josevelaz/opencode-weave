@@ -14,6 +14,7 @@ import * as sharedLog from "../shared/log"
 import { checkContinuation } from "../hooks/work-continuation"
 import { writeWorkState, createWorkState, readWorkState } from "../features/work-state/storage"
 import { WEAVE_DIR } from "../features/work-state/constants"
+import { DEFAULT_CONTINUATION_CONFIG } from "../config/continuation"
 
 const baseConfig: WeaveConfig = {}
 
@@ -38,6 +39,8 @@ function makeHooks(overrides?: Partial<CreatedHooks>): CreatedHooks {
     todoDescriptionOverride: null,
     compactionTodoPreserverEnabled: false,
     todoContinuationEnforcerEnabled: true,
+    compactionRecovery: null,
+    continuation: DEFAULT_CONTINUATION_CONFIG,
     ...overrides,
   }
 }
@@ -607,6 +610,10 @@ describe("createPluginInterface", () => {
     } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
 
     const hooks = makeHooks({
+      continuation: {
+        recovery: { compaction: true },
+        idle: { enabled: false, work: true, workflow: false, todo_prompt: false },
+      },
       workContinuation: (_sessionId: string) => ({
         continuationPrompt: "Continue working on your plan.",
       }),
@@ -683,8 +690,11 @@ describe("createPluginInterface", () => {
         },
       } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
 
-      // Wire workContinuation to real checkContinuation so it reads the paused flag
       const hooks = makeHooks({
+        continuation: {
+          recovery: { compaction: true },
+          idle: { enabled: false, work: true, workflow: false, todo_prompt: false },
+        },
         workContinuation: (sessionId: string) => checkContinuation({ sessionId, directory: tempDir }),
       })
 
@@ -725,6 +735,10 @@ describe("createPluginInterface", () => {
       } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
 
       const hooks = makeHooks({
+        continuation: {
+          recovery: { compaction: true },
+          idle: { enabled: false, work: true, workflow: false, todo_prompt: false },
+        },
         workContinuation: (sessionId: string) => checkContinuation({ sessionId, directory: tempDir }),
       })
 
@@ -765,6 +779,10 @@ describe("createPluginInterface", () => {
       } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
 
       const hooks = makeHooks({
+        continuation: {
+          recovery: { compaction: true },
+          idle: { enabled: false, work: true, workflow: false, todo_prompt: false },
+        },
         workContinuation: (sessionId: string) => checkContinuation({ sessionId, directory: tempDir }),
       })
 
@@ -1983,7 +2001,12 @@ describe("workflow integration in plugin-interface", () => {
 
       const iface = createPluginInterface({
         pluginConfig: baseConfig,
-        hooks: makeHooks(),
+        hooks: makeHooks({
+          continuation: {
+            recovery: { compaction: true },
+            idle: { enabled: false, work: false, workflow: false, todo_prompt: true },
+          },
+        }),
         tools: emptyTools,
         configHandler: makeMockConfigHandler(),
         agents: {},
@@ -1995,7 +2018,7 @@ describe("workflow integration in plugin-interface", () => {
 
       expect(promptAsyncCalls.length).toBe(1)
       expect(promptAsyncCalls[0].path.id).toBe("sess-finalize-1")
-      expect(promptAsyncCalls[0].body.parts[0].text).not.toContain("<!-- weave:finalize-todos -->")
+      expect(promptAsyncCalls[0].body.parts[0].text).toContain("<!-- weave:finalize-todos -->")
       expect(promptAsyncCalls[0].body.parts[0].text).toContain('"Task 1"')
     })
 
@@ -2026,7 +2049,12 @@ describe("workflow integration in plugin-interface", () => {
 
       const iface = createPluginInterface({
         pluginConfig: baseConfig,
-        hooks: makeHooks(),
+        hooks: makeHooks({
+          continuation: {
+            recovery: { compaction: true },
+            idle: { enabled: false, work: false, workflow: false, todo_prompt: true },
+          },
+        }),
         tools: emptyTools,
         configHandler: makeMockConfigHandler(),
         agents: {},
@@ -2047,7 +2075,12 @@ describe("workflow integration in plugin-interface", () => {
 
       const iface = createPluginInterface({
         pluginConfig: baseConfig,
-        hooks: makeHooks(),
+        hooks: makeHooks({
+          continuation: {
+            recovery: { compaction: true },
+            idle: { enabled: false, work: false, workflow: false, todo_prompt: true },
+          },
+        }),
         tools: emptyTools,
         configHandler: makeMockConfigHandler(),
         agents: {},
@@ -2076,6 +2109,10 @@ describe("workflow integration in plugin-interface", () => {
       ])
 
       const hooks = makeHooks({
+        continuation: {
+          recovery: { compaction: true },
+          idle: { enabled: false, work: true, workflow: false, todo_prompt: false },
+        },
         workContinuation: (_sessionId: string) => ({
           continuationPrompt: "Continue working on your plan.",
         }),
@@ -2097,6 +2134,31 @@ describe("workflow integration in plugin-interface", () => {
       expect(promptAsyncCalls.length).toBe(1)
       expect(promptAsyncCalls[0].body.parts[0].text).toBe("Continue working on your plan.")
       expect(promptAsyncCalls[0].body.parts[0].text).not.toContain("<!-- weave:finalize-todos -->")
+    })
+
+    it("does not inject finalize prompt when todo prompt fallback is disabled", async () => {
+      const { mockClient, promptAsyncCalls } = makeClientWithTodos([
+        { content: "Task 1", status: "in_progress", priority: "medium" },
+      ])
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks({
+          continuation: {
+            recovery: { compaction: true },
+            idle: { enabled: false, work: false, workflow: false, todo_prompt: false },
+          },
+        }),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+      })
+
+      const evt = idleEvent("sess-finalize-disabled")
+      await iface.event({ event: evt as Parameters<typeof iface.event>[0]["event"] })
+
+      expect(promptAsyncCalls).toHaveLength(0)
     })
 
     it("does not inject finalize prompt when client is absent", async () => {
@@ -2278,6 +2340,205 @@ describe("workflow integration in plugin-interface", () => {
           {} as Parameters<typeof iface["experimental.session.compacting"]>[1],
         )
       ).resolves.toBeUndefined()
+    })
+  })
+
+  describe("session.compacted recovery", () => {
+    it("injects a recovery prompt when compaction recovery is enabled", async () => {
+      const promptAsync = spyOn(
+        {
+          fn: async (_input: unknown) => undefined,
+        },
+        "fn",
+      )
+      const mockClient = {
+        session: {
+          promptAsync: promptAsync,
+        },
+      } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks({
+          continuation: {
+            recovery: { compaction: true },
+            idle: { enabled: false, work: false, workflow: false, todo_prompt: false },
+          },
+          compactionRecovery: () => ({ continuationPrompt: "resume after compaction", switchAgent: null }),
+        }),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+      })
+
+      await iface.event({ event: { type: "session.compacted", properties: { sessionID: "ses-recover" } } })
+
+      expect(promptAsync).toHaveBeenCalledTimes(1)
+    })
+
+    it("does not inject a recovery prompt when compaction recovery is disabled", async () => {
+      const promptAsync = spyOn(
+        {
+          fn: async (_input: unknown) => undefined,
+        },
+        "fn",
+      )
+      const mockClient = {
+        session: {
+          promptAsync: promptAsync,
+        },
+      } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks({
+          continuation: {
+            recovery: { compaction: false },
+            idle: { enabled: false, work: false, workflow: false, todo_prompt: false },
+          },
+          compactionRecovery: () => ({ continuationPrompt: "resume after compaction", switchAgent: null }),
+        }),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+      })
+
+      await iface.event({ event: { type: "session.compacted", properties: { sessionID: "ses-recover" } } })
+
+      expect(promptAsync).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("idle workflow continuation gating", () => {
+    it("does not inject a workflow continuation prompt when idle.workflow is false", async () => {
+      const promptAsync = spyOn(
+        {
+          fn: async (_input: unknown) => undefined,
+        },
+        "fn",
+      )
+      const mockClient = {
+        session: {
+          promptAsync: promptAsync,
+          todo: async () => ({ data: [] }),
+        },
+      } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks({
+          continuation: {
+            recovery: { compaction: true },
+            idle: { enabled: false, work: false, workflow: false, todo_prompt: false },
+          },
+          workflowContinuation: () => ({ continuationPrompt: "next workflow step", switchAgent: null }),
+        }),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+        directory: mkdtempSync(join(tmpdir(), "weave-wf-idle-off-")),
+      })
+
+      await iface.event({ event: { type: "session.idle", properties: { sessionID: "sess-wf-off" } } })
+
+      expect(promptAsync).not.toHaveBeenCalled()
+    })
+
+    it("does not block workflowStart when idle.workflow is false", async () => {
+      const hooks = makeHooks({
+        continuation: {
+          recovery: { compaction: true },
+          idle: { enabled: false, work: false, workflow: false, todo_prompt: false },
+        },
+        workflowStart: () => ({ contextInjection: "## Workflow Started", switchAgent: null }),
+      })
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks,
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+      })
+
+      const parts = [{ type: "text", text: "The workflow engine will inject context here." }]
+      const output = { message: {} as never, parts }
+
+      await iface["chat.message"]({ sessionID: "sess-wf-start" }, output)
+
+      expect(parts[0].text).toContain("Workflow Started")
+    })
+  })
+
+  describe("idle work continuation gating", () => {
+    it("does not inject a work continuation prompt when idle.work is false", async () => {
+      const promptAsync = spyOn(
+        {
+          fn: async (_input: unknown) => undefined,
+        },
+        "fn",
+      )
+      const mockClient = {
+        session: {
+          promptAsync: promptAsync,
+          todo: async () => ({ data: [] }),
+        },
+      } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks({
+          continuation: {
+            recovery: { compaction: true },
+            idle: { enabled: false, work: false, workflow: false, todo_prompt: false },
+          },
+          workContinuation: () => ({ continuationPrompt: "continue working" }),
+        }),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+      })
+
+      await iface.event({ event: { type: "session.idle", properties: { sessionID: "sess-idle-off" } } })
+
+      expect(promptAsync).not.toHaveBeenCalled()
+    })
+
+    it("injects a work continuation prompt when idle.work is true", async () => {
+      const promptAsyncCalls: Array<{ path: { id: string }; body: { parts: Array<{ text: string }> } }> = []
+      const mockClient = {
+        session: {
+          promptAsync: async (input: { path: { id: string }; body: { parts: Array<{ text: string }> } }) => {
+            promptAsyncCalls.push(input)
+          },
+          todo: async () => ({ data: [] }),
+        },
+      } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks({
+          continuation: {
+            recovery: { compaction: true },
+            idle: { enabled: false, work: true, workflow: false, todo_prompt: false },
+          },
+          workContinuation: () => ({ continuationPrompt: "continue working" }),
+        }),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+      })
+
+      await iface.event({ event: { type: "session.idle", properties: { sessionID: "sess-idle-on" } } })
+
+      expect(promptAsyncCalls).toHaveLength(1)
+      expect(promptAsyncCalls[0].path.id).toBe("sess-idle-on")
+      expect(promptAsyncCalls[0].body.parts[0]?.text).toBe("continue working")
     })
   })
 })

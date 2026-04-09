@@ -11,6 +11,7 @@ import { resolveAgentModel } from "./model-resolution"
 import { buildAgent } from "./agent-builder"
 import type { AgentFactory, AgentPromptMetadata, WeaveAgentName } from "./types"
 import type { CategoriesConfig, AgentOverrideConfig } from "../config/schema"
+import type { ResolvedContinuationConfig } from "../config/continuation"
 import type { ResolveSkillsFn } from "./agent-builder"
 import type { ProjectFingerprint } from "../features/analytics/types"
 import type { AvailableAgent } from "./dynamic-prompt-builder"
@@ -29,6 +30,8 @@ export interface CreateBuiltinAgentsOptions {
   fingerprint?: ProjectFingerprint | null
   /** Custom agent metadata for Loom's dynamic delegation prompt */
   customAgentMetadata?: AvailableAgent[]
+  /** Resolved continuation config for prompt-aware agents */
+  continuation?: ResolvedContinuationConfig
 }
 
 const AGENT_FACTORIES: Record<WeaveAgentName, AgentFactory> = {
@@ -182,6 +185,7 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
     resolveSkills,
     fingerprint,
     customAgentMetadata,
+    continuation,
   } = options
 
   const disabledSet = new Set(disabledAgents)
@@ -215,7 +219,7 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
     if (name === "loom") {
       built = createLoomAgentWithOptions(resolvedModel, disabledSet, fingerprint, customAgentMetadata)
     } else if (name === "tapestry") {
-      built = createTapestryAgentWithOptions(resolvedModel, disabledSet)
+      built = createTapestryAgentWithOptions(resolvedModel, disabledSet, continuation)
     } else {
       built = buildAgent(factory, resolvedModel, {
         categories,

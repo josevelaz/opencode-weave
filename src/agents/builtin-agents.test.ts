@@ -234,6 +234,19 @@ describe("AGENT_METADATA", () => {
     expect(planSection).toContain("Weft")
   })
 
+  it("threads continuation config into the tapestry factory", () => {
+    const agents = createBuiltinAgents({
+      continuation: {
+        recovery: { compaction: true },
+        idle: { enabled: false, work: false, workflow: false, todo_prompt: false },
+      },
+    })
+    const prompt = agents["tapestry"]?.prompt ?? ""
+    expect(prompt).toContain("<PlanExecution>")
+    expect(prompt).toContain("<Style>")
+    expect(prompt).toContain("<Continuation>")
+  })
+
   it("pattern prompt strips thread reference when thread disabled", () => {
     const agents = createBuiltinAgents({ disabledAgents: ["thread"] })
     const prompt = agents["pattern"]?.prompt ?? ""

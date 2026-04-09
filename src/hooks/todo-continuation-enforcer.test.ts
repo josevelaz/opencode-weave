@@ -123,7 +123,7 @@ describe("createTodoContinuationEnforcer", () => {
       expect(mockClient.promptAsyncCalls.length).toBe(1)
     })
 
-    it("finalize prompt does not include FINALIZE_TODOS_MARKER", async () => {
+    it("finalize prompt includes FINALIZE_TODOS_MARKER", async () => {
       const todos: TodoInfo[] = [
         { content: "Deploy app", status: "in_progress", priority: "high" },
       ]
@@ -138,7 +138,7 @@ describe("createTodoContinuationEnforcer", () => {
       const call = mockClient.promptAsyncCalls[0]
       const body = call.body as { parts: Array<{ type: string; text: string }> }
       const text = body.parts[0].text
-      expect(text).not.toContain(FINALIZE_TODOS_MARKER)
+      expect(text).toContain(FINALIZE_TODOS_MARKER)
     })
 
     it("finalize prompt lists the specific in_progress items", async () => {
@@ -160,6 +160,22 @@ describe("createTodoContinuationEnforcer", () => {
       expect(text).toContain("Deploy app")
       // Completed todos should NOT be mentioned
       expect(text).not.toContain("Write tests")
+    })
+
+    it("does not inject finalize prompt when prompt fallback is disabled", async () => {
+      const todos: TodoInfo[] = [
+        { content: "Deploy app", status: "in_progress", priority: "high" },
+      ]
+      const mockClient = makeMockClient(todos)
+
+      const enforcer = createTodoContinuationEnforcer(mockClient as never, {
+        todoWriterOverride: null,
+        allowPromptFallback: false,
+      })
+
+      await enforcer.checkAndFinalize(SESSION_ID)
+
+      expect(mockClient.promptAsyncCalls.length).toBe(0)
     })
   })
 

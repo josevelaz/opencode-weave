@@ -122,6 +122,40 @@ describe("generateHealthReport", () => {
     expect(report).toContain("weft")
   })
 
+  it("reports split continuation defaults and manual resume guidance", () => {
+    const loadResult: ConfigLoadResult = {
+      config: {},
+      loadedFiles: [],
+      diagnostics: [],
+    }
+    const report = generateHealthReport(loadResult, {})
+    expect(report).toContain("Continuation Behavior")
+    expect(report).toContain("Compaction recovery prompt: enabled")
+    expect(report).toContain("Idle work prompts: disabled by default")
+    expect(report).toContain("Idle workflow prompts: disabled by default")
+    expect(report).toContain("Idle todo fallback prompt: disabled by default")
+    expect(report).toContain("/start-work")
+    expect(report).toContain("/run-workflow")
+  })
+
+  it("reports continuation suppression by hook overrides", () => {
+    const loadResult: ConfigLoadResult = {
+      config: {
+        continuation: {
+          recovery: { compaction: true },
+          idle: { enabled: true },
+        },
+        disabled_hooks: ["work-continuation", "workflow", "todo-continuation-enforcer"],
+      },
+      loadedFiles: [],
+      diagnostics: [],
+    }
+    const report = generateHealthReport(loadResult, {})
+    expect(report).toContain("Compaction recovery prompt: disabled by hook: work-continuation")
+    expect(report).toContain("Idle workflow prompts: disabled by hook: workflow")
+    expect(report).toContain("Idle todo fallback prompt: disabled by hook: todo-continuation-enforcer")
+  })
+
   it("includes log location hint", () => {
     const loadResult: ConfigLoadResult = {
       config: {},

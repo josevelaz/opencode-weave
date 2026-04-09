@@ -1,6 +1,7 @@
 import type { Plugin } from "@opencode-ai/plugin"
 import { join } from "path"
 import { loadWeaveConfig } from "./config/loader"
+import { resolveContinuationConfig } from "./config/continuation"
 import { createManagers } from "./create-managers"
 import { createTools } from "./create-tools"
 import { createHooks } from "./hooks/create-hooks"
@@ -14,6 +15,7 @@ const WeavePlugin: Plugin = async (ctx) => {
   // OpenCode's app log (visible in the TUI), not just stderr.
   setClient(ctx.client)
   const pluginConfig = loadWeaveConfig(ctx.directory, ctx)
+  const continuation = resolveContinuationConfig(pluginConfig.continuation)
   if (pluginConfig.log_level) {
     setLogLevel(pluginConfig.log_level)
   }
@@ -29,8 +31,21 @@ const WeavePlugin: Plugin = async (ctx) => {
 
   const configDir = join(ctx.directory, ".opencode")
   const toolsResult = await createTools({ ctx, pluginConfig })
-  const managers = createManagers({ ctx, pluginConfig, resolveSkills: toolsResult.resolveSkillsFn, fingerprint, configDir })
-  const hooks = createHooks({ pluginConfig, isHookEnabled, directory: ctx.directory, analyticsEnabled })
+  const managers = createManagers({
+    ctx,
+    pluginConfig,
+    continuation,
+    resolveSkills: toolsResult.resolveSkillsFn,
+    fingerprint,
+    configDir,
+  })
+  const hooks = createHooks({
+    pluginConfig,
+    continuation,
+    isHookEnabled,
+    directory: ctx.directory,
+    analyticsEnabled,
+  })
 
   // Analytics: session tracking + project fingerprinting (fire-and-forget)
   const analytics = analyticsEnabled ? createAnalytics(ctx.directory, fingerprint) : null

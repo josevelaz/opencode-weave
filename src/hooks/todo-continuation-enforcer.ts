@@ -21,6 +21,8 @@ export function createTodoContinuationEnforcer(
   options?: {
     /** Inject a mock todo writer for testing (bypasses dynamic import) */
     todoWriterOverride?: TodoWriter | null
+    /** Whether fallback prompt injection is allowed when direct write is unavailable. */
+    allowPromptFallback?: boolean
   },
 ) {
   const todoFinalizedSessions = new Set<string>()
@@ -73,7 +75,7 @@ export function createTodoContinuationEnforcer(
           sessionID,
           count: inProgressTodos.length,
         })
-      } else {
+      } else if (options?.allowPromptFallback !== false) {
         // Fallback path: 1 LLM turn
         const inProgressItems = inProgressTodos.map((t) => `  - "${t.content}"`).join("\n")
         await client.session.promptAsync({
@@ -82,13 +84,19 @@ export function createTodoContinuationEnforcer(
             parts: [
               {
                 type: "text",
-                text: `You have finished your work but left these todos as in_progress:
+                text: `${FINALIZE_TODOS_MARKER}
+You have finished your work but left these todos as in_progress:
 ${inProgressItems}`,
               },
             ],
           },
         })
         debug("[todo-continuation-enforcer] Finalized via LLM prompt (fallback)", {
+          sessionID,
+          count: inProgressTodos.length,
+        })
+      } else {
+        debug("[todo-continuation-enforcer] Prompt fallback disabled by continuation config", {
           sessionID,
           count: inProgressTodos.length,
         })

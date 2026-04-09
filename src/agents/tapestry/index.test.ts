@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { createTapestryAgent } from "./index"
+import { createTapestryAgent, createTapestryAgentWithOptions } from "./index"
 
 describe("createTapestryAgent", () => {
   it("is a callable factory", () => {
@@ -94,6 +94,20 @@ describe("createTapestryAgent", () => {
     const config = createTapestryAgent("claude-sonnet-4")
     const prompt = config.prompt as string
     expect(prompt).toContain("acceptance criteria")
+  })
+
+  it("createTapestryAgentWithOptions accepts resolved continuation config without changing prompt shape", () => {
+    const config = createTapestryAgentWithOptions(
+      "claude-sonnet-4",
+      new Set(),
+      {
+        recovery: { compaction: true },
+        idle: { enabled: false, work: false, workflow: false, todo_prompt: false },
+      },
+    )
+    expect(config.prompt).toContain("<PlanExecution>")
+    expect(config.prompt).toContain("<PostExecutionReview>")
+    expect(config.prompt).toContain("<Continuation>")
   })
 
   it("verification protocol does NOT mention security-sensitive flagging (removed)", () => {

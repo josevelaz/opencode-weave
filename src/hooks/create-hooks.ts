@@ -1,4 +1,5 @@
 import type { WeaveConfig } from "../config/schema"
+import type { ResolvedContinuationConfig } from "../config/continuation"
 import { checkContextWindow } from "./context-window-monitor"
 import type { ContextWindowThresholds } from "./context-window-monitor"
 import { createWriteGuardState, createWriteGuard } from "./write-existing-file-guard"
@@ -7,6 +8,7 @@ import { shouldApplyVariant, markApplied, markSessionCreated, clearSession } fro
 import { processMessageForKeywords } from "./keyword-detector"
 import { checkPatternWrite } from "./pattern-md-only"
 import { handleStartWork } from "./start-work-hook"
+import { checkCompactionRecovery } from "./compaction-recovery"
 import { checkContinuation } from "./work-continuation"
 import { buildVerificationReminder } from "./verification-reminder"
 import { handleRunWorkflow, checkWorkflowContinuation } from "../features/workflow"
@@ -17,11 +19,12 @@ export type CreatedHooks = ReturnType<typeof createHooks>
 
 export function createHooks(args: {
   pluginConfig: WeaveConfig
+  continuation: ResolvedContinuationConfig
   isHookEnabled: (hookName: string) => boolean
   directory: string
   analyticsEnabled?: boolean
 }) {
-  const { pluginConfig, isHookEnabled, directory, analyticsEnabled = false } = args
+  const { pluginConfig, continuation, isHookEnabled, directory, analyticsEnabled = false } = args
 
   const workflowDirs = pluginConfig.workflows?.directories
 
@@ -63,6 +66,10 @@ export function createHooks(args: {
       ? (sessionId: string) => checkContinuation({ sessionId, directory })
       : null,
 
+    compactionRecovery: isHookEnabled("work-continuation")
+      ? (sessionId: string) => checkCompactionRecovery({ sessionId, directory })
+      : null,
+
     workflowStart: isHookEnabled("workflow")
       ? (promptText: string, sessionId: string) =>
           handleRunWorkflow({ promptText, sessionId, directory, workflowDirs })
@@ -88,6 +95,8 @@ export function createHooks(args: {
     compactionTodoPreserverEnabled: isHookEnabled("compaction-todo-preserver"),
 
     todoContinuationEnforcerEnabled: isHookEnabled("todo-continuation-enforcer"),
+
+    continuation,
 
     analyticsEnabled,
   }

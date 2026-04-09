@@ -5,6 +5,7 @@ import {
   buildTapestryDisciplineSection,
   buildTapestrySidebarTodosSection,
   buildTapestryPlanExecutionSection,
+  buildTapestryContinuationHintSection,
   buildTapestryVerificationSection,
   buildTapestryPostExecutionReviewSection,
   buildTapestryExecutionSection,
@@ -27,6 +28,18 @@ describe("composeTapestryPrompt", () => {
     expect(prompt).toContain("<PostExecutionReview>")
     expect(prompt).toContain("<Execution>")
     expect(prompt).toContain("<Style>")
+    expect(prompt).not.toContain("<Continuation>")
+  })
+
+  it("adds a continuation hint section when compaction recovery is enabled", () => {
+    const prompt = composeTapestryPrompt({
+      continuation: {
+        recovery: { compaction: true },
+        idle: { enabled: false, work: false, workflow: false, todo_prompt: false },
+      },
+    })
+    expect(prompt).toContain("<Continuation>")
+    expect(prompt).toContain("persisted plan/workflow state")
   })
 
   it("PostExecutionReview includes Weft and Warp by default", () => {
@@ -123,6 +136,23 @@ describe("individual tapestry section builders", () => {
     const section = buildTapestryPlanExecutionSection(new Set(["weft"]))
     expect(section).not.toContain("Weft")
     expect(section).toContain("Verification")
+  })
+
+  it("buildTapestryContinuationHintSection returns null when no resume paths are enabled", () => {
+    expect(
+      buildTapestryContinuationHintSection({
+        recovery: { compaction: false },
+        idle: { enabled: false, work: false, workflow: false, todo_prompt: true },
+      }),
+    ).toBeNull()
+  })
+
+  it("buildTapestryContinuationHintSection returns a hint when any resume path is enabled", () => {
+    const section = buildTapestryContinuationHintSection({
+      recovery: { compaction: false },
+      idle: { enabled: false, work: true, workflow: false, todo_prompt: false },
+    })
+    expect(section).toContain("resume from persisted plan/workflow state")
   })
 
   it("buildTapestryVerificationSection mentions acceptance criteria", () => {
