@@ -105,6 +105,11 @@ interface MainFormatRun {
   startedAt: string
   finishedAt: string
   suiteId: string
+  runMetadata?: {
+    provider?: string
+    model?: string
+    modelKey?: string
+  }
   summary: {
     totalCases: number
     passedCases: number
@@ -119,6 +124,10 @@ interface MainFormatRun {
   }>
 }
 
+const KNOWN_LEGACY_MODEL_BY_SUITE: Record<string, string> = {
+  "agent-routing": "github-models/gpt-4o",
+}
+
 function isMainFormat(parsed: Record<string, unknown>): boolean {
   return "suiteId" in parsed && "summary" in parsed && "caseResults" in parsed
 }
@@ -127,12 +136,25 @@ function isSpikeFormat(parsed: Record<string, unknown>): boolean {
   return "model" in parsed && "score" in parsed && "timestamp" in parsed
 }
 
+function resolveModelKey(run: MainFormatRun): string {
+  const explicit = run.runMetadata?.modelKey?.trim()
+  if (explicit) return explicit
+
+  const provider = run.runMetadata?.provider?.trim()
+  const model = run.runMetadata?.model?.trim()
+  if (provider && model) {
+    return `${provider}/${model}`
+  }
+
+  return KNOWN_LEGACY_MODEL_BY_SUITE[run.suiteId] ?? "unknown"
+}
+
 function normalizeMainRun(run: MainFormatRun): TrendRun {
   const startMs = new Date(run.startedAt).getTime()
   const endMs = new Date(run.finishedAt).getTime()
   return {
     timestamp: run.startedAt,
-    model: "unknown",
+    model: resolveModelKey(run),
     totalCases: run.summary.totalCases,
     passedCases: run.summary.passedCases,
     failedCases: run.summary.failedCases + run.summary.errorCases,
@@ -629,6 +651,7 @@ const DEFAULT_THRESHOLD = 0.8
 interface ParsedArgs {
   file?: string
   suite?: string
+  modelKey?: string
   last?: number
   check: boolean
   threshold: number
@@ -662,6 +685,8 @@ function parseArgs(argv: string[]): ParsedArgs {
       args.file = argv[++i]
     } else if (arg === "--suite" && argv[i + 1]) {
       args.suite = argv[++i]
+    } else if (arg === "--model-key" && argv[i + 1]) {
+      args.modelKey = argv[++i]
     } else if (arg === "--last" && argv[i + 1]) {
       const n = parseInt(argv[++i], 10)
       if (!isNaN(n) && n > 0) {
@@ -687,6 +712,7 @@ Usage: bun run script/eval-trend-report.ts [options]
 Options:
   --suite <name>      Suite name — resolves to evals/results/{name}.jsonl
   --file <path>       Explicit JSONL file path (overrides --suite)
+  --model-key <key>   Filter to a single model stream (e.g. openrouter/openai/gpt-4o-mini)
   --last <n>          Only analyze the last N runs (default: all)
   --check             Enable regression checking (exit 1 on regression)
   --threshold <n>     Minimum acceptable score (default: ${DEFAULT_THRESHOLD})
@@ -695,6 +721,7 @@ Options:
 
 Examples:
   bun run script/eval-trend-report.ts --suite agent-routing
+  bun run script/eval-trend-report.ts --suite agent-routing --model-key openrouter/openai/gpt-4o-mini
   bun run script/eval-trend-report.ts --file evals/results/custom.jsonl
   bun run script/eval-trend-report.ts --suite agent-routing --check --threshold 0.80
   bun run script/eval-trend-report.ts --suite agent-routing --last 5 --json
@@ -720,6 +747,15 @@ function main(): void {
 
   // Parse JSONL
   let runs = parseJsonl(filePath)
+
+  if (args.modelKey) {
+    runs = runs.filter((run) => run.model === args.modelKey)
+  }
+
+  if (runs.length === 0) {
+    console.error(pc.yellow(args.modelKey ? `No runs found for model ${args.modelKey}.` : "No runs found."))
+    process.exit(0)
+  }
 
   // Apply --last filter
   if (args.last !== undefined && args.last < runs.length) {

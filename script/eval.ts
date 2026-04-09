@@ -21,6 +21,7 @@ interface CliOptions {
   caseIds?: string[]
   agents?: string[]
   tags?: string[]
+  provider?: string
   model?: string
   json: boolean
   outputPath?: string
@@ -31,9 +32,40 @@ interface CliOptions {
   failOnRegression: boolean
 }
 
+function resolveRunSource(): "local" | "ci" | "scheduled" | "workflow_dispatch" {
+  if (!process.env.CI) {
+    return "local"
+  }
+
+  const eventName = process.env.GITHUB_EVENT_NAME
+  if (eventName === "schedule") {
+    return "scheduled"
+  }
+  if (eventName === "workflow_dispatch") {
+    return "workflow_dispatch"
+  }
+
+  return "ci"
+}
+
+function parseMatrixMetadata(): Record<string, string> | undefined {
+  const raw = process.env.EVAL_MATRIX
+  if (!raw) return undefined
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const entries = Object.entries(parsed).filter(
+      (entry): entry is [string, string] => typeof entry[0] === "string" && typeof entry[1] === "string",
+    )
+    return entries.length > 0 ? Object.fromEntries(entries) : undefined
+  } catch {
+    return undefined
+  }
+}
+
 function printUsage(): void {
   console.error(
-    "Usage: bun run eval [--suite prompt-contracts] [--case id] [--agent loom] [--tag contract] [--model gpt-4o-mini] [--json] [--output path] [--baseline path] [--update-baseline] [--fail-on-regression]",
+    "Usage: bun run eval [--suite prompt-contracts] [--case id] [--agent loom] [--tag contract] [--provider github-models] [--model gpt-4o-mini] [--json] [--output path] [--baseline path] [--update-baseline] [--fail-on-regression]",
   )
 }
 
@@ -79,6 +111,9 @@ function parseArgs(argv: string[]): CliOptions {
         break
       case "--tag":
         options.tags = [...(options.tags ?? []), parseMultiValue(argv[++index], "--tag")]
+        break
+      case "--provider":
+        options.provider = parseMultiValue(argv[++index], "--provider")
         break
       case "--model":
         options.model = parseMultiValue(argv[++index], "--model")
@@ -196,7 +231,20 @@ async function main(): Promise<void> {
       },
       outputPath: options.outputPath,
       mode: process.env.CI ? "ci" : "local",
+      providerOverride: options.provider,
       modelOverride: options.model,
+      runMetadata: {
+        provider: options.provider,
+        model: options.model,
+        modelKey: options.provider && options.model ? `${options.provider}/${options.model}` : undefined,
+        source: resolveRunSource(),
+        repo: process.env.GITHUB_REPOSITORY,
+        branch: process.env.GITHUB_REF_NAME,
+        commitSha: process.env.GITHUB_SHA,
+        workflow: process.env.GITHUB_WORKFLOW,
+        job: process.env.GITHUB_JOB,
+        matrix: parseMatrixMetadata(),
+      },
     })
 
     const baseline = deriveDeterministicBaseline(output.result)

@@ -13,10 +13,6 @@ on:
         description: "Run agent routing eval (live, non-blocking)"
         required: false
         default: "true"
-      model:
-        description: "Model to evaluate (default: gpt-4o-mini)"
-        required: false
-        default: "gpt-4o-mini"
 
 jobs:
   deterministic-evals:
@@ -79,7 +75,7 @@ jobs:
           fi
 
   agent-routing:
-    name: Agent Routing (live, non-blocking)
+    name: Agent Routing (${{ matrix.name }})
     needs: [detect-prompt-changes]
     if: >-
       always() && (
@@ -90,8 +86,27 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     permissions:
-      contents: write
+      contents: read
       models: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: GitHub Models / gpt-4o-mini
+            provider: github-models
+            model: gpt-4o-mini
+            model_key: github-models/gpt-4o-mini
+            artifact_name: github-models-gpt-4o-mini
+          - name: OpenRouter / openai/gpt-5.4
+            provider: openrouter
+            model: openai/gpt-5.4
+            model_key: openrouter/openai/gpt-5.4
+            artifact_name: openrouter-openai-gpt-5-4
+          - name: OpenRouter / anthropic/claude-opus-4.6
+            provider: openrouter
+            model: anthropic/claude-opus-4.6
+            model_key: openrouter/anthropic/claude-opus-4.6
+            artifact_name: openrouter-anthropic-claude-opus-4-6
 
     steps:
       - uses: actions/checkout@v6
@@ -106,25 +121,102 @@ jobs:
       - name: Run agent routing eval (live)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          EVAL_MODEL: ${{ inputs.model || 'gpt-4o-mini' }}
-        run: bun run eval --suite agent-routing --jsonl --model "$EVAL_MODEL"
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          EVAL_PROVIDER: ${{ matrix.provider }}
+          EVAL_MODEL: ${{ matrix.model }}
+          EVAL_MATRIX: ${{ toJson(matrix) }}
+          RUN_PATH: .weave/evals/runs/${{ matrix.artifact_name }}.json
+        run: bun run eval --suite agent-routing --provider "$EVAL_PROVIDER" --model "$EVAL_MODEL" --output "$RUN_PATH"
 
-      - name: Generate trend report
+      - name: Upload routing eval artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: routing-eval-run-${{ matrix.artifact_name }}
+          path: |
+            .weave/evals/
+            .weave/evals/runs/${{ matrix.artifact_name }}.json
+          if-no-files-found: ignore
+
+  agent-routing-fanin:
+    name: Agent Routing Fan-In
+    needs: [agent-routing]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Download routing eval run artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: routing-eval-run-*
+          path: .artifacts/routing-runs
+          merge-multiple: false
+
+      - name: Merge run artifacts into canonical JSONL
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          jsonl_path = Path('evals/results/agent-routing.jsonl')
+          jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+
+          runs_by_id = {}
+          if jsonl_path.exists():
+            for line in jsonl_path.read_text().splitlines():
+              line = line.strip()
+              if not line:
+                continue
+              parsed = json.loads(line)
+              run_id = parsed.get('runId')
+              if run_id:
+                runs_by_id[run_id] = parsed
+
+          for path in sorted(Path('.artifacts/routing-runs').glob('**/*.json')):
+            parsed = json.loads(path.read_text())
+            run_id = parsed.get('runId')
+            if run_id:
+              runs_by_id[run_id] = parsed
+
+          ordered = sorted(
+            runs_by_id.values(),
+            key=lambda run: (run.get('startedAt', ''), run.get('runId', '')),
+          )
+
+          with jsonl_path.open('w', encoding='utf-8') as fh:
+            for run in ordered:
+              fh.write(json.dumps(run, separators=(',', ':')) + '\n')
+          PY
+
+      - name: Generate per-model trend reports
         if: always()
         continue-on-error: true
-        run: bun run script/eval-trend-report.ts --suite agent-routing --check --threshold 0.80
+        run: |
+          bun run script/eval-trend-report.ts --suite agent-routing --model-key github-models/gpt-4o-mini --check --threshold 0.80
+          bun run script/eval-trend-report.ts --suite agent-routing --model-key openrouter/openai/gpt-5.4 --check --threshold 0.80
+          bun run script/eval-trend-report.ts --suite agent-routing --model-key openrouter/anthropic/claude-opus-4.6 --check --threshold 0.80
 
-      - name: Commit JSONL results
+      - name: Commit canonical routing history
         if: github.ref == 'refs/heads/main' && always()
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add evals/results/agent-routing.jsonl
-          git diff --cached --quiet || git commit -m "chore(evals): update agent-routing trend results [skip ci]"
+          git diff --cached --quiet || git -c user.name='github-actions[bot]' -c user.email='github-actions[bot]@users.noreply.github.com' commit -m "chore(evals): update agent-routing trend results [skip ci]"
           git pull --rebase || true
           git push
 
-      - name: Upload routing eval artifacts
+      - name: Upload merged routing artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:

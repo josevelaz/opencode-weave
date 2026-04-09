@@ -240,12 +240,28 @@ export interface EvalRunSummary {
   maxScore: number
 }
 
+export type EvalRunSource = "local" | "ci" | "scheduled" | "workflow_dispatch"
+
+export interface EvalRunMetadata {
+  provider?: string
+  model?: string
+  modelKey?: string
+  source?: EvalRunSource
+  repo?: string
+  branch?: string
+  commitSha?: string
+  workflow?: string
+  job?: string
+  matrix?: Record<string, string>
+}
+
 export interface EvalRunResult {
   runId: string
   startedAt: string
   finishedAt: string
   suiteId: string
   phase: EvalPhase
+  runMetadata?: EvalRunMetadata
   summary: EvalRunSummary
   caseResults: EvalCaseResult[]
 }
@@ -259,7 +275,9 @@ export interface ExecutionContext {
   mode: "local" | "ci" | "hosted"
   directory: string
   outputPath?: string
+  providerOverride?: string
   modelOverride?: string
+  runMetadata?: EvalRunMetadata
 }
 
 export interface RunnerFilters {
@@ -274,7 +292,9 @@ export interface RunEvalSuiteOptions {
   filters?: RunnerFilters
   outputPath?: string
   mode?: ExecutionContext["mode"]
+  providerOverride?: string
   modelOverride?: string
+  runMetadata?: EvalRunMetadata
 }
 
 export interface EvalLoadErrorContext {

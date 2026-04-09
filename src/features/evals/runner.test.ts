@@ -52,6 +52,68 @@ describe("runEvalSuite", () => {
     }
   })
 
+  it("agent-routing errors without OPENROUTER_API_KEY when provider override is openrouter", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "weave-evals-runner-openrouter-"))
+    const savedKey = process.env.OPENROUTER_API_KEY
+    try {
+      delete process.env.OPENROUTER_API_KEY
+      cpSync(join(process.cwd(), "evals"), join(dir, "evals"), { recursive: true })
+
+      const output = await runEvalSuite({
+        directory: dir,
+        suite: "agent-routing",
+        filters: { caseIds: ["route-to-thread-exploration"] },
+        providerOverride: "openrouter",
+        modelOverride: "anthropic/claude-3.5-sonnet",
+      })
+
+      expect(output.result.summary.totalCases).toBe(1)
+      expect(output.result.summary.errorCases).toBe(1)
+      expect(output.result.caseResults[0].errors[0]).toContain("OPENROUTER_API_KEY")
+    } finally {
+      if (savedKey !== undefined) {
+        process.env.OPENROUTER_API_KEY = savedKey
+      } else {
+        delete process.env.OPENROUTER_API_KEY
+      }
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("adds run metadata for provider and model overrides", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "weave-evals-runner-metadata-"))
+    const savedKey = process.env.OPENROUTER_API_KEY
+    try {
+      delete process.env.OPENROUTER_API_KEY
+      cpSync(join(process.cwd(), "evals"), join(dir, "evals"), { recursive: true })
+
+      const output = await runEvalSuite({
+        directory: dir,
+        suite: "agent-routing",
+        filters: { caseIds: ["route-to-thread-exploration"] },
+        providerOverride: "openrouter",
+        modelOverride: "anthropic/claude-3.5-sonnet",
+        runMetadata: {
+          source: "local",
+        },
+      })
+
+      expect(output.result.runMetadata).toEqual({
+        provider: "openrouter",
+        model: "anthropic/claude-3.5-sonnet",
+        modelKey: "openrouter/anthropic/claude-3.5-sonnet",
+        source: "local",
+      })
+    } finally {
+      if (savedKey !== undefined) {
+        process.env.OPENROUTER_API_KEY = savedKey
+      } else {
+        delete process.env.OPENROUTER_API_KEY
+      }
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   describe("trajectory eval", () => {
     it("runs the agent-trajectory suite end-to-end", async () => {
       const dir = mkdtempSync(join(tmpdir(), "weave-evals-runner-trajectory-"))

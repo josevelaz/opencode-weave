@@ -121,28 +121,36 @@ bun run eval:coverage
 - Provider-backed judge runs belong in dedicated manual or scheduled workflows later
 - Expensive eval classes should not become accidental always-on blockers
 
-### Phase 2 Agent Routing (live-only, scheduled + manual)
+### Phase 2 Agent Routing (live-only)
 
-`evals.yml` runs the `phase2-routing` suite automatically every **Monday at 10:00 UTC** via a scheduled cron trigger, and also supports manual `workflow_dispatch`.
+`evals.yml` runs the `agent-routing` suite automatically every **Monday at 10:00 UTC** via a scheduled cron trigger, supports manual `workflow_dispatch`, and also runs on PR/push when prompt files change.
 
-- Phase 2 is **live-only** — it calls the GitHub Models API with Loom's real system prompt. No mock mode.
-- Requires `GITHUB_TOKEN` with `models:read` scope (or the built-in `secrets.GITHUB_TOKEN` in GitHub Actions).
-- Running without `GITHUB_TOKEN` produces a clear error for each case — this is expected and correct.
+- Phase 2 is **live-only** — it calls a configured provider backend with Loom's real system prompt. No mock mode.
+- Supported providers today: `github-models` and `openrouter`.
+- `github-models` requires `GITHUB_TOKEN` with `models:read` scope (or the built-in `secrets.GITHUB_TOKEN` in GitHub Actions).
+- `openrouter` requires `OPENROUTER_API_KEY`.
+- Running without the required provider credential produces a clear error for each case — this is expected and correct.
 - Routing job is intentionally **non-blocking** (`continue-on-error: true`) and is not part of default PR gating.
-- Phase 2 only runs on schedule or manual dispatch — never on PRs or pushes.
+- Phase 2 is not part of default PR gating, but it can run on PRs/pushes when prompt files change.
 - Baseline comparison will be active once generated via `--update-baseline` from a successful live run.
-- Routing artifacts are uploaded as `phase2-routing-artifacts`.
+- Routing artifacts are uploaded as `routing-eval-artifacts`.
 
 #### Running Phase 2 Locally
 
 ```bash
 GITHUB_TOKEN=ghp_xxx bun run eval:phase2
+
+# Or use OpenRouter
+OPENROUTER_API_KEY=or_xxx bun run eval:phase2 --provider openrouter --model anthropic/claude-3.5-sonnet
 ```
 
 #### Updating the Phase 2 Baseline
 
 ```bash
-GITHUB_TOKEN=ghp_xxx bun run eval --suite phase2-routing --update-baseline
+GITHUB_TOKEN=ghp_xxx bun run eval --suite agent-routing --update-baseline
+
+# Or use OpenRouter
+OPENROUTER_API_KEY=or_xxx bun run eval --suite agent-routing --provider openrouter --model anthropic/claude-3.5-sonnet --update-baseline
 ```
 
 #### Phase 2 Graduation Criteria
@@ -271,6 +279,6 @@ Each eval case references a scenario via `scenarioRef` and uses `trajectory-asse
 ## Phase 2 Guardrails
 
 - Phase 2 routing uses `model-response` + `llm-judge` in a tightly scoped Loom-only suite.
-- Phase 2 is live-only: it calls the GitHub Models API directly and requires `GITHUB_TOKEN`.
+- Phase 2 is live-only: it calls the selected provider directly and requires provider-specific env credentials (`GITHUB_TOKEN` or `OPENROUTER_API_KEY`).
 - Never store provider secrets in case files, suite files, or committed baselines.
 - Artifacts must not include auth headers, API keys, bearer tokens, or raw provider secret values.

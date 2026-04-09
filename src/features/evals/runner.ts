@@ -13,6 +13,7 @@ import { resolveBuiltinAgentTarget } from "./targets/builtin-agent-target"
 import type {
   EvalArtifacts,
   EvalCaseResult,
+  EvalRunMetadata,
   EvalRunResult,
   EvalRunSummary,
   ExecutionContext,
@@ -158,6 +159,24 @@ function buildSummary(caseResults: EvalCaseResult[]): EvalRunSummary {
   }
 }
 
+function resolveRunMetadata(context: ExecutionContext): EvalRunMetadata | undefined {
+  const metadata: EvalRunMetadata = { ...(context.runMetadata ?? {}) }
+
+  if (context.providerOverride) {
+    metadata.provider = context.providerOverride
+  }
+
+  if (context.modelOverride) {
+    metadata.model = context.modelOverride
+  }
+
+  if (!metadata.modelKey && metadata.provider && metadata.model) {
+    metadata.modelKey = `${metadata.provider}/${metadata.model}`
+  }
+
+  return Object.keys(metadata).length > 0 ? metadata : undefined
+}
+
 export interface RunEvalSuiteOutput {
   result: EvalRunResult
   artifactPath: string
@@ -176,7 +195,9 @@ export async function runEvalSuite(options: RunEvalSuiteOptions): Promise<RunEva
     mode: options.mode ?? "local",
     directory: options.directory,
     outputPath: options.outputPath,
+    providerOverride: options.providerOverride,
     modelOverride: options.modelOverride,
+    runMetadata: options.runMetadata,
   }
 
   const runId = createRunId()
@@ -196,6 +217,7 @@ export async function runEvalSuite(options: RunEvalSuiteOptions): Promise<RunEva
     finishedAt,
     suiteId: suite.id,
     phase: suite.phase,
+    runMetadata: resolveRunMetadata(context),
     summary: buildSummary(caseResults),
     caseResults,
   }

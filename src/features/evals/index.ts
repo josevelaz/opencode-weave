@@ -22,6 +22,7 @@ export type {
   EvalArtifacts,
   AssertionResult,
   EvalCaseResult,
+  EvalRunMetadata,
   EvalRunResult,
   EvalRunSummary,
   RunEvalSuiteOptions,

@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test"
 import {
   EvalCaseSchema,
   EvalSuiteManifestSchema,
+  EvalRunResultSchema,
   TrajectoryScenarioSchema,
   TrajectoryTurnSchema,
   TrajectoryAssertionEvaluatorSchema,
@@ -60,7 +61,7 @@ describe("eval schemas", () => {
       title: "Routing judge validation",
       phase: "routing",
       target: { kind: "builtin-agent-prompt", agent: "loom" },
-      executor: { kind: "model-response", provider: "openai", model: "gpt-5", input: "test" },
+      executor: { kind: "model-response", provider: "github-models", model: "gpt-5", input: "test" },
       evaluators: [
         {
           kind: "llm-judge",
@@ -68,6 +69,23 @@ describe("eval schemas", () => {
           expectedContains: ["delegate"],
         },
       ],
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it("validates model-response executor with openrouter provider", () => {
+    const result = EvalCaseSchema.safeParse({
+      id: "routing-openrouter-test",
+      title: "Routing with OpenRouter",
+      phase: "routing",
+      target: { kind: "builtin-agent-prompt", agent: "loom" },
+      executor: {
+        kind: "model-response",
+        provider: "openrouter",
+        model: "anthropic/claude-3.5-sonnet",
+        input: "test",
+      },
+      evaluators: [{ kind: "llm-judge", expectedContains: ["thread"] }],
     })
     expect(result.success).toBe(true)
   })
@@ -82,6 +100,75 @@ describe("eval schemas", () => {
       evaluators: [{ kind: "llm-judge" }],
     })
     expect(result.success).toBe(false)
+  })
+
+  it("rejects unsupported model-response provider values", () => {
+    const result = EvalCaseSchema.safeParse({
+      id: "routing-invalid-provider",
+      title: "Invalid provider",
+      phase: "routing",
+      target: { kind: "builtin-agent-prompt", agent: "loom" },
+      executor: { kind: "model-response", provider: "openai", model: "gpt-5", input: "test" },
+      evaluators: [{ kind: "llm-judge" }],
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it("validates eval run results with optional run metadata", () => {
+    const result = EvalRunResultSchema.safeParse({
+      runId: "eval_123",
+      startedAt: "2026-04-09T00:00:00.000Z",
+      finishedAt: "2026-04-09T00:00:10.000Z",
+      suiteId: "agent-routing",
+      phase: "routing",
+      runMetadata: {
+        provider: "openrouter",
+        model: "anthropic/claude-3.5-sonnet",
+        modelKey: "openrouter/anthropic/claude-3.5-sonnet",
+        source: "workflow_dispatch",
+        repo: "pgermishuys/weave",
+        branch: "main",
+        commitSha: "abc123",
+        workflow: "Agent Evals",
+        job: "agent-routing",
+        matrix: {
+          provider: "openrouter",
+          model: "anthropic/claude-3.5-sonnet",
+        },
+      },
+      summary: {
+        totalCases: 1,
+        passedCases: 1,
+        failedCases: 0,
+        errorCases: 0,
+        totalScore: 1,
+        normalizedScore: 1,
+        maxScore: 1,
+      },
+      caseResults: [],
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it("validates eval run results without run metadata for backward compatibility", () => {
+    const result = EvalRunResultSchema.safeParse({
+      runId: "eval_legacy",
+      startedAt: "2026-04-09T00:00:00.000Z",
+      finishedAt: "2026-04-09T00:00:10.000Z",
+      suiteId: "agent-routing",
+      phase: "routing",
+      summary: {
+        totalCases: 1,
+        passedCases: 1,
+        failedCases: 0,
+        errorCases: 0,
+        totalScore: 1,
+        normalizedScore: 1,
+        maxScore: 1,
+      },
+      caseResults: [],
+    })
+    expect(result.success).toBe(true)
   })
 
   describe("trajectory schemas", () => {

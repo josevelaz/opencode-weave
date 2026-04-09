@@ -67,4 +67,29 @@ describe("eval storage", () => {
       rmSync(dir, { recursive: true, force: true })
     }
   })
+
+  it("persists run metadata in JSONL output", () => {
+    const dir = mkdtempSync(join(tmpdir(), "weave-evals-jsonl-metadata-"))
+    try {
+      const result = {
+        ...(fixture as EvalRunResult),
+        runMetadata: {
+          provider: "openrouter",
+          model: "anthropic/claude-3.5-sonnet",
+          modelKey: "openrouter/anthropic/claude-3.5-sonnet",
+          source: "local",
+        },
+      } satisfies EvalRunResult
+
+      const jsonlPath = join(dir, "results.jsonl")
+      appendEvalRunJsonl(dir, result, jsonlPath)
+
+      const content = readFileSync(jsonlPath, "utf-8")
+      const parsed = JSON.parse(content.trim())
+      expect(parsed.runMetadata.modelKey).toBe("openrouter/anthropic/claude-3.5-sonnet")
+      expect(parsed.runMetadata.provider).toBe("openrouter")
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
 })

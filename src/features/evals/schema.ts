@@ -7,6 +7,7 @@ import {
 } from "./types"
 
 const NonEmptyString = z.string().trim().min(1)
+const SupportedLiveProviders = z.enum(["github-models", "openrouter"])
 
 export const EvalPhaseSchema = z.enum(EVAL_PHASES)
 
@@ -50,7 +51,7 @@ export const PromptRenderExecutorSchema = z.object({
 
 export const ModelResponseExecutorSchema = z.object({
   kind: z.literal("model-response"),
-  provider: NonEmptyString,
+  provider: SupportedLiveProviders,
   model: NonEmptyString,
   input: z.string(),
 })
@@ -234,12 +235,26 @@ export const EvalRunSummarySchema = z.object({
   maxScore: z.number().nonnegative(),
 })
 
+export const EvalRunMetadataSchema = z.object({
+  provider: NonEmptyString.optional(),
+  model: NonEmptyString.optional(),
+  modelKey: NonEmptyString.optional(),
+  source: z.enum(["local", "ci", "scheduled", "workflow_dispatch"]).optional(),
+  repo: NonEmptyString.optional(),
+  branch: NonEmptyString.optional(),
+  commitSha: NonEmptyString.optional(),
+  workflow: NonEmptyString.optional(),
+  job: NonEmptyString.optional(),
+  matrix: z.record(z.string(), NonEmptyString).optional(),
+})
+
 export const EvalRunResultSchema = z.object({
   runId: z.string(),
   startedAt: z.string(),
   finishedAt: z.string(),
   suiteId: z.string(),
   phase: EvalPhaseSchema,
+  runMetadata: EvalRunMetadataSchema.optional(),
   summary: EvalRunSummarySchema,
   caseResults: z.array(EvalCaseResultSchema),
 })
