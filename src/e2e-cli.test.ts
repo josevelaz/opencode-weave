@@ -169,19 +169,23 @@ describe("CLI E2E: Weave plugin loading", () => {
     const agent = await debugAgent(loomName)
 
     expect(agent).not.toBeNull()
-    const tools = agent!.tools as Record<string, boolean>
-    expect(tools).toBeDefined()
+    const tools = agent!.tools as Record<string, boolean> | undefined
 
-    // Loom should have access to coordination tools
-    expect(tools.task).toBe(true)
-    expect(tools.todowrite).toBe(true)
-    expect(tools.read).toBe(true)
-    expect(tools.bash).toBe(true)
-    expect(tools.apply_patch).toBe(true)
-    expect(tools.glob).toBe(true)
-    expect(tools.grep).toBe(true)
-    expect(tools.webfetch).toBe(true)
-    expect(tools.skill).toBe(true)
+    // Loom should allow core coordination tools. Some host-provided tools
+    // (like apply_patch) may vary by OpenCode environment/version.
+    expect(tools).toBeDefined()
+    expect(tools?.task).toBe(true)
+    expect(tools?.todowrite).toBe(true)
+    expect(tools?.read).toBe(true)
+    expect(tools?.bash).toBe(true)
+    expect(tools?.glob).toBe(true)
+    expect(tools?.grep).toBe(true)
+    expect(tools?.webfetch).toBe(true)
+    expect(tools?.skill).toBe(true)
+
+    if (tools && "apply_patch" in tools) {
+      expect(tools.apply_patch).toBe(true)
+    }
   })
 
   it("Weave plugin appears in opencode config", async () => {

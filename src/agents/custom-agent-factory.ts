@@ -22,6 +22,7 @@ const KNOWN_TOOL_NAMES = new Set([
   "webfetch",
   "todowrite",
   "skill",
+  "apply_patch",
 ])
 
 /** Agent name must be lowercase alphanumeric with hyphens/underscores */
