@@ -1,6 +1,7 @@
 {
   "id": "trajectory-loom-security-review-chain",
   "title": "Trajectory: Loom delegates security audit to Warp",
+  "description": "Checks that Loom sends security-focused review requests directly to Warp, receives the audit results, and summarizes the blocking findings back to the user.",
   "phase": "trajectory",
   "tags": ["trajectory", "trajectory", "loom", "warp", "delegation", "security"],
   "target": {

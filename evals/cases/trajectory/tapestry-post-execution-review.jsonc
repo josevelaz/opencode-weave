@@ -1,6 +1,7 @@
 {
   "id": "trajectory-tapestry-post-execution-review",
   "title": "Trajectory: Tapestry delegates to Weft and Warp for post-execution review",
+  "description": "Checks the post-execution review chain where Tapestry routes completed work through Weft and Warp before reporting the final review status.",
   "phase": "trajectory",
   "tags": ["trajectory", "trajectory", "tapestry", "weft", "warp", "delegation", "review"],
   "target": {

@@ -1,6 +1,7 @@
 {
   "id": "trajectory-loom-self-handle-simple",
   "title": "Trajectory: Loom handles simple question without delegation",
+  "description": "Checks that Loom answers a simple lookup request directly and avoids delegating when no specialist workflow is needed.",
   "phase": "trajectory",
   "tags": ["trajectory", "trajectory", "loom", "self-handle"],
   "target": {

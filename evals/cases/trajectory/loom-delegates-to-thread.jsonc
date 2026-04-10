@@ -1,6 +1,7 @@
 {
   "id": "trajectory-loom-delegates-to-thread",
   "title": "Trajectory: Loom delegates exploration to Thread",
+  "description": "Checks that Loom treats codebase discovery as read-only exploration, delegates to Thread, and then summarizes the findings back to the user.",
   "phase": "trajectory",
   "tags": ["trajectory", "trajectory", "loom", "thread", "delegation"],
   "target": {

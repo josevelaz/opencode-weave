@@ -159,6 +159,7 @@ describe("eval schemas", () => {
         repo: "pgermishuys/weave",
         branch: "main",
         commitSha: "abc123",
+        runGroup: "commit:abc123",
         workflow: "Agent Evals",
         job: "agent-routing",
         matrix: {

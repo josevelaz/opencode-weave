@@ -1,6 +1,7 @@
 {
   "id": "trajectory-loom-delegates-to-pattern",
   "title": "Trajectory: Loom delegates complex planning to Pattern",
+  "description": "Checks that Loom routes substantial multi-file implementation work through Pattern planning first, then returns to Loom with a plan-centric handoff.",
   "phase": "trajectory",
   "tags": ["trajectory", "trajectory", "loom", "pattern", "delegation"],
   "target": {

@@ -78,6 +78,8 @@ describe("eval storage", () => {
           model: "anthropic/claude-3.5-sonnet",
           modelKey: "openrouter/anthropic/claude-3.5-sonnet",
           source: "local",
+          commitSha: "abc123",
+          runGroup: "commit:abc123",
         },
       } satisfies EvalRunResult
 
@@ -88,6 +90,7 @@ describe("eval storage", () => {
       const parsed = JSON.parse(content.trim())
       expect(parsed.runMetadata.modelKey).toBe("openrouter/anthropic/claude-3.5-sonnet")
       expect(parsed.runMetadata.provider).toBe("openrouter")
+      expect(parsed.runMetadata.runGroup).toBe("commit:abc123")
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

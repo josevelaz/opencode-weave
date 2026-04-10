@@ -260,6 +260,7 @@ export interface EvalRunMetadata {
   repo?: string
   branch?: string
   commitSha?: string
+  runGroup?: string
   workflow?: string
   job?: string
   matrix?: Record<string, string>

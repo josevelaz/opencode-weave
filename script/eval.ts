@@ -15,6 +15,7 @@ import {
 import type { LoadedEvalCase } from "../src/features/evals"
 import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "fs"
 import { dirname, join } from "path"
+import { execFileSync } from "child_process"
 
 interface CliOptions {
   suite: string
@@ -61,6 +62,34 @@ function parseMatrixMetadata(): Record<string, string> | undefined {
   } catch {
     return undefined
   }
+}
+
+function readGitValue(args: string[]): string | undefined {
+  try {
+    const value = execFileSync("git", args, {
+      cwd: process.cwd(),
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim()
+    return value.length > 0 ? value : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function resolveBranchName(): string | undefined {
+  return process.env.GITHUB_REF_NAME ?? readGitValue(["rev-parse", "--abbrev-ref", "HEAD"])
+}
+
+function resolveCommitSha(): string | undefined {
+  return process.env.GITHUB_SHA ?? readGitValue(["rev-parse", "HEAD"])
+}
+
+function resolveRunGroup(commitSha: string | undefined): string | undefined {
+  if (process.env.EVAL_RUN_GROUP) {
+    return process.env.EVAL_RUN_GROUP
+  }
+  return commitSha ? `commit:${commitSha}` : undefined
 }
 
 function printUsage(): void {
@@ -221,6 +250,7 @@ async function main(): Promise<void> {
 
     const baselinePath = options.baselinePath ?? getDefaultBaselinePath(process.cwd(), options.suite)
 
+    const commitSha = resolveCommitSha()
     const output = await runEvalSuite({
       directory: process.cwd(),
       suite: options.suite,
@@ -239,8 +269,9 @@ async function main(): Promise<void> {
         modelKey: options.provider && options.model ? `${options.provider}/${options.model}` : undefined,
         source: resolveRunSource(),
         repo: process.env.GITHUB_REPOSITORY,
-        branch: process.env.GITHUB_REF_NAME,
-        commitSha: process.env.GITHUB_SHA,
+        branch: resolveBranchName(),
+        commitSha,
+        runGroup: resolveRunGroup(commitSha),
         workflow: process.env.GITHUB_WORKFLOW,
         job: process.env.GITHUB_JOB,
         matrix: parseMatrixMetadata(),

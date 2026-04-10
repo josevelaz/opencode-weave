@@ -1,6 +1,7 @@
 {
   "id": "trajectory-loom-planning-with-review",
   "title": "Trajectory: Loom delegates to Pattern then Warp for security review",
+  "description": "Checks the security-sensitive planning chain where Loom sends the feature to Pattern first and then requires Warp before returning a reviewed plan.",
   "phase": "trajectory",
   "tags": ["trajectory", "trajectory", "loom", "pattern", "warp", "delegation", "security"],
   "target": {

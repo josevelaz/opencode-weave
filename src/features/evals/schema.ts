@@ -252,6 +252,7 @@ export const EvalRunMetadataSchema = z.object({
   repo: NonEmptyString.optional(),
   branch: NonEmptyString.optional(),
   commitSha: NonEmptyString.optional(),
+  runGroup: NonEmptyString.optional(),
   workflow: NonEmptyString.optional(),
   job: NonEmptyString.optional(),
   matrix: z.record(z.string(), NonEmptyString).optional(),

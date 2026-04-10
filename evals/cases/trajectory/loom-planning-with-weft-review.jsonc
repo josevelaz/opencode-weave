@@ -1,6 +1,7 @@
 {
   "id": "trajectory-loom-planning-with-weft-review",
   "title": "Trajectory: Loom delegates to Pattern then Weft for non-security plan review",
+  "description": "Checks the non-security planning path where Loom pairs Pattern planning with a Weft review before telling the user execution can begin.",
   "phase": "trajectory",
   "tags": ["trajectory", "trajectory", "loom", "pattern", "weft", "delegation", "review"],
   "target": {
