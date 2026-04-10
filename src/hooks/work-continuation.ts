@@ -4,6 +4,7 @@
  */
 
 import { readWorkState, writeWorkState, getPlanProgress } from "../features/work-state"
+import { renderContinuationEnvelope } from "../runtime/opencode/protocol"
 
 /**
  * Marker embedded in continuation prompts so that `chat.message` can distinguish
@@ -79,7 +80,15 @@ export function checkContinuation(input: ContinuationInput): ContinuationResult 
 
   const remaining = progress.total - progress.completed
   return {
-    continuationPrompt: `${CONTINUATION_MARKER}
+    continuationPrompt: `${renderContinuationEnvelope({
+      continuation: "work",
+      sessionId: input.sessionId,
+      planName: state.plan_name,
+      planPath: state.active_plan,
+      progress: `${progress.completed}/${progress.total} tasks completed`,
+      workingDirectory: directory,
+    })}
+${CONTINUATION_MARKER}
 You have an active work plan with incomplete tasks. Continue working.
 
 **Plan**: ${state.plan_name}

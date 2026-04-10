@@ -1,0 +1,191 @@
+import { pauseWork, readWorkState } from "../../features/work-state"
+import { getPlanProgress } from "../../features/work-state/storage"
+import { generateMetricsReport } from "../../features/analytics/generate-metrics-report"
+import { getActiveWorkflowInstance, pauseWorkflow } from "../../features/workflow"
+import { clearTokenSession, getState as getTokenState, updateUsage } from "../../hooks"
+import { info, warn } from "../../shared/log"
+import type { CreatedHooks } from "../../hooks/create-hooks"
+import type { PluginContext } from "../../plugin/types"
+import type { SessionTracker } from "../../features/analytics"
+import type { RuntimeEffect } from "./effects"
+import { runIdleCycle } from "../../application/orchestration/idle-cycle-service"
+import type { RuntimeLifecyclePolicySurface } from "../../application/orchestration/session-runtime"
+
+export interface EventRouterState {
+  lastAssistantMessageText: Map<string, string>
+  lastUserMessageText: Map<string, string>
+}
+
+export async function routeRuntimeEvent(input: {
+  event: { type: string; properties?: unknown }
+  directory: string
+  hooks: CreatedHooks
+  client?: PluginContext["client"]
+  tracker?: SessionTracker
+  state: EventRouterState
+  compactionPreserver: { handleEvent: (event: { type: string; properties?: unknown }) => Promise<void>; capture: (sessionId: string) => Promise<void> } | null
+  todoContinuationEnforcer: {
+    checkAndFinalize: (sessionId: string) => Promise<void>
+    clearSession: (sessionId: string) => void
+  } | null
+  lifecyclePolicy: RuntimeLifecyclePolicySurface
+}): Promise<RuntimeEffect[]> {
+  const { event, directory, hooks, client, tracker, state, compactionPreserver, todoContinuationEnforcer, lifecyclePolicy } = input
+  const effects: RuntimeEffect[] = []
+
+  if (compactionPreserver) {
+    await compactionPreserver.handleEvent(event)
+  }
+
+  if (event.type === "session.compacted" && client && hooks.continuation.recovery.compaction) {
+    const evt = event as { type: string; properties?: { sessionID?: string; info?: { id?: string } } }
+    const sessionId = evt.properties?.sessionID ?? evt.properties?.info?.id ?? ""
+    if (sessionId) {
+      effects.push(...(await lifecyclePolicy.onCompaction({ directory, sessionId })))
+    }
+    if (sessionId && hooks.compactionRecovery) {
+      const result = hooks.compactionRecovery(sessionId)
+      if (result.continuationPrompt) {
+        effects.push({
+          type: "injectPromptAsync",
+          sessionId,
+          text: result.continuationPrompt,
+          agent: result.switchAgent,
+        })
+      }
+    }
+  }
+
+  if (hooks.firstMessageVariant) {
+    if (event.type === "session.created") {
+      const evt = event as { type: string; properties: { info: { id: string } } }
+      hooks.firstMessageVariant.markSessionCreated(evt.properties.info.id)
+    }
+    if (event.type === "session.deleted") {
+      const evt = event as { type: string; properties: { info: { id: string } } }
+      hooks.firstMessageVariant.clearSession(evt.properties.info.id)
+    }
+  }
+
+  if (event.type === "session.deleted") {
+    const evt = event as { type: string; properties: { info: { id: string } } }
+    const sessionId = evt.properties.info.id
+    effects.push(...(await lifecyclePolicy.onSessionDeleted({ directory, sessionId })))
+    clearTokenSession(sessionId)
+    todoContinuationEnforcer?.clearSession(sessionId)
+
+    if (tracker && hooks.analyticsEnabled) {
+      tracker.endSession(sessionId)
+      if (directory) {
+        try {
+          const workState = readWorkState(directory)
+          if (workState) {
+            const progress = getPlanProgress(workState.active_plan)
+            if (progress.isComplete) {
+              generateMetricsReport(directory, workState)
+            }
+          }
+        } catch (err) {
+          warn("[analytics] Failed to generate metrics report on session end (non-fatal)", { error: String(err) })
+        }
+      }
+    }
+  }
+
+  if (event.type === "message.updated") {
+    const evt = event as {
+      type: string
+      properties: { info: { role?: string; sessionID?: string; cost?: number; tokens?: { input?: number; output?: number; reasoning?: number; cache?: { read?: number; write?: number } } } }
+    }
+    const info = evt.properties?.info
+    if (info?.role === "assistant" && info.sessionID) {
+      if (hooks.checkContextWindow) {
+        const inputTokens = info.tokens?.input ?? 0
+        if (inputTokens > 0) {
+          updateUsage(info.sessionID, inputTokens)
+          const tokenState = getTokenState(info.sessionID)
+          if (tokenState && tokenState.maxTokens > 0) {
+            const result = hooks.checkContextWindow({
+              usedTokens: tokenState.usedTokens,
+              maxTokens: tokenState.maxTokens,
+              sessionId: info.sessionID,
+            })
+            if (result.action !== "none") {
+              warn("[context-window] Threshold crossed", {
+                sessionId: info.sessionID,
+                action: result.action,
+                usagePct: result.usagePct,
+              })
+            }
+          }
+        }
+      }
+
+      if (tracker && hooks.analyticsEnabled) {
+        if (typeof info.cost === "number" && info.cost > 0) {
+          effects.push({ type: "trackAnalytics", event: { kind: "trackCost", sessionId: info.sessionID, cost: info.cost } })
+        }
+        if (info.tokens) {
+          effects.push({
+            type: "trackAnalytics",
+            event: {
+              kind: "trackTokenUsage",
+              sessionId: info.sessionID,
+              usage: {
+                input: info.tokens.input ?? 0,
+                output: info.tokens.output ?? 0,
+                reasoning: info.tokens.reasoning ?? 0,
+                cacheRead: info.tokens.cache?.read ?? 0,
+                cacheWrite: info.tokens.cache?.write ?? 0,
+              },
+            },
+          })
+        }
+      }
+    }
+  }
+
+  if (event.type === "tui.command.execute") {
+    const evt = event as { type: string; properties: { command: string } }
+    if (evt.properties?.command === "session.interrupt") {
+      effects.push({ type: "pauseExecution", target: "both", reason: "User interrupt" })
+    }
+  }
+
+  if (event.type === "message.part.updated") {
+    const evt = event as { type: string; properties: { part: { type: string; sessionID: string; text?: string } } }
+    const part = evt.properties?.part
+    if (part?.type === "text" && part.sessionID && part.text) {
+      state.lastAssistantMessageText.set(part.sessionID, part.text)
+    }
+  }
+
+  if (event.type === "session.idle") {
+    const evt = event as { type: string; properties: { sessionID: string } }
+    const sessionId = evt.properties?.sessionID ?? ""
+    if (sessionId) {
+      effects.push(...(await lifecyclePolicy.onSessionIdle({ directory, sessionId })))
+      const idleEffects = await runIdleCycle({
+        sessionId,
+        directory,
+        hooks,
+        lastAssistantMessage: state.lastAssistantMessageText.get(sessionId) ?? undefined,
+        lastUserMessage: state.lastUserMessageText.get(sessionId) ?? undefined,
+        todoContinuationEnforcer,
+      })
+      effects.push(...idleEffects)
+    }
+  }
+
+  return effects
+}
+
+export function handlePauseExecutionEffect(input: { effectReason: string; directory: string }): void {
+  pauseWork(input.directory)
+  info("[work-continuation] User interrupt detected — work paused")
+  const activeWorkflow = getActiveWorkflowInstance(input.directory)
+  if (activeWorkflow && activeWorkflow.status === "running") {
+    pauseWorkflow(input.directory, input.effectReason)
+    info("[workflow] User interrupt detected — workflow paused")
+  }
+}

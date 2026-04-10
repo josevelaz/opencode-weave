@@ -4,13 +4,16 @@
 > **Summary**: Re-center Weave around a thin OpenCode adapter, a typed orchestration/application layer, and separate but coordinated plan/workflow execution modules. Pair that refactor with a real host-simulation test harness so plugin lifecycle, idle-loop ownership, command routing, policy enforcement, and persistence are exercised end-to-end without depending on a live LLM.
 > **Estimated Effort**: XL
 
-## Progress Update (2026-04-09)
+## Progress Update (2026-04-10)
 - [x] Host-simulation harness landed under `test/testkit/host/*` and `test/testkit/fixtures/*`.
 - [x] The old omnibus regression file was split into focused `test/e2e/*` and `test/integration/*` suites.
 - [x] End-to-end coverage now exists for `/start-work` runtime flow, interrupt suppression, execution ownership behavior, and session finalization.
 - [ ] Pattern tool-guard e2e coverage is still pending.
-- [ ] Runtime extraction / typed command envelope work has not started yet.
-- [ ] `plugin-interface.ts` is still the orchestration hotspot; the current checkpoint is primarily test infrastructure and regression coverage.
+- [x] Runtime extraction / typed command envelope work has started and the adapter/effect seam is in place.
+- [x] `plugin-interface.ts` now delegates through runtime/application seams instead of owning orchestration directly.
+- [ ] Policy centralization has not started yet, but explicit lifecycle handoff points now exist for `onChatMessage`, `beforeTool`, `afterTool`, `onSessionIdle`, `onSessionDeleted`, and `onCompaction`.
+- [x] Explicit idle-loop ownership now routes through `ExecutionCoordinator` / `IdleCycleService` with workflow-over-plan precedence covered in host-simulated e2e.
+- [x] Full compatibility verification passed for the runtime extraction slice (`bun test`, `bun run typecheck`, `bun run build`).
 
 ## Context
 ### Original Request
@@ -57,18 +60,18 @@ Design a concrete, opinionated target architecture and testing blueprint for the
 Define a target architecture that removes orchestration from `src/plugin/plugin-interface.ts`, replaces marker-based branching with typed runtime contracts, makes plan/workflow interaction explicit, and establishes a testing system that gives high confidence in real plugin behavior.
 
 ### Deliverables
-- [ ] A target layered architecture for Weave with named modules, concrete paths, and explicit boundaries.
-- [ ] A runtime/event model that shows how OpenCode hooks and events flow through the system and who owns continuation, routing, and policy decisions.
-- [ ] A plan/workflow strategy that shares orchestration semantics without forcing one authoring model.
-- [ ] A testing blueprint with a practical host-simulation harness and prioritized e2e scenarios.
-- [ ] A phased refactoring roadmap with migration guidance, risks, and measurable architecture-improvement signals.
+- [x] A target layered architecture for Weave with named modules, concrete paths, and explicit boundaries.
+- [x] A runtime/event model that shows how OpenCode hooks and events flow through the system and who owns continuation, routing, and policy decisions.
+- [x] A plan/workflow strategy that shares orchestration semantics without forcing one authoring model.
+- [x] A testing blueprint with a practical host-simulation harness and prioritized e2e scenarios.
+- [x] A phased refactoring roadmap with migration guidance, risks, and measurable architecture-improvement signals.
 
 ### Definition of Done
-- [ ] `src/plugin/plugin-interface.ts` is reduced to an adapter that applies effects and contains no plan/workflow business branching.
-- [ ] Command detection no longer depends on free-form substrings like `"workflow engine will inject context"`; one typed envelope/parser owns command routing.
-- [ ] Plan execution and workflow execution both run through a shared orchestration entry point with explicit idle-loop ownership.
+- [x] `src/plugin/plugin-interface.ts` is reduced to an adapter that applies effects and contains no plan/workflow business branching.
+- [x] Command detection no longer depends on free-form substrings like `"workflow engine will inject context"`; one typed envelope/parser owns command routing.
+- [x] Plan execution and workflow execution both run through a shared orchestration entry point with explicit idle-loop ownership.
 - [ ] Policy hooks run through one composed pipeline instead of scattered inline checks.
-- [ ] `bun test` covers unit, integration, and host-simulated e2e suites, including plugin lifecycle and `promptAsync()` assertions.
+- [x] `bun test` covers unit, integration, and host-simulated e2e suites, including plugin lifecycle and `promptAsync()` assertions.
 - [ ] At least one regression in each of these categories is covered end-to-end: command routing, idle continuation, plan/workflow collision handling, tool guard enforcement, and analytics/session finalization.
 
 ### Guardrails (Must NOT)
@@ -80,7 +83,7 @@ Define a target architecture that removes orchestration from `src/plugin/plugin-
 
 ## TODOs
 
-- [ ] 1. Establish the target runtime boundary and command protocol
+- [x] 1. Establish the target runtime boundary and command protocol
   **What**: Make the OpenCode-facing layer a translation adapter only. Introduce a single machine-readable Weave envelope for built-in commands and system continuations so routing is centralized instead of being inferred from incidental text. The target is: `index.ts` builds a runtime, `plugin-interface.ts` delegates into an adapter/router, and only the runtime knows business rules.
   - Target principles:
     - `plugin-interface.ts` may translate OpenCode input/output, but must not decide plan/workflow behavior.
@@ -96,7 +99,7 @@ Define a target architecture that removes orchestration from `src/plugin/plugin-
   **Files**: `src/index.ts`, `src/plugin/plugin-interface.ts`, `src/runtime/opencode/plugin-adapter.ts`, `src/runtime/opencode/event-router.ts`, `src/runtime/opencode/command-envelope.ts`, `src/runtime/opencode/effects.ts`, `src/runtime/opencode/protocol.ts`, `src/features/builtin-commands/commands.ts`, `src/features/builtin-commands/templates/start-work.ts`, `src/features/builtin-commands/templates/run-workflow.ts`
   **Acceptance**: All built-in command detection goes through `command-envelope.ts`; `plugin-interface.ts` contains no direct `promptText.includes(...)` routing for start-work/workflow detection.
 
-- [ ] 2. Introduce a shared orchestration/application layer
+- [x] 2. Introduce a shared orchestration/application layer
   **What**: Add an application layer that coordinates session lifecycle, command handling, idle-cycle progression, and effect production. Recommended services:
   - `src/application/orchestration/session-runtime.ts` — per-session message/event handling and transcript state.
   - `src/application/orchestration/execution-coordinator.ts` — owns active execution selection and pause/resume rules.
@@ -200,6 +203,7 @@ Define a target architecture that removes orchestration from `src/plugin/plugin-
       - `test/e2e/start-work-runtime.e2e.test.ts`
       - `test/e2e/execution-ownership.e2e.test.ts`
       - `test/e2e/session-finalization.e2e.test.ts`
+      - `test/e2e/workflow-precedence.e2e.test.ts`
       - `test/integration/plugin-bootstrap.integration.test.ts`
       - `test/integration/custom-workflow-bootstrap.integration.test.ts`
       - `test/integration/analytics-storage.integration.test.ts`
@@ -244,15 +248,17 @@ Define a target architecture that removes orchestration from `src/plugin/plugin-
     - [x] `/start-work` routes to Tapestry and creates/resumes plan state.
     - [ ] `/run-workflow` starts a workflow, progresses on `session.idle`, and pauses/resumes cleanly. *(Likely to be deprecated; do not prioritize further investment.)*
     - [x] Execution ownership / collision behavior is covered for the currently supported plan flows.
-    - [ ] A normal user message during active plan execution auto-pauses the plan and does not mis-handle continuation prompts. *(Internal logic exists, but true host-level reachability is currently unproven.)*
+    - [ ] A normal user message during active plan execution auto-pauses the plan and does not mis-handle continuation prompts. *(Internal logic exists, but true host-level reachability is still unproven at host level.)*
     - [ ] Pattern is blocked from writing non-`.md` files outside `.weave/`.
     - [x] Session deletion finalizes analytics and metrics generation when a plan completes.
     - [x] Interrupt (`session.interrupt`) pauses the active execution and suppresses duplicate continuation prompts.
+    - [x] Workflow-over-plan idle precedence is covered when both systems are active.
   - Progress update:
     - Implemented current coverage in:
       - `test/e2e/start-work-runtime.e2e.test.ts`
       - `test/e2e/execution-ownership.e2e.test.ts`
       - `test/e2e/session-finalization.e2e.test.ts`
+      - `test/e2e/workflow-precedence.e2e.test.ts`
     - We intentionally skipped new `/run-workflow` e2e investment because that surface is expected to be deprecated.
   - Second-wave scenarios:
     - config diagnostics flow into `/weave-health`
@@ -262,11 +268,11 @@ Define a target architecture that removes orchestration from `src/plugin/plugin-
   **Files**: `test/e2e/start-work.e2e.test.ts`, `test/e2e/run-workflow.e2e.test.ts`, `test/e2e/execution-ownership.e2e.test.ts`, `test/e2e/auto-pause.e2e.test.ts`, `test/e2e/pattern-guard.e2e.test.ts`, `test/e2e/session-finalization.e2e.test.ts`, `test/e2e/interrupt.e2e.test.ts`
   **Acceptance**: The first-wave suite fails against known marker/ownership regressions and passes once the new runtime path is wired.
 
-- [ ] 10. Refactor in phases with compatibility adapters and measurable health checks
+- [~] 10. Refactor in phases with compatibility adapters and measurable health checks
   **What**: Refactor incrementally so architecture improves without a destabilizing big bang.
-  - Phase 1: add command envelope + runtime effect types, keep existing behavior behind adapters.
-  - Phase 2: extract `ExecutionCoordinator` and `IdleCycleService`, preserve current storage formats.
-  - Phase 3: centralize policies behind `PolicyEngine` and delete inline checks from `plugin-interface.ts`.
+  - Phase 1: add command envelope + runtime effect types, keep existing behavior behind adapters. **Status: complete**
+  - Phase 2: extract `ExecutionCoordinator` and `IdleCycleService`, preserve current storage formats. **Status: complete**
+  - Phase 3: centralize policies behind `PolicyEngine` and delete inline checks from `plugin-interface.ts`. **Status: not started; lifecycle seams prepared**
   - Phase 4: move plan and workflow logic into domain/application modules and route old hooks through facades.
   - Phase 5: switch primary tests to the host harness, keep CLI smoke test as a thin external verification layer only.
   - Phase 6: remove legacy substring routing and dead compatibility branches.
@@ -285,9 +291,9 @@ Define a target architecture that removes orchestration from `src/plugin/plugin-
   **Acceptance**: Each phase lands with compatibility preserved, adapter complexity reduced, and at least one new host-simulated regression test covering the migrated surface.
 
 ## Verification
-- [ ] All tests pass
-- [ ] No regressions
-- [ ] `bun test` covers unit, integration, and host-simulated e2e paths
-- [ ] `bun run build` succeeds after runtime/module extraction
-- [ ] `src/plugin/plugin-interface.ts` is adapter-only and free of plan/workflow substring routing
-- [ ] Plan/workflow collision behavior is validated by deterministic e2e tests, not only unit tests
+- [x] All tests pass
+- [x] No regressions
+- [x] `bun test` covers unit, integration, and host-simulated e2e paths
+- [x] `bun run build` succeeds after runtime/module extraction
+- [x] `src/plugin/plugin-interface.ts` is adapter-only and free of plan/workflow substring routing
+- [x] Plan/workflow collision behavior is validated by deterministic e2e tests, not only unit tests

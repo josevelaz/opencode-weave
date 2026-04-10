@@ -15,6 +15,8 @@ import {
 } from "./index"
 import type { CompletionContext } from "./index"
 import { readWorkState, getPlanProgress } from "../work-state"
+import { parseBuiltinCommandEnvelope } from "../../runtime/opencode/command-envelope"
+import { renderContinuationEnvelope } from "../../runtime/opencode/protocol"
 
 /**
  * Marker embedded in workflow continuation prompts so the auto-pause guard
@@ -75,12 +77,13 @@ export function handleRunWorkflow(input: {
 }): WorkflowHookResult {
   const { promptText, sessionId, directory, workflowDirs } = input
 
-  // Only fire when the template has been injected (contains <session-context>)
-  if (!promptText.includes("<session-context>")) {
+  const envelope = parseBuiltinCommandEnvelope(promptText)
+
+  if (!envelope || envelope.command !== "run-workflow") {
     return { contextInjection: null, switchAgent: null }
   }
 
-  const args = extractArguments(promptText)
+  const args = envelope.arguments || extractArguments(promptText)
   const { workflowName, goal } = parseWorkflowArgs(args)
 
   // Check for active work-state plan (cross-system collision warning)
@@ -177,17 +180,26 @@ export function checkWorkflowContinuation(input: {
   switch (action.type) {
     case "inject_prompt":
       return {
-        continuationPrompt: `${WORKFLOW_CONTINUATION_MARKER}\n${action.prompt}`,
+        continuationPrompt: `${renderContinuationEnvelope({
+          continuation: "workflow",
+          sessionId: input.sessionId,
+        })}\n${WORKFLOW_CONTINUATION_MARKER}\n${action.prompt}`,
         switchAgent: null,
       }
     case "complete":
       return {
-        continuationPrompt: `${WORKFLOW_CONTINUATION_MARKER}\n## Workflow Complete\n${action.reason ?? "All steps have been completed."}\n\nSummarize what was accomplished across all workflow steps.`,
+        continuationPrompt: `${renderContinuationEnvelope({
+          continuation: "workflow",
+          sessionId: input.sessionId,
+        })}\n${WORKFLOW_CONTINUATION_MARKER}\n## Workflow Complete\n${action.reason ?? "All steps have been completed."}\n\nSummarize what was accomplished across all workflow steps.`,
         switchAgent: null,
       }
     case "pause":
       return {
-        continuationPrompt: `${WORKFLOW_CONTINUATION_MARKER}\n## Workflow Paused\n${action.reason ?? "The workflow has been paused."}\n\nInform the user about the pause and what to do next.`,
+        continuationPrompt: `${renderContinuationEnvelope({
+          continuation: "workflow",
+          sessionId: input.sessionId,
+        })}\n${WORKFLOW_CONTINUATION_MARKER}\n## Workflow Paused\n${action.reason ?? "The workflow has been paused."}\n\nInform the user about the pause and what to do next.`,
         switchAgent: null,
       }
     case "none":

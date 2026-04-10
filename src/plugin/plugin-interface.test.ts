@@ -15,6 +15,7 @@ import { checkContinuation } from "../hooks/work-continuation"
 import { writeWorkState, createWorkState, readWorkState } from "../features/work-state/storage"
 import { WEAVE_DIR } from "../features/work-state/constants"
 import { DEFAULT_CONTINUATION_CONFIG } from "../config/continuation"
+import { renderBuiltinCommandEnvelope, renderContinuationEnvelope } from "../runtime/opencode/protocol"
 
 const baseConfig: WeaveConfig = {}
 
@@ -487,7 +488,10 @@ describe("createPluginInterface", () => {
     })
 
     const parts = [
-      { type: "text", text: "<session-context>Session ID: s1</session-context>" },
+      {
+        type: "text",
+        text: `${renderBuiltinCommandEnvelope({ command: "start-work", arguments: "", sessionId: "s1" })}\n<session-context>Session ID: s1</session-context>`,
+      },
     ]
     const message: Record<string, unknown> = { agent: "Loom (Main Orchestrator)" }
     const output = { message: message as never, parts }
@@ -550,7 +554,10 @@ describe("createPluginInterface", () => {
     })
 
     const parts = [
-      { type: "text", text: "<session-context>Session ID: $SESSION_ID  Timestamp: $TIMESTAMP</session-context>" },
+      {
+        type: "text",
+        text: `${renderBuiltinCommandEnvelope({ command: "start-work", arguments: "$ARGUMENTS", sessionId: "$SESSION_ID", timestamp: "$TIMESTAMP" })}\n<session-context>Session ID: $SESSION_ID  Timestamp: $TIMESTAMP</session-context>`,
+      },
     ]
     const message: Record<string, unknown> = {}
     const output = { message: message as never, parts }
@@ -914,7 +921,7 @@ describe("createPluginInterface", () => {
       // Simulate a continuation-injected message (contains the marker)
       const output = {
         message: {} as never,
-        parts: [{ type: "text", text: `${CONTINUATION_MARKER}\nYou have an active work plan with incomplete tasks. Continue working.` }],
+        parts: [{ type: "text", text: `${renderContinuationEnvelope({ continuation: "work", sessionId: "sess-cont" })}\n${CONTINUATION_MARKER}\nYou have an active work plan with incomplete tasks. Continue working.` }],
       }
       await iface["chat.message"]({ sessionID: "sess-cont" }, output)
 
@@ -940,10 +947,10 @@ describe("createPluginInterface", () => {
         directory: tempDir,
       })
 
-      // Simulate a /start-work command message (contains <session-context>)
+      // Simulate a /start-work command message
       const output = {
         message: {} as never,
-        parts: [{ type: "text", text: "<session-context>Session ID: sess_test  Timestamp: 2026-01-01</session-context>" }],
+        parts: [{ type: "text", text: `${renderBuiltinCommandEnvelope({ command: "start-work", arguments: "", sessionId: "sess_test", timestamp: "2026-01-01" })}\n<session-context>Session ID: sess_test  Timestamp: 2026-01-01</session-context>` }],
       }
       await iface["chat.message"]({ sessionID: "sess-sw" }, output)
 
@@ -1566,7 +1573,7 @@ describe("workflow integration in plugin-interface", () => {
 
       const output = {
         message: {} as never,
-        parts: [{ type: "text", text: `${WORKFLOW_CONTINUATION_MARKER}\nContinue with the next workflow step.` }],
+        parts: [{ type: "text", text: `${renderContinuationEnvelope({ continuation: "workflow", sessionId: "sess-wf" })}\n${WORKFLOW_CONTINUATION_MARKER}\nContinue with the next workflow step.` }],
       }
       await iface["chat.message"]({ sessionID: "sess-wf" }, output)
 
@@ -1654,7 +1661,10 @@ describe("workflow integration in plugin-interface", () => {
       })
 
       const parts = [
-        { type: "text", text: "The workflow engine will inject context here." },
+        {
+          type: "text",
+          text: `${renderBuiltinCommandEnvelope({ command: "run-workflow", arguments: 'spec-driven "Add OAuth2"', sessionId: "s1" })}\nThe workflow engine will inject context here.`,
+        },
       ]
       const message: Record<string, unknown> = { agent: "Loom (Main Orchestrator)" }
       const output = { message: message as never, parts }
@@ -1718,7 +1728,10 @@ describe("workflow integration in plugin-interface", () => {
       })
 
       const parts = [
-        { type: "text", text: "<command-instruction>\nThe workflow engine will inject context here.\n</command-instruction>\n<session-context>Session ID: s1</session-context>\n<user-request>spec-driven \"Add OAuth2\"</user-request>" },
+        {
+          type: "text",
+          text: `<command-instruction>\nThe workflow engine will inject context here.\n</command-instruction>\n${renderBuiltinCommandEnvelope({ command: "run-workflow", arguments: 'spec-driven "Add OAuth2"', sessionId: "s1" })}\n<session-context>Session ID: s1</session-context>\n<user-request>spec-driven \"Add OAuth2\"</user-request>`,
+        },
       ]
       const message: Record<string, unknown> = { agent: "Loom (Main Orchestrator)" }
       const output = { message: message as never, parts }
@@ -2464,7 +2477,7 @@ describe("workflow integration in plugin-interface", () => {
         agents: {},
       })
 
-      const parts = [{ type: "text", text: "The workflow engine will inject context here." }]
+      const parts = [{ type: "text", text: `${renderBuiltinCommandEnvelope({ command: "run-workflow", arguments: "", sessionId: "sess-wf-start" })}\nThe workflow engine will inject context here.` }]
       const output = { message: {} as never, parts }
 
       await iface["chat.message"]({ sessionID: "sess-wf-start" }, output)

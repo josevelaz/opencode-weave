@@ -1,0 +1,309 @@
+import type { AgentConfig } from "@opencode-ai/sdk"
+import type { WeaveConfig } from "../../config/schema"
+import type { ConfigHandler } from "../../managers/config-handler"
+import type { CreatedHooks } from "../../hooks/create-hooks"
+import type { PluginContext, ToolsRecord } from "../../plugin/types"
+import type { SessionTracker } from "../../features/analytics"
+import { createCompactionTodoPreserver } from "../../hooks/compaction-todo-preserver"
+import { createTodoContinuationEnforcer } from "../../hooks/todo-continuation-enforcer"
+import { pauseWork, readWorkState } from "../../features/work-state"
+import { parseCommandEnvelope } from "./command-envelope"
+import { applyRuntimeEffects } from "./apply-effects"
+import { executeStartWorkCommand } from "../../application/commands/start-work-command"
+import { executeRunWorkflowCommand } from "../../application/commands/run-workflow-command"
+import { routeCommandExecuteBefore } from "../../application/commands/command-router"
+import { routeRuntimeEvent, handlePauseExecutionEffect } from "./event-router"
+import { logDelegation, debug, info } from "../../shared/log"
+import { setContextLimit } from "../../hooks"
+import type { RuntimeEffect } from "./effects"
+import {
+  createRuntimeLifecyclePolicySurface,
+  shouldPausePlanForMessage,
+  shouldRunWorkflowCommand,
+} from "../../application/orchestration/session-runtime"
+
+export function createPluginAdapter(args: {
+  pluginConfig: WeaveConfig
+  hooks: CreatedHooks
+  tools: ToolsRecord
+  configHandler: ConfigHandler
+  agents: Record<string, AgentConfig>
+  client?: PluginContext["client"]
+  directory?: string
+  tracker?: SessionTracker
+}) {
+  const { pluginConfig, hooks, configHandler, agents, client, directory = "", tracker } = args
+  const lifecyclePolicy = createRuntimeLifecyclePolicySurface()
+
+  const lastAssistantMessageText = new Map<string, string>()
+  const lastUserMessageText = new Map<string, string>()
+
+  const compactionPreserver =
+    hooks.compactionTodoPreserverEnabled && client
+      ? createCompactionTodoPreserver(client)
+      : null
+
+  const todoContinuationEnforcer =
+    hooks.todoContinuationEnforcerEnabled && client
+      ? createTodoContinuationEnforcer(client, {
+          allowPromptFallback: hooks.continuation.idle.todo_prompt,
+        })
+      : null
+
+  return {
+    config: async (config: Record<string, unknown>) => {
+      const result = await configHandler.handle({
+        pluginConfig,
+        agents,
+        availableTools: [],
+      })
+      const existingAgents = (config.agent ?? {}) as Record<string, unknown>
+      if (Object.keys(existingAgents).length > 0) {
+        debug("[config] Merging Weave agents over existing agents", {
+          existingCount: Object.keys(existingAgents).length,
+          weaveCount: Object.keys(result.agents).length,
+          existingKeys: Object.keys(existingAgents),
+        })
+        const collisions = Object.keys(result.agents).filter(key => key in existingAgents)
+        if (collisions.length > 0) {
+          info("[config] Weave agents overriding user-defined agents with same name", {
+            overriddenKeys: collisions,
+          })
+        }
+      }
+      config.agent = { ...existingAgents, ...result.agents }
+
+      const existingCommands = (config.command ?? {}) as Record<string, unknown>
+      config.command = { ...existingCommands, ...result.commands }
+
+      if (result.defaultAgent && !config.default_agent) {
+        config.default_agent = result.defaultAgent
+      }
+    },
+
+    handleChatMessage: async (input: { sessionID: string }, output: { message?: Record<string, unknown>; parts?: Array<{ type: string; text?: string }> }) => {
+      const { sessionID } = input
+
+      if (hooks.firstMessageVariant && hooks.firstMessageVariant.shouldApplyVariant(sessionID)) {
+        hooks.firstMessageVariant.markApplied(sessionID)
+      }
+
+      hooks.processMessageForKeywords?.("", sessionID)
+
+      const parts = output.parts
+      if (parts) {
+        const timestamp = new Date().toISOString()
+        for (const part of parts) {
+          if (part.type === "text" && part.text) {
+            part.text = part.text.replace(/\$SESSION_ID/g, sessionID).replace(/\$TIMESTAMP/g, timestamp)
+          }
+        }
+      }
+
+      const promptText =
+        parts
+          ?.filter((p) => p.type === "text" && p.text)
+          .map((p) => p.text)
+          .join("\n")
+          .trim() ?? ""
+
+      const parsedEnvelope = parseCommandEnvelope(promptText)
+      const isRunWorkflowCommand = parsedEnvelope?.kind === "builtin-command" && parsedEnvelope.command === "run-workflow"
+
+      const effects: RuntimeEffect[] = [
+        ...(await lifecyclePolicy.onChatMessage({ directory, sessionId: sessionID, promptText })),
+        ...executeStartWorkCommand({
+          hooks,
+          promptText,
+          sessionId: sessionID,
+          isWorkflowCommand: isRunWorkflowCommand,
+        }),
+        ...executeRunWorkflowCommand({
+          hooks,
+          promptText,
+          sessionId: sessionID,
+          isRunWorkflowCommand,
+        }),
+      ]
+
+      if (hooks.workflowCommand && promptText && shouldRunWorkflowCommand(directory, hooks)) {
+        const cmdResult = hooks.workflowCommand(promptText)
+        if (cmdResult.handled) {
+          if (cmdResult.switchAgent) {
+            effects.push({ type: "switchAgent", agent: cmdResult.switchAgent })
+          }
+          if (cmdResult.contextInjection) {
+            effects.push({ type: "appendPromptText", text: cmdResult.contextInjection })
+          }
+        }
+      }
+
+      if (promptText && sessionID) {
+        const isSystemInjected = parsedEnvelope?.kind === "continuation" || promptText.includes("<command-instruction>")
+        if (!isSystemInjected) {
+          lastUserMessageText.set(sessionID, promptText)
+          todoContinuationEnforcer?.clearFinalized(sessionID)
+        }
+      }
+
+      if (directory) {
+        const isBuiltinCommand = parsedEnvelope?.kind === "builtin-command"
+        const isContinuation = parsedEnvelope?.kind === "continuation"
+
+        if (shouldPausePlanForMessage({ directory, isBuiltinCommand: !!isBuiltinCommand, isContinuation: !!isContinuation })) {
+          const state = readWorkState(directory)
+          if (state && !state.paused) {
+            effects.push({
+              type: "pauseExecution",
+              target: "plan",
+              reason: "Auto-paused: user message received during active plan",
+            })
+          }
+        }
+      }
+
+      await applyRuntimeEffects({
+        effects,
+        output,
+        client,
+        tracker,
+        pausePlan: directory ? () => {
+          pauseWork(directory)
+          info("[work-continuation] Auto-paused: user message received during active plan", { sessionId: sessionID })
+        } : undefined,
+      })
+    },
+
+    handleChatParams: async (input: { sessionID?: string; agent?: string; model?: { id?: string; limit?: { context?: number } } }) => {
+      const sessionId = input.sessionID ?? ""
+      const maxTokens = input.model?.limit?.context ?? 0
+      if (sessionId && maxTokens > 0) {
+        setContextLimit(sessionId, maxTokens)
+        debug("[context-window] Captured context limit", { sessionId, maxTokens })
+      }
+
+      const effects: RuntimeEffect[] = []
+      if (tracker && hooks.analyticsEnabled && sessionId && input.agent) {
+        effects.push({ type: "trackAnalytics", event: { kind: "setAgentName", sessionId, agent: input.agent } } as const)
+      }
+      if (tracker && hooks.analyticsEnabled && sessionId && input.model?.id) {
+        effects.push({ type: "trackAnalytics", event: { kind: "trackModel", sessionId, modelId: input.model.id } } as const)
+      }
+      await applyRuntimeEffects({ effects, tracker })
+    },
+
+    handleEvent: async (input: { event: { type: string; properties?: unknown } }) => {
+      const effects = await routeRuntimeEvent({
+        event: input.event,
+        directory,
+        hooks,
+        client,
+        tracker,
+        state: { lastAssistantMessageText, lastUserMessageText },
+        compactionPreserver,
+        todoContinuationEnforcer,
+        lifecyclePolicy,
+      })
+
+      await applyRuntimeEffects({
+        effects,
+        client,
+        tracker,
+        pausePlan: directory ? () => handlePauseExecutionEffect({ effectReason: "User interrupt", directory }) : undefined,
+        pauseWorkflow: () => {},
+      })
+    },
+
+    handleToolExecuteBefore: async (input: { sessionID: string; tool: string; callID: string; agent?: string }, output: { args?: Record<string, unknown> | null }) => {
+      const toolArgs = output.args as Record<string, unknown> | null | undefined
+      const filePath = (toolArgs?.file_path as string | undefined) ?? (toolArgs?.path as string | undefined) ?? ""
+
+      if (filePath && hooks.shouldInjectRules && hooks.getRulesForFile && hooks.shouldInjectRules(input.tool)) {
+        hooks.getRulesForFile(filePath)
+      }
+
+      if (filePath && hooks.writeGuard && input.tool === "read") {
+        hooks.writeGuard.trackRead(filePath)
+      }
+
+      if (filePath && hooks.patternMdOnly) {
+        const agentName = input.agent
+        if (agentName) {
+          const check = hooks.patternMdOnly(agentName, input.tool, filePath)
+          if (!check.allowed) {
+            throw new Error(check.reason ?? "Pattern agent is restricted to .md files in .weave/")
+          }
+        }
+      }
+
+      if (input.tool === "task" && toolArgs) {
+        const agentArg = (toolArgs.subagent_type as string | undefined) ?? (toolArgs.description as string | undefined) ?? "unknown"
+        logDelegation({ phase: "start", agent: agentArg, sessionId: input.sessionID, toolCallId: input.callID })
+      }
+
+      const effects: RuntimeEffect[] = []
+      effects.push(...(await lifecyclePolicy.beforeTool({
+        directory,
+        sessionId: input.sessionID,
+        tool: input.tool,
+        callId: input.callID,
+      })))
+      if (tracker && hooks.analyticsEnabled) {
+        const agentArg = input.tool === "task" && toolArgs
+          ? ((toolArgs.subagent_type as string | undefined) ?? (toolArgs.description as string | undefined) ?? "unknown")
+          : undefined
+        effects.push({ type: "trackAnalytics", event: { kind: "trackToolStart", sessionId: input.sessionID, tool: input.tool, callId: input.callID, agent: agentArg } } as const)
+      }
+      await applyRuntimeEffects({ effects, tracker })
+    },
+
+    handleToolExecuteAfter: async (input: { sessionID: string; tool: string; callID: string; args?: Record<string, unknown> }) => {
+      if (input.tool === "task") {
+        const inputArgs = input.args
+        const agentArg = (inputArgs?.subagent_type as string | undefined) ?? (inputArgs?.description as string | undefined) ?? "unknown"
+        logDelegation({ phase: "complete", agent: agentArg, sessionId: input.sessionID, toolCallId: input.callID })
+      }
+
+      const effects: RuntimeEffect[] = []
+      effects.push(...(await lifecyclePolicy.afterTool({
+        directory,
+        sessionId: input.sessionID,
+        tool: input.tool,
+        callId: input.callID,
+      })))
+      if (tracker && hooks.analyticsEnabled) {
+        const inputArgs = input.args
+        const agentArg = input.tool === "task"
+          ? ((inputArgs?.subagent_type as string | undefined) ?? (inputArgs?.description as string | undefined) ?? "unknown")
+          : undefined
+        effects.push({ type: "trackAnalytics", event: { kind: "trackToolEnd", sessionId: input.sessionID, tool: input.tool, callId: input.callID, agent: agentArg } } as const)
+      }
+      await applyRuntimeEffects({ effects, tracker })
+    },
+
+    handleCommandExecuteBefore: async (input: { command: string; sessionID: string; arguments: string }, output: { parts: Array<{ type: string; text: string }> }) => {
+      const effects = routeCommandExecuteBefore({
+        command: input.command,
+        argumentsText: input.arguments,
+        directory,
+        hooks,
+        agents,
+      })
+
+      await applyRuntimeEffects({ effects, output })
+    },
+
+    handleToolDefinition: async (input: { toolID: string }, output: { description: string; parameters?: unknown }) => {
+      hooks.todoDescriptionOverride?.(input, output)
+    },
+
+    handleSessionCompacting: async (input: { sessionID?: string }) => {
+      if (compactionPreserver) {
+        const sessionID = input.sessionID ?? ""
+        if (sessionID) {
+          await compactionPreserver.capture(sessionID)
+        }
+      }
+    },
+  }
+}

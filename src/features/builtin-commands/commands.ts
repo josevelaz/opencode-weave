@@ -2,6 +2,7 @@ import type { BuiltinCommand, BuiltinCommandName } from "./types"
 import { START_WORK_TEMPLATE } from "./templates/start-work"
 import { METRICS_TEMPLATE } from "./templates/metrics"
 import { RUN_WORKFLOW_TEMPLATE } from "./templates/run-workflow"
+import { renderBuiltinCommandEnvelope } from "../../runtime/opencode/protocol"
 
 export const BUILTIN_COMMANDS: Record<BuiltinCommandName, BuiltinCommand> = {
   "start-work": {
@@ -11,6 +12,12 @@ export const BUILTIN_COMMANDS: Record<BuiltinCommandName, BuiltinCommand> = {
     template: `<command-instruction>
 ${START_WORK_TEMPLATE}
 </command-instruction>
+${renderBuiltinCommandEnvelope({
+  command: "start-work",
+  arguments: "$ARGUMENTS",
+  sessionId: "$SESSION_ID",
+  timestamp: "$TIMESTAMP",
+})}
 <session-context>Session ID: $SESSION_ID  Timestamp: $TIMESTAMP</session-context>
 <user-request>$ARGUMENTS</user-request>`,
     argumentHint: "[plan-name]",
@@ -22,6 +29,10 @@ ${START_WORK_TEMPLATE}
     template: `<command-instruction>
 Display the token usage report that has been injected below. Present it clearly to the user.
 </command-instruction>
+${renderBuiltinCommandEnvelope({
+  command: "token-report",
+  arguments: "$ARGUMENTS",
+})}
 <token-report>$ARGUMENTS</token-report>`,
   },
   "metrics": {
@@ -31,6 +42,10 @@ Display the token usage report that has been injected below. Present it clearly 
     template: `<command-instruction>
 ${METRICS_TEMPLATE}
 </command-instruction>
+${renderBuiltinCommandEnvelope({
+  command: "metrics",
+  arguments: "$ARGUMENTS",
+})}
 <metrics-data>$ARGUMENTS</metrics-data>`,
     argumentHint: "[plan-name|all]",
   },
@@ -41,6 +56,12 @@ ${METRICS_TEMPLATE}
     template: `<command-instruction>
 ${RUN_WORKFLOW_TEMPLATE}
 </command-instruction>
+${renderBuiltinCommandEnvelope({
+  command: "run-workflow",
+  arguments: "$ARGUMENTS",
+  sessionId: "$SESSION_ID",
+  timestamp: "$TIMESTAMP",
+})}
 <session-context>Session ID: $SESSION_ID  Timestamp: $TIMESTAMP</session-context>
 <user-request>$ARGUMENTS</user-request>`,
     argumentHint: "<workflow-name> [\"goal\"]",
@@ -53,6 +74,10 @@ ${RUN_WORKFLOW_TEMPLATE}
 Display the Weave health report below to the user. Present warnings and errors prominently.
 If there are no issues, confirm that Weave config is healthy.
 </command-instruction>
+${renderBuiltinCommandEnvelope({
+  command: "weave-health",
+  arguments: "$ARGUMENTS",
+})}
 <weave-health>$ARGUMENTS</weave-health>`,
   },
 }

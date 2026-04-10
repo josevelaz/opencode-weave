@@ -1,5 +1,6 @@
 import WeavePlugin from "../../../src/index"
 import { BUILTIN_COMMANDS } from "../../../src/features/builtin-commands/commands"
+import type { BuiltinCommandName } from "../../../src/features/builtin-commands/types"
 import type { PluginInterface } from "../../../src/plugin/types"
 import { getAgentDisplayName } from "../../../src/shared/agent-display-names"
 import { makePluginContext } from "../plugin-context"
@@ -81,18 +82,46 @@ export class FakeOpencodeHost {
     timestamp?: string
     agent?: string
   }): Promise<HostOutput> {
+    return this.sendBuiltinCommand({
+      command: "start-work",
+      sessionID: args.sessionID,
+      arguments: args.planName ?? "",
+      timestamp: args.timestamp,
+      agent: args.agent,
+    })
+  }
+
+  async sendRunWorkflow(args: {
+    sessionID: string
+    workflowArgs?: string
+    timestamp?: string
+    agent?: string
+  }): Promise<HostOutput> {
+    return this.sendBuiltinCommand({
+      command: "run-workflow",
+      sessionID: args.sessionID,
+      arguments: args.workflowArgs ?? "",
+      timestamp: args.timestamp,
+      agent: args.agent,
+    })
+  }
+
+  async sendBuiltinCommand(args: {
+    command: BuiltinCommandName
+    sessionID: string
+    arguments?: string
+    timestamp?: string
+    agent?: string
+  }): Promise<HostOutput> {
+    const template = BUILTIN_COMMANDS[args.command].template
+      .replace(/\$SESSION_ID/g, args.sessionID)
+      .replace(/\$TIMESTAMP/g, args.timestamp ?? new Date().toISOString())
+      .replace(/\$ARGUMENTS/g, args.arguments ?? "")
+
     return this.sendChatMessage({
       sessionID: args.sessionID,
       agent: args.agent,
-      parts: [
-        {
-          type: "text",
-          text: BUILTIN_COMMANDS["start-work"].template
-            .replace(/\$SESSION_ID/g, args.sessionID)
-            .replace(/\$TIMESTAMP/g, args.timestamp ?? new Date().toISOString())
-            .replace(/\$ARGUMENTS/g, args.planName ?? ""),
-        },
-      ],
+      parts: [{ type: "text", text: template }],
     })
   }
 

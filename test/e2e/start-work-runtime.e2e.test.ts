@@ -10,6 +10,14 @@ describe("E2E: /start-work runtime flow", () => {
 
   beforeEach(() => {
     fixture = createProjectFixture("weave-e2e-start-work-")
+    fixture.writeProjectConfig({
+      continuation: {
+        idle: {
+          enabled: true,
+          work: true,
+        },
+      },
+    })
   })
 
   afterEach(() => {

@@ -9,6 +9,14 @@ describe("E2E: execution ownership", () => {
 
   beforeEach(() => {
     fixture = createProjectFixture("weave-e2e-execution-ownership-")
+    fixture.writeProjectConfig({
+      continuation: {
+        idle: {
+          enabled: true,
+          work: true,
+        },
+      },
+    })
   })
 
   afterEach(() => {

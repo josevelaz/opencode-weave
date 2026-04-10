@@ -17,6 +17,7 @@ import {
 } from "../features/work-state"
 import type { ValidationResult } from "../features/work-state"
 import { getActiveWorkflowInstance, loadWorkflowDefinition } from "../features/workflow"
+import { parseBuiltinCommandEnvelope } from "../runtime/opencode/command-envelope"
 
 export interface StartWorkInput {
   promptText: string
@@ -38,8 +39,9 @@ export interface StartWorkResult {
 export function handleStartWork(input: StartWorkInput): StartWorkResult {
   const { promptText, sessionId, directory } = input
 
-  // Only fire when the template has been injected (contains <session-context>)
-  if (!promptText.includes("<session-context>")) {
+  const envelope = parseBuiltinCommandEnvelope(promptText)
+
+  if (!envelope || envelope.command !== "start-work") {
     return { contextInjection: null, switchAgent: null }
   }
 
@@ -49,7 +51,7 @@ export function handleStartWork(input: StartWorkInput): StartWorkResult {
     return { contextInjection: workflowWarning, switchAgent: null }
   }
 
-  const explicitPlanName = extractPlanName(promptText)
+  const explicitPlanName = envelope.arguments.trim() || extractPlanName(promptText)
   const existingState = readWorkState(directory)
   const allPlans = findPlans(directory)
 

@@ -13,6 +13,7 @@
 import type { PluginContext } from "../plugin/types"
 import { debug, warn } from "../shared/log"
 import { resolveTodoWriter, type TodoItem, type TodoWriter } from "./todo-writer"
+import { renderContinuationEnvelope } from "../runtime/opencode/protocol"
 
 export const FINALIZE_TODOS_MARKER = "<!-- weave:finalize-todos -->"
 
@@ -84,7 +85,11 @@ export function createTodoContinuationEnforcer(
             parts: [
               {
                 type: "text",
-                text: `${FINALIZE_TODOS_MARKER}
+                text: `${renderContinuationEnvelope({
+                  continuation: "todo-finalize",
+                  sessionId: sessionID,
+                })}
+${FINALIZE_TODOS_MARKER}
 You have finished your work but left these todos as in_progress:
 ${inProgressItems}`,
               },
