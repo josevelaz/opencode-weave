@@ -25,9 +25,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.ref_name }}
-          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -206,7 +203,10 @@ jobs:
       always() && (
         github.event_name == 'schedule' ||
         (github.event_name == 'workflow_dispatch' && inputs.run_routing == 'true') ||
-        needs.detect-routing-changes.outputs.routing_changed == 'true'
+        (
+          needs.detect-routing-changes.outputs.routing_changed == 'true' &&
+          github.event_name != 'pull_request'
+        )
       )
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -270,7 +270,7 @@ jobs:
   agent-routing-fanin:
     name: Agent Behavioral Fan-In
     needs: [agent-routing]
-    if: always() && !cancelled()
+    if: always() && !cancelled() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     continue-on-error: true
     permissions:
@@ -278,6 +278,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -421,7 +424,10 @@ jobs:
       always() && (
         github.event_name == 'schedule' ||
         (github.event_name == 'workflow_dispatch' && inputs.run_tapestry_execution == 'true') ||
-        needs.detect-tapestry-execution-changes.outputs.tapestry_execution_changed == 'true'
+        (
+          needs.detect-tapestry-execution-changes.outputs.tapestry_execution_changed == 'true' &&
+          github.event_name != 'pull_request'
+        )
       )
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -444,9 +450,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.ref_name }}
-          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -478,7 +481,7 @@ jobs:
   tapestry-execution-fanin:
     name: Tapestry Execution Fan-In
     needs: [tapestry-execution-contracts]
-    if: always() && !cancelled()
+    if: always() && !cancelled() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     continue-on-error: true
     permissions:
@@ -486,6 +489,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
         with:
