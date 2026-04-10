@@ -1,0 +1,17 @@
+{
+  "id": "tapestry-review-trajectory",
+  "title": "Tapestry post-execution review trajectory",
+  "phase": "trajectory",
+  "suiteMetadata": {
+    "title": "Tapestry Review Trajectory",
+    "routingKind": "trajectory",
+    "familyId": "tapestry-review",
+    "familyTitle": "Tapestry Review",
+    "viewId": "trajectory",
+    "viewTitle": "Trajectory"
+  },
+  "tags": ["trajectory", "tapestry", "review"],
+  "caseFiles": [
+    "evals/cases/trajectory/tapestry-post-execution-review.jsonc"
+  ]
+}

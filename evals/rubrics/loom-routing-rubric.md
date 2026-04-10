@@ -1,4 +1,4 @@
-# Loom Routing Intent Rubric (Phase 2)
+# Loom Routing Intent Rubric
 
 Use this rubric to evaluate Loom's first-turn routing intent for single-turn routing prompts.
 

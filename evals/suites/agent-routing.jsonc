@@ -4,7 +4,11 @@
   "phase": "routing",
   "suiteMetadata": {
     "title": "Agent Routing (Legacy)",
-    "routingKind": "identity"
+    "routingKind": "identity",
+    "familyId": "loom-routing",
+    "familyTitle": "Loom Routing",
+    "viewId": "identity",
+    "viewTitle": "Identity"
   },
   "tags": ["routing", "loom", "identity", "legacy", "judge"],
   "caseFiles": [

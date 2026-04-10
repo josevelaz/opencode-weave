@@ -104,6 +104,10 @@ describe("eval storage", () => {
         suiteMetadata: {
           title: "Prompt Contracts",
           routingKind: "other",
+          familyId: "prompt-contracts",
+          familyTitle: "Prompt Contracts",
+          viewId: "baseline",
+          viewTitle: "Baseline",
         },
       } satisfies EvalRunResult
 
@@ -114,6 +118,8 @@ describe("eval storage", () => {
       const parsed = JSON.parse(content.trim())
       expect(parsed.suiteMetadata.title).toBe("Prompt Contracts")
       expect(parsed.suiteMetadata.routingKind).toBe("other")
+      expect(parsed.suiteMetadata.familyId).toBe("prompt-contracts")
+      expect(parsed.suiteMetadata.viewId).toBe("baseline")
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

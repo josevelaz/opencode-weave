@@ -724,7 +724,7 @@ Examples:
   bun run script/eval-trend-report.ts --suite agent-routing-intent --model-key openrouter/openai/gpt-4o-mini
   bun run script/eval-trend-report.ts --file evals/results/custom.jsonl
   bun run script/eval-trend-report.ts --suite agent-trajectory --check --threshold 0.80
-  bun run script/eval-trend-report.ts --suite tapestry-routing-review --last 5 --json
+  bun run script/eval-trend-report.ts --suite tapestry-review-trajectory --last 5 --json
 `)
 }
 

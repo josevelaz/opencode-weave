@@ -94,7 +94,7 @@ function resolveRunGroup(commitSha: string | undefined): string | undefined {
 
 function printUsage(): void {
   console.error(
-    "Usage: bun run eval [--suite prompt-contracts|agent-routing-identity|agent-routing-intent|agent-trajectory|tapestry-routing-review] [--case id] [--agent loom] [--tag contract] [--provider openrouter] [--model openai/gpt-4o-mini|openai/gpt-5.4|anthropic/claude-opus-4.6] [--json] [--output path] [--baseline path] [--update-baseline] [--fail-on-regression]",
+    "Usage: bun run eval [--suite prompt-contracts|prompt-smoke|agent-routing|agent-routing-identity|agent-routing-intent|agent-trajectory|tapestry-review-routing|tapestry-review-trajectory|tapestry-execution-contracts] [--case id] [--agent loom] [--tag contract] [--provider openrouter] [--model openai/gpt-4o-mini|openai/gpt-5.4|anthropic/claude-opus-4.6|anthropic/claude-sonnet-4.6] [--json] [--output path] [--baseline path] [--update-baseline] [--fail-on-regression]",
   )
 }
 

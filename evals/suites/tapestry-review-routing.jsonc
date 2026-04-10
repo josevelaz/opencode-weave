@@ -1,0 +1,17 @@
+{
+  "id": "tapestry-review-routing",
+  "title": "Tapestry post-execution review routing",
+  "phase": "routing",
+  "suiteMetadata": {
+    "title": "Tapestry Review Routing",
+    "routingKind": "other",
+    "familyId": "tapestry-review",
+    "familyTitle": "Tapestry Review",
+    "viewId": "routing",
+    "viewTitle": "Routing"
+  },
+  "tags": ["routing", "tapestry", "review", "judge"],
+  "caseFiles": [
+    "evals/cases/tapestry/routing/route-to-reviewers-post-execution.jsonc"
+  ]
+}

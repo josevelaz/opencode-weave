@@ -120,10 +120,14 @@ describe("runEvalSuite", () => {
       cpSync(join(process.cwd(), "evals"), join(dir, "evals"), { recursive: true })
 
       const manifestPath = join(dir, "evals", "suites", "prompt-contracts.jsonc")
-      const updatedManifest = `${readFileSync(manifestPath, "utf-8").trimEnd().slice(0, -1)},
+       const updatedManifest = `${readFileSync(manifestPath, "utf-8").trimEnd().slice(0, -1)},
   "suiteMetadata": {
     "title": "Prompt Contracts",
-    "routingKind": "other"
+    "routingKind": "other",
+    "familyId": "prompt-contracts",
+    "familyTitle": "Prompt Contracts",
+    "viewId": "baseline",
+    "viewTitle": "Baseline"
   }
 }
 `
@@ -134,6 +138,10 @@ describe("runEvalSuite", () => {
       expect(output.result.suiteMetadata).toEqual({
         title: "Prompt Contracts",
         routingKind: "other",
+        familyId: "prompt-contracts",
+        familyTitle: "Prompt Contracts",
+        viewId: "baseline",
+        viewTitle: "Baseline",
       })
     } finally {
       rmSync(dir, { recursive: true, force: true })

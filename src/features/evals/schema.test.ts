@@ -52,6 +52,18 @@ describe("eval schemas", () => {
     expect(result.success).toBe(true)
   })
 
+  it("validates suite metadata with optional family and view labels", () => {
+    const result = EvalSuiteMetadataSchema.safeParse({
+      title: "Loom Routing Identity",
+      routingKind: "identity",
+      familyId: "loom-routing",
+      familyTitle: "Loom Routing",
+      viewId: "identity",
+      viewTitle: "Identity",
+    })
+    expect(result.success).toBe(true)
+  })
+
   it("validates section-contains-all evaluator", () => {
     const result = EvalCaseSchema.safeParse({
       id: "loom-role-scope",
@@ -150,6 +162,10 @@ describe("eval schemas", () => {
       suiteMetadata: {
         title: "Agent Routing Identity",
         routingKind: "identity",
+        familyId: "loom-routing",
+        familyTitle: "Loom Routing",
+        viewId: "identity",
+        viewTitle: "Identity",
       },
       runMetadata: {
         provider: "openrouter",

@@ -15,7 +15,7 @@ describe("formatEvalSummary", () => {
     expect(summary).toContain("Score: 1.00/1.00")
   })
 
-  it("labels pr-smoke runs as PR smoke", () => {
+  it("labels prompt-smoke runs as PR smoke", () => {
     const summary = formatEvalSummary({
       ...typedFixture,
       suiteId: "prompt-smoke",

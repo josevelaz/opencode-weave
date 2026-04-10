@@ -4,7 +4,11 @@
   "phase": "routing",
   "suiteMetadata": {
     "title": "Loom Routing Identity",
-    "routingKind": "identity"
+    "routingKind": "identity",
+    "familyId": "loom-routing",
+    "familyTitle": "Loom Routing",
+    "viewId": "identity",
+    "viewTitle": "Identity"
   },
   "tags": ["routing", "loom", "identity", "judge"],
   "caseFiles": [

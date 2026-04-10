@@ -1,83 +1,137 @@
 # Weave Evals
 
-Phase 1 ships a repo-native, deterministic eval harness for prompt and agent contract coverage.
+Weave uses a repo-native eval harness for prompt contracts, live routing checks, mock-backed trajectory coverage, and targeted behavior experiments.
 
-## What Phase 1 Covers
+## Current Coverage
 
-- Deterministic prompt-contract checks only
-- Built-in agents only: Loom, Tapestry, Pattern, Thread, Spindle, Weft, Warp
-- Local and CI-safe execution with no provider credentials
-- Machine-readable run artifacts under `.weave/evals/`
+- Deterministic prompt-contract suites: `prompt-contracts`, `prompt-smoke`
+- Live provider-backed routing suites: `agent-routing-identity`, `agent-routing-intent`, `tapestry-review-routing`
+- Mock-backed trajectory suites: `agent-trajectory`, `tapestry-review-trajectory`
+- Targeted behavior experiments: `tapestry-execution-contracts`
+- Built-in prompt coverage currently includes Loom, Tapestry, Pattern, Thread, Spindle, Weft, Warp, and Shuttle
+- Machine-readable run artifacts are written under `.weave/evals/`
 
-## What Phase 1 Does Not Cover
+Keep deterministic eval smoke and runtime/session smoke separate:
 
-- No live provider calls
-- No CI baseline gating yet
-- No trajectory or multi-step replay evals yet
-- No Shuttle coverage in the initial suite
-
-Shuttle is intentionally deferred because its behavior is category/config driven, while Phase 1 focuses on the highest-value prompt contracts first.
+- Eval smoke in this folder validates prompt and orchestration intent quickly
+- Fleet/runtime smoke remains tracked separately in `.weave/plans/workflow-smoke-tests.md`
 
 ## Layout
 
 - `evals/suites/*.jsonc` - suite manifests
 - `evals/cases/**/*.jsonc` - committed eval cases
+- `evals/scenarios/*.jsonc` - mock-backed trajectory scenarios
+- `evals/rubrics/*.md` - judge rubrics
+- `evals/results/*.jsonl` - committed behavioral history
 - `.weave/evals/runs/*.json` - local run artifacts
-- `.weave/evals/latest.json` - latest run convenience copy
+- `.weave/evals/latest.json` - latest local run convenience copy
+
+Suite manifests can optionally annotate published runs with family metadata in `suiteMetadata`:
+
+- `familyId` and `familyTitle` identify the family section that owns the suite
+- `viewId` and `viewTitle` identify the family-local page or tab that consumes the feed
+- all family fields remain optional so older JSONL rows continue to validate unchanged
 
 ## Suite Roles
 
-- `phase1-core`: full deterministic contract suite used for deeper validation in the dedicated eval workflow.
-- `pr-smoke`: intentionally tiny deterministic subset for fast PR feedback.
+### Deterministic prompt contracts
 
-Current `pr-smoke` composition:
+- `prompt-contracts` - full deterministic prompt-contract suite
+- `prompt-smoke` - tiny deterministic smoke subset for fast PR feedback
 
-- Loom default contract
-- Tapestry default contract
-- Thread read-only contract
-- Warp security-audit contract
+Current `prompt-smoke` composition:
 
-Keep deterministic smoke coverage and Fleet end-to-end smoke coverage separate:
+- `loom-default-contract`
+- `tapestry-default-contract`
+- `thread-read-only-contract`
+- `warp-security-audit-contract`
+- `shuttle-default-contract`
 
-- Deterministic eval smoke (this folder) validates prompt-contract behavior quickly and without providers.
-- Fleet E2E smoke tests are tracked separately in `.weave/plans/workflow-smoke-tests.md` and validate runtime session behavior.
+### Live routing
+
+- `agent-routing-identity` - strict Loom routing identity checks
+- `agent-routing-intent` - looser Loom routing intent checks
+- `tapestry-review-routing` - Tapestry routes completed work into post-execution review
+
+### Trajectory / multi-turn behavior
+
+- `agent-trajectory` - Loom multi-turn delegation chains
+- `tapestry-review-trajectory` - Tapestry post-execution review chain replay
+
+### Targeted execution-contract experiments
+
+- `tapestry-execution-contracts` - live Tapestry behavior probes for continuation, interruption, blocked-stop, and review-boundary scenarios
+
+This experimental suite is intentionally separate from Loom routing so it can be run against different provider/model combinations without disturbing the main Loom routing signal.
+
+### Legacy compatibility artifacts
+
+- `agent-routing` remains in the repo as a legacy compatibility manifest
+- `evals/results/agent-routing.jsonl` remains readable during the family-first rollout
+- new website routes read the split family feeds directly instead of depending on the legacy aggregate path
 
 ## Running Evals
 
-```bash
-bun run eval --suite phase1-core
+### Deterministic suites
 
-# Fast deterministic smoke suite (PR-focused)
+```bash
+bun run eval --suite prompt-contracts
+
+# Fast deterministic smoke suite
 bun run eval:smoke
 ```
 
 Useful filters:
 
 ```bash
-bun run eval --suite phase1-core --agent loom
-bun run eval --suite phase1-core --case loom-default-contract
-bun run eval --suite phase1-core --tag composer --json
-bun run eval --suite phase1-core --output /tmp/weave-evals.json
+bun run eval --suite prompt-contracts --agent loom
+bun run eval --suite prompt-contracts --case loom-default-contract
+bun run eval --suite prompt-contracts --tag composer --json
+bun run eval --suite prompt-contracts --output /tmp/weave-evals.json
 
 # Compare against baseline (defaults to evals/baselines/{suite}.json when present)
-bun run eval --suite phase1-core --baseline evals/baselines/phase1-core.json
-
-# Smoke suite baseline comparison
-bun run eval --suite pr-smoke --baseline evals/baselines/pr-smoke.json
+bun run eval --suite prompt-contracts --baseline evals/baselines/prompt-contracts.json
+bun run eval --suite prompt-smoke --baseline evals/baselines/prompt-smoke.json
 
 # Fail command when baseline comparison reports regression
-bun run eval --suite phase1-core --baseline evals/baselines/phase1-core.json --fail-on-regression
+bun run eval --suite prompt-contracts --baseline evals/baselines/prompt-contracts.json --fail-on-regression
 
-# Refresh baseline intentionally
-bun run eval --suite phase1-core --update-baseline
-bun run eval --suite pr-smoke --update-baseline
+# Refresh deterministic baselines intentionally
+bun run eval --suite prompt-contracts --update-baseline
+bun run eval --suite prompt-smoke --update-baseline
+```
+
+### Live routing and targeted behavior
+
+```bash
+# Loom routing identity
+OPENROUTER_API_KEY=or_xxx bun run eval --suite agent-routing-identity --provider openrouter --model openai/gpt-4o-mini
+
+# Loom routing intent
+OPENROUTER_API_KEY=or_xxx bun run eval --suite agent-routing-intent --provider openrouter --model openai/gpt-4o-mini
+
+# Tapestry review routing
+OPENROUTER_API_KEY=or_xxx bun run eval --suite tapestry-review-routing --provider openrouter --model openai/gpt-4o-mini
+
+# Tapestry execution-contract experiments (run separately for provider comparison)
+OPENROUTER_API_KEY=or_xxx bun run eval --suite tapestry-execution-contracts --provider openrouter --model openai/gpt-5.4
+OPENROUTER_API_KEY=or_xxx bun run eval --suite tapestry-execution-contracts --provider openrouter --model anthropic/claude-sonnet-4.6
+```
+
+### Mock-backed trajectory suites
+
+```bash
+bun run eval --suite agent-trajectory
+bun run eval --suite agent-trajectory --case trajectory-loom-delegates-to-pattern
+bun run eval --suite tapestry-review-trajectory
 ```
 
 Filter precedence and behavior:
 
-- `--suite` selects the manifest; defaults to `phase1-core`
+- `--suite` selects the manifest; defaults to `prompt-contracts`
 - `--case` narrows within the selected suite
 - `--agent` and `--tag` are intersecting filters
+- `--provider` and `--model` override case defaults for the run
 - `--output` overrides the primary artifact path
 - `--json` changes stdout formatting only; artifacts are still written
 
@@ -91,12 +145,11 @@ Exit codes:
 
 ## Writing Cases
 
-Use structural checks first:
+Use the least brittle evaluator that proves the contract:
 
-- XML section boundaries
-- ordered anchors
-- tool policy expectations
-- minimum length or intent markers
+- structural prompt checks first (`xml-sections-present`, `ordered-contains`, `tool-policy`)
+- `llm-judge` for live single-turn routing or behavior intent
+- `trajectory-assertion` for multi-turn delegation order
 
 Prefer stable contract anchors over brittle paragraph equality. If a future prompt needs an eval-only boundary, use:
 
@@ -106,91 +159,7 @@ Prefer stable contract anchors over brittle paragraph equality. If a future prom
 
 Only use exact phrase checks when wording itself is normative.
 
-## Coverage
-
-Phase 1 coverage threshold for `src/features/evals/**` is 85% for lines and functions, excluding fixtures.
-
-```bash
-bun run eval:coverage
-```
-
-## CI Strategy
-
-- `ci.yml` runs only the tiny deterministic `pr-smoke` suite for fast blocking feedback
-- `evals.yml` runs full deterministic suites with baseline comparison (`phase1-core` + `pr-smoke`), eval coverage, and artifact upload
-- Provider-backed judge runs belong in dedicated manual or scheduled workflows later
-- Expensive eval classes should not become accidental always-on blockers
-
-### Phase 2 Agent Routing (live-only)
-
-`evals.yml` runs the `agent-routing` suite automatically every **Monday at 10:00 UTC** via a scheduled cron trigger, supports manual `workflow_dispatch`, and also runs on PR/push when prompt files change.
-
-- Phase 2 is **live-only** — it calls a configured provider backend with Loom's real system prompt. No mock mode.
-- Supported providers today: `github-models` and `openrouter`, but routing eval CI now standardizes on `openrouter` for operational simplicity.
-- `openrouter` requires `OPENROUTER_API_KEY`.
-- Running without the required provider credential produces a clear error for each case — this is expected and correct.
-- Routing job is intentionally **non-blocking** (`continue-on-error: true`) and is not part of default PR gating.
-- Phase 2 is not part of default PR gating, but it can run on PRs/pushes when prompt files change.
-- Baseline comparison will be active once generated via `--update-baseline` from a successful live run.
-- Routing artifacts are uploaded as `routing-eval-artifacts`.
-
-#### Running Phase 2 Locally
-
-```bash
-OPENROUTER_API_KEY=or_xxx bun run eval:phase2 --provider openrouter --model openai/gpt-4o-mini
-```
-
-#### Updating the Phase 2 Baseline
-
-```bash
-OPENROUTER_API_KEY=or_xxx bun run eval --suite agent-routing --provider openrouter --model openai/gpt-4o-mini --update-baseline
-```
-
-#### Phase 2 Graduation Criteria
-
-Phase 2 graduates from non-blocking to blocking CI gate when ALL of the following are met:
-
-1. **4 consecutive weekly runs pass** with stable baseline (no regressions for 4 weeks).
-2. **Case count reaches 6+** (double the initial 3), covering at least 3 distinct routing intents.
-3. **Team review**: at least one explicit sign-off that Phase 2 is ready to block PRs.
-
-Upon graduation:
-
-- Add `--fail-on-regression` to the Phase 2 eval command
-- Remove `continue-on-error: true` from the job
-- Optionally add Phase 2 to the `push`/`pull_request` triggers (or keep weekly-only with blocking exit code)
-
-## Phase 3: Trajectory Evals
-
-Phase 3 adds multi-turn trajectory evals that validate delegation chains — e.g., "user asks complex question → Loom delegates to Pattern → Pattern produces plan → Loom reports back".
-
-### What Phase 3 Covers
-
-- Multi-turn delegation sequence validation
-- Correct agent selection across turns
-- Delegation chain ordering (exact sequence matching)
-- Required/forbidden agent assertions
-- Turn count bounds
-
-### Layout
-
-- `evals/scenarios/*.jsonc` — trajectory scenario files (multi-turn conversation scripts)
-- `evals/cases/trajectory/*.jsonc` — trajectory eval case files
-- `evals/suites/phase3-trajectory-pilot.jsonc` — pilot suite manifest
-
-### Running Phase 3
-
-```bash
-# Run the full trajectory pilot suite
-bun run eval --suite phase3-trajectory-pilot
-
-# Run a single trajectory case
-bun run eval --suite phase3-trajectory-pilot --case trajectory-loom-delegates-to-pattern
-```
-
-No environment variables or API credentials are needed — trajectory evals use mock responses embedded in scenario files.
-
-### Scenario File Format
+### Trajectory scenario format
 
 Scenarios live in `evals/scenarios/` as `.jsonc` files. Each scenario defines a multi-turn conversation:
 
@@ -199,79 +168,65 @@ Scenarios live in `evals/scenarios/` as `.jsonc` files. Each scenario defines a 
   "id": "scenario-id",
   "title": "Human-readable title",
   "description": "What this scenario tests",
-  "agents": ["loom", "pattern"],  // agents involved
+  "agents": ["loom", "pattern"],
   "turns": [
     { "turn": 1, "role": "user", "content": "User message" },
     {
       "turn": 2,
       "role": "assistant",
-      "agent": "loom",           // which agent produces this turn
+      "agent": "loom",
       "content": "Description",
       "mockResponse": "Canned response for mock mode",
-      "expectedDelegation": "pattern"  // optional: expected delegation target
+      "expectedDelegation": "pattern"
     }
   ]
 }
 ```
 
-### Writing Trajectory Cases
-
-Each eval case references a scenario via `scenarioRef` and uses `trajectory-assertion` evaluators:
-
-```jsonc
-{
-  "id": "trajectory-example",
-  "title": "Trajectory: Example",
-  "phase": "phase3",
-  "target": {
-    "kind": "trajectory-agent",
-    "agent": "loom",
-    "scenarioRef": "evals/scenarios/example.jsonc"
-  },
-  "executor": {
-    "kind": "trajectory-run",
-    "scenarioRef": "evals/scenarios/example.jsonc"
-  },
-  "evaluators": [
-    {
-      "kind": "trajectory-assertion",
-      "expectedSequence": ["loom", "pattern", "loom"],
-      "requiredAgents": ["pattern"],
-      "forbiddenAgents": ["spindle"],
-      "minTurns": 4,
-      "maxTurns": 10
-    }
-  ]
-}
-```
-
-### Trajectory Assertion Types
+Trajectory assertions currently support:
 
 | Assertion | What it checks |
 |-----------|---------------|
-| `expectedSequence` | Observed delegation sequence matches exactly (ordered) |
-| `requiredAgents` | Each listed agent appears at least once in the delegation sequence |
-| `forbiddenAgents` | None of the listed agents appear in the delegation sequence |
-| `minTurns` | Completed turn count is at or above the threshold |
-| `maxTurns` | Completed turn count is at or below the limit |
+| `expectedSequence` | Observed delegation sequence matches exactly |
+| `requiredAgents` | Each listed agent appears at least once |
+| `forbiddenAgents` | Listed agents never appear |
+| `minTurns` | Completed turn count is at or above threshold |
+| `maxTurns` | Completed turn count is at or below threshold |
 
-### Current Pilot Scenarios
+## Coverage
 
-1. **Loom → Pattern** — Complex feature planning delegation
-2. **Loom → Thread** — Codebase exploration delegation
-3. **Loom → Pattern → Warp** — Planning with mandatory security review
-4. **Loom self-handle** — Simple question answered without delegation
-5. **Loom → Warp** — Security audit delegation
+Coverage threshold for `src/features/evals/**` remains 85% for lines and functions, excluding fixtures.
 
-## Future Phases
+```bash
+bun run eval:coverage
+```
 
-- `target.kind` is ready for custom-agent and single-turn targets
-- Promptfoo, if adopted later, should be an adapter behind executor/judge layers rather than the canonical schema owner
-- Provider-backed evals must use env-only secrets and must never persist raw tokens, keys, or auth headers in artifacts
+## CI Strategy
 
-## Phase 2 Guardrails
+- `ci.yml` runs `prompt-smoke` for fast blocking feedback
+- `evals.yml` runs `prompt-contracts` and `prompt-smoke` with baseline comparison and coverage checks
+- `evals.yml` also runs a non-blocking behavioral matrix over:
+  - `agent-routing-identity`
+  - `agent-routing-intent`
+  - `agent-trajectory`
+  - `tapestry-review-trajectory`
+- The live behavioral matrix currently standardizes on `openrouter` in CI
+- `tapestry-execution-contracts` runs in its own non-blocking CI lane with a dedicated model set (`openai/gpt-5.4`, `anthropic/claude-sonnet-4.6`)
+- the fan-in job also preserves `evals/results/agent-routing.jsonl` as a legacy compatibility feed backed by the split Loom identity stream
+- Targeted suites such as `tapestry-review-routing` and `tapestry-execution-contracts` stay isolated so they can use different model sets without changing Loom routing coverage
 
-- Phase 2 routing uses `model-response` + `llm-judge` in a tightly scoped Loom-only suite.
-- Phase 2 is live-only: it calls the selected provider directly and requires provider credentials (typically `OPENROUTER_API_KEY` for the standard routing workflow).
-- Never store provider secrets in case files, suite files, or committed baselines.
-- Artifacts must not include auth headers, API keys, bearer tokens, or raw provider secret values.
+Behavioral evals run on schedule, `workflow_dispatch`, and on PR/push when eval-, prompt-, or workflow-related files change.
+
+## Guardrails
+
+- Supported live providers today: `github-models` and `openrouter`
+- `openrouter` requires `OPENROUTER_API_KEY`
+- Never store provider secrets in case files, suite files, committed baselines, or artifacts
+- Artifacts must not include auth headers, API keys, bearer tokens, or raw provider secret values
+- Treat provider-backed behavior suites as non-blocking until they prove stable enough to gate on trends or regressions
+
+## Future Direction
+
+- Extend behavioral suites with stronger task/todo/tool assertions when continuation-state coverage becomes important
+- Keep provider-comparison suites isolated from baseline deterministic prompt contracts
+- If Promptfoo is adopted later, keep it behind executor/judge adapters rather than making it the schema owner

@@ -1,0 +1,24 @@
+{
+  "id": "tapestry-do-not-review-before-complete",
+  "title": "Tapestry does not trigger review before all tasks complete",
+  "description": "Checks that Tapestry keeps executing the remaining plan work instead of handing off to review while unchecked tasks still remain.",
+  "phase": "experimental",
+  "tags": ["experimental", "tapestry", "execution-contract", "review-boundary"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "openrouter",
+    "model": "openai/gpt-5.4",
+    "input": "You are resuming /start-work. The plan is 4/5 complete and one unchecked task still remains. There are no blockers and the user did not ask to stop. What should you do now?"
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "expectedAnyOf": ["continue", "remaining task", "next unchecked task", "finish the last task"],
+      "forbiddenContains": ["weft", "warp", "review", "all tasks complete", "execution is complete"]
+    }
+  ]
+}

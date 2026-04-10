@@ -16,6 +16,10 @@ export const EvalRoutingKindSchema = z.enum(EVAL_ROUTING_KINDS)
 export const EvalSuiteMetadataSchema = z.object({
   title: NonEmptyString,
   routingKind: EvalRoutingKindSchema.optional(),
+  familyId: NonEmptyString.optional(),
+  familyTitle: NonEmptyString.optional(),
+  viewId: NonEmptyString.optional(),
+  viewTitle: NonEmptyString.optional(),
 })
 
 export const BuiltinAgentPromptVariantSchema = z.object({

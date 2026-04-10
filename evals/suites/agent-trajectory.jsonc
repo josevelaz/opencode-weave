@@ -4,7 +4,11 @@
   "phase": "trajectory",
   "suiteMetadata": {
     "title": "Agent Trajectory",
-    "routingKind": "trajectory"
+    "routingKind": "trajectory",
+    "familyId": "loom-routing",
+    "familyTitle": "Loom Routing",
+    "viewId": "trajectory",
+    "viewTitle": "Trajectory"
   },
   "tags": ["trajectory", "loom"],
   "caseFiles": [

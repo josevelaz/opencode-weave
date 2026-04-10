@@ -1,0 +1,19 @@
+{
+  "id": "tapestry-execution-contracts",
+  "title": "Tapestry execution-contract validation",
+  "phase": "experimental",
+  "suiteMetadata": {
+    "title": "Tapestry Execution Contracts",
+    "familyId": "tapestry-execution",
+    "familyTitle": "Tapestry Execution",
+    "viewId": "execution-contracts",
+    "viewTitle": "Execution Contracts"
+  },
+  "tags": ["experimental", "tapestry", "execution-contract", "judge"],
+  "caseFiles": [
+    "evals/cases/tapestry/execution-contract/continue-after-progress-update.jsonc",
+    "evals/cases/tapestry/execution-contract/do-not-review-before-complete.jsonc",
+    "evals/cases/tapestry/execution-contract/allow-blocked-stop.jsonc",
+    "evals/cases/tapestry/execution-contract/respect-user-interruption.jsonc"
+  ]
+}

@@ -141,6 +141,10 @@ export interface LlmJudgeEvaluator extends WeightedEvaluatorSpec {
 export interface EvalSuiteMetadata {
   title: string
   routingKind?: EvalRoutingKind
+  familyId?: string
+  familyTitle?: string
+  viewId?: string
+  viewTitle?: string
 }
 
 export interface BaselineDiffEvaluator extends WeightedEvaluatorSpec {
