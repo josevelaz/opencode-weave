@@ -100,4 +100,4 @@ Separate routing evaluation into three interpretable dimensions:
 - [x] `bun run script/eval-trend-report.ts --suite agent-routing-identity --model-key openrouter/openai/gpt-5.4`
 - [x] `bun run script/eval-trend-report.ts --suite agent-routing-intent --model-key openrouter/openai/gpt-5.4`
 - [x] `bun run script/eval-trend-report.ts --suite agent-trajectory --model-key openrouter/openai/gpt-5.4`
-- [ ] Serve `/Users/pgermishuys/source/weave-website` locally and verify Overview, Identity, Intent, and Trajectory tabs against the published raw GitHub JSONL endpoints <!-- blocked until the new suite JSONLs are published to GitHub raw -->
+- [x] Serve `/Users/pgermishuys/source/weave-website` locally and verify Overview, Identity, Intent, and Trajectory tabs against the published raw GitHub JSONL endpoints
