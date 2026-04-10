@@ -712,7 +712,7 @@ Usage: bun run script/eval-trend-report.ts [options]
 Options:
   --suite <name>      Suite name — resolves to evals/results/{name}.jsonl
   --file <path>       Explicit JSONL file path (overrides --suite)
-  --model-key <key>   Filter to a single model stream (e.g. openrouter/openai/gpt-5.4)
+  --model-key <key>   Filter to a single model stream (e.g. openrouter/openai/gpt-4o-mini)
   --last <n>          Only analyze the last N runs (default: all)
   --check             Enable regression checking (exit 1 on regression)
   --threshold <n>     Minimum acceptable score (default: ${DEFAULT_THRESHOLD})
@@ -721,7 +721,7 @@ Options:
 
 Examples:
   bun run script/eval-trend-report.ts --suite agent-routing-identity
-  bun run script/eval-trend-report.ts --suite agent-routing-intent --model-key openrouter/openai/gpt-5.4
+  bun run script/eval-trend-report.ts --suite agent-routing-intent --model-key openrouter/openai/gpt-4o-mini
   bun run script/eval-trend-report.ts --file evals/results/custom.jsonl
   bun run script/eval-trend-report.ts --suite agent-trajectory --check --threshold 0.80
   bun run script/eval-trend-report.ts --suite tapestry-routing-review --last 5 --json

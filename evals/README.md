@@ -137,13 +137,13 @@ bun run eval:coverage
 #### Running Phase 2 Locally
 
 ```bash
-OPENROUTER_API_KEY=or_xxx bun run eval:phase2 --provider openrouter --model openai/gpt-5.4
+OPENROUTER_API_KEY=or_xxx bun run eval:phase2 --provider openrouter --model openai/gpt-4o-mini
 ```
 
 #### Updating the Phase 2 Baseline
 
 ```bash
-OPENROUTER_API_KEY=or_xxx bun run eval --suite agent-routing --provider openrouter --model openai/gpt-5.4 --update-baseline
+OPENROUTER_API_KEY=or_xxx bun run eval --suite agent-routing --provider openrouter --model openai/gpt-4o-mini --update-baseline
 ```
 
 #### Phase 2 Graduation Criteria
