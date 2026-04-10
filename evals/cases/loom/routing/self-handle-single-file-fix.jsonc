@@ -11,8 +11,8 @@
   },
   "executor": {
     "kind": "model-response",
-    "provider": "github-models",
-    "model": "gpt-4o-mini",
+    "provider": "openrouter",
+    "model": "openai/gpt-5.4",
     "input": "There's a typo in src/utils/format.ts on line 42 — it says 'formated' instead of 'formatted'. Fix it."
   },
   "evaluators": [

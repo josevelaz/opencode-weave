@@ -92,4 +92,27 @@ describe("eval storage", () => {
       rmSync(dir, { recursive: true, force: true })
     }
   })
+
+  it("persists optional suite metadata in JSONL output", () => {
+    const dir = mkdtempSync(join(tmpdir(), "weave-evals-jsonl-suite-meta-"))
+    try {
+      const result = {
+        ...(fixture as EvalRunResult),
+        suiteMetadata: {
+          title: "Prompt Contracts",
+          routingKind: "other",
+        },
+      } satisfies EvalRunResult
+
+      const jsonlPath = join(dir, "results.jsonl")
+      appendEvalRunJsonl(dir, result, jsonlPath)
+
+      const content = readFileSync(jsonlPath, "utf-8")
+      const parsed = JSON.parse(content.trim())
+      expect(parsed.suiteMetadata.title).toBe("Prompt Contracts")
+      expect(parsed.suiteMetadata.routingKind).toBe("other")
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
 })

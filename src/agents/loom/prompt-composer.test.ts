@@ -102,6 +102,12 @@ describe("buildDelegationSection", () => {
     expect(section).toContain("Warp")
   })
 
+  it("clarifies Pattern versus Shuttle routing boundary", () => {
+    const section = buildDelegationSection(new Set())
+    expect(section).toContain("planning, scoping, and work breakdown")
+    expect(section).toContain("domain expertise rather than planning or scoping")
+  })
+
   it("excludes thread when disabled", () => {
     const section = buildDelegationSection(new Set(["thread"]))
     expect(section).not.toContain("Use thread")
@@ -247,6 +253,7 @@ describe("individual section builders", () => {
 
   it("buildDelegationNarrationSection contains slow-agent note", () => {
     const section = buildDelegationNarrationSection()
+    expect(section).toContain("which agent you're delegating to by name")
     expect(section).toContain("can be slow")
     expect(section).toContain("Pattern")
     expect(section).toContain("Spindle")

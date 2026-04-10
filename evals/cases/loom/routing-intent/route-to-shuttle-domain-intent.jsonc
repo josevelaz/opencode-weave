@@ -1,10 +1,9 @@
 {
-  // Harder shuttle routing — does NOT use the magic phrase "category-specific specialized work"
-  "id": "route-to-shuttle-implicit",
-  "title": "Routes to Shuttle without explicit prompt-mirroring cues",
-  "description": "Harder variant: verifies Loom still routes to Shuttle for domain work even when the user does NOT use the magic phrase 'category-specific specialized work'.",
+  "id": "route-to-shuttle-domain-intent",
+  "title": "Intent: routes specialist domain work to the specialist workflow",
+  "description": "Accepts the expected specialist-domain behavior when Loom frames the GraphQL request around domain expertise rather than planning or direct implementation.",
   "phase": "routing",
-  "tags": ["routing", "loom"],
+  "tags": ["routing", "loom", "intent"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"
@@ -18,7 +17,8 @@
   "evaluators": [
     {
       "kind": "llm-judge",
-      "expectedContains": ["shuttle"],
+      "rubricRef": "evals/rubrics/loom-routing-rubric.md",
+      "expectedAnyOf": ["shuttle", "specialist", "domain expertise"],
       "forbiddenContains": ["I will implement this directly"]
     }
   ]

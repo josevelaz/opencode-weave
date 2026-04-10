@@ -1,10 +1,9 @@
 {
-  // Gray zone: could be Thread (exploration) or Warp (security) — delegation should happen
-  "id": "ambiguous-exploration-security",
-  "title": "Delegates ambiguous exploration+security asks",
-  "description": "Gray zone: request could go to Thread (exploration) or Warp (security). Verifies that Loom delegates to at least one agent rather than handling the auth security scan itself.",
+  "id": "ambiguous-exploration-security-intent",
+  "title": "Intent: accepts either exploration-first or security-first routing on gray-zone asks",
+  "description": "Gray-zone coverage: accepts either Thread-led exploration or Warp-led security review as long as Loom delegates instead of handling the auth scan directly.",
   "phase": "routing",
-  "tags": ["routing", "loom", "ambiguous"],
+  "tags": ["routing", "loom", "intent", "ambiguous"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"
@@ -18,6 +17,7 @@
   "evaluators": [
     {
       "kind": "llm-judge",
+      "expectedAnyOf": ["thread", "warp"],
       "forbiddenContains": ["I'll handle this myself", "implement directly"]
     }
   ]

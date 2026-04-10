@@ -10,8 +10,8 @@
   },
   "executor": {
     "kind": "model-response",
-    "provider": "github-models",
-    "model": "gpt-4o-mini",
+    "provider": "openrouter",
+    "model": "openai/gpt-5.4",
     "input": "I just refactored the logging module across 5 files. Can you review the changes for quality and consistency?"
   },
   "evaluators": [

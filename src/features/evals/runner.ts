@@ -217,6 +217,7 @@ export async function runEvalSuite(options: RunEvalSuiteOptions): Promise<RunEva
     finishedAt,
     suiteId: suite.id,
     phase: suite.phase,
+    suiteMetadata: suite.suiteMetadata,
     runMetadata: resolveRunMetadata(context),
     summary: buildSummary(caseResults),
     caseResults,

@@ -65,4 +65,47 @@ describe("runLlmJudgeEvaluator", () => {
     expect(results.length).toBe(1)
     expect(results[0].passed).toBe(false)
   })
+
+  it("passes when any expectedAnyOf phrase is present", () => {
+    const results = runLlmJudgeEvaluator(
+      {
+        kind: "llm-judge",
+        expectedAnyOf: ["delegate to pattern", "ask Pattern to plan"],
+      },
+      { modelOutput: "I will ask Pattern to plan this work." },
+    )
+
+    expect(results.length).toBe(1)
+    expect(results[0].passed).toBe(true)
+  })
+
+  it("fails when no expectedAnyOf phrase is present", () => {
+    const results = runLlmJudgeEvaluator(
+      {
+        kind: "llm-judge",
+        expectedAnyOf: ["delegate to pattern", "ask Pattern to plan"],
+      },
+      { modelOutput: "I will implement this directly." },
+    )
+
+    expect(results.length).toBe(1)
+    expect(results[0].passed).toBe(false)
+  })
+
+  it("splits weight across expected, any-of, and forbidden checks", () => {
+    const results = runLlmJudgeEvaluator(
+      {
+        kind: "llm-judge",
+        weight: 3,
+        expectedContains: ["delegate"],
+        expectedAnyOf: ["Pattern", "Shuttle"],
+        forbiddenContains: ["implement directly"],
+      },
+      { modelOutput: "I will delegate to Pattern for this task." },
+    )
+
+    expect(results).toHaveLength(3)
+    expect(results.every((result) => result.maxScore === 1)).toBe(true)
+    expect(results.every((result) => result.passed)).toBe(true)
+  })
 })

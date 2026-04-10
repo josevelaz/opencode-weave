@@ -10,8 +10,8 @@
   },
   "executor": {
     "kind": "model-response",
-    "provider": "github-models",
-    "model": "gpt-4o-mini",
+    "provider": "openrouter",
+    "model": "openai/gpt-5.4",
     "input": "I need a domain specialist to handle the GraphQL schema generation for our product catalog — types, resolvers, and input validation schemas. This is category-specific specialized work."
   },
   "evaluators": [

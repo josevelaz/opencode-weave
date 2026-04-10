@@ -1,24 +1,24 @@
 {
-  "id": "agent-routing",
-  "title": "Agent routing legacy identity validation",
+  "id": "agent-routing-identity",
+  "title": "Loom routing identity validation",
   "phase": "routing",
   "suiteMetadata": {
-    "title": "Agent Routing (Legacy)",
+    "title": "Loom Routing Identity",
     "routingKind": "identity"
   },
-  "tags": ["routing", "loom", "identity", "legacy", "judge"],
+  "tags": ["routing", "loom", "identity", "judge"],
   "caseFiles": [
     "evals/cases/loom/routing/route-to-thread-exploration.jsonc",
     "evals/cases/loom/routing/route-to-pattern-planning.jsonc",
     "evals/cases/loom/routing/route-to-warp-security.jsonc",
     "evals/cases/loom/routing/route-to-shuttle-specialist.jsonc",
-    "evals/cases/loom/routing/route-to-spindle-research.jsonc",
-    "evals/cases/loom/routing/route-to-weft-review.jsonc",
     "evals/cases/loom/routing/route-to-shuttle-domain.jsonc",
     "evals/cases/loom/routing/route-to-shuttle-implicit.jsonc",
-    "evals/cases/loom/routing/self-handle-simple-question.jsonc",
-    "evals/cases/loom/routing/self-handle-single-file-fix.jsonc",
+    "evals/cases/loom/routing/route-to-spindle-research.jsonc",
+    "evals/cases/loom/routing/route-to-weft-review.jsonc",
     "evals/cases/loom/routing/route-to-weft-after-pattern.jsonc",
-    "evals/cases/loom/routing/route-to-warp-after-pattern.jsonc"
+    "evals/cases/loom/routing/route-to-warp-after-pattern.jsonc",
+    "evals/cases/loom/routing/self-handle-simple-question.jsonc",
+    "evals/cases/loom/routing/self-handle-single-file-fix.jsonc"
   ]
 }

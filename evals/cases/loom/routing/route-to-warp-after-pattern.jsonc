@@ -10,8 +10,8 @@
   },
   "executor": {
     "kind": "model-response",
-    "provider": "github-models",
-    "model": "gpt-4o-mini",
+    "provider": "openrouter",
+    "model": "openai/gpt-5.4",
     "input": "Pattern just finished creating a plan for OAuth2 token management at .weave/plans/oauth-tokens.md. The plan covers JWT token generation, refresh token rotation, API key hashing, and secret storage. What should we do next before executing?"
   },
   "evaluators": [

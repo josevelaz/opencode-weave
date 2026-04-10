@@ -11,8 +11,8 @@
   },
   "executor": {
     "kind": "model-response",
-    "provider": "github-models",
-    "model": "gpt-4o-mini",
+    "provider": "openrouter",
+    "model": "openai/gpt-5.4",
     "input": "What's the difference between a Promise and an Observable in JavaScript?"
   },
   "evaluators": [

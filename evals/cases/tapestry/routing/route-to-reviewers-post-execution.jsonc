@@ -10,8 +10,8 @@
   },
   "executor": {
     "kind": "model-response",
-    "provider": "github-models",
-    "model": "gpt-4o-mini",
+    "provider": "openrouter",
+    "model": "openai/gpt-5.4",
     "input": "All 5 plan tasks are now checked off (5/5 complete). The changed files from git diff are: src/auth/handler.ts, src/auth/middleware.ts, src/models/user.ts, src/routes/auth.ts, tests/auth.test.ts. What should I do now?"
   },
   "evaluators": [

@@ -1,5 +1,5 @@
-import { describe, expect, it, beforeEach, afterEach } from "bun:test"
-import { cpSync, mkdtempSync, rmSync } from "fs"
+import { describe, expect, it } from "bun:test"
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { tmpdir } from "os"
 import { runEvalSuite } from "./runner"
@@ -25,11 +25,11 @@ describe("runEvalSuite", () => {
     }
   })
 
-  it("agent-routing errors without GITHUB_TOKEN (live-only)", async () => {
+  it("agent-routing errors without OPENROUTER_API_KEY (live-only)", async () => {
     const dir = mkdtempSync(join(tmpdir(), "weave-evals-runner-routing-"))
-    const savedToken = process.env.GITHUB_TOKEN
+    const savedKey = process.env.OPENROUTER_API_KEY
     try {
-      delete process.env.GITHUB_TOKEN
+      delete process.env.OPENROUTER_API_KEY
       cpSync(join(process.cwd(), "evals"), join(dir, "evals"), { recursive: true })
 
       const output = await runEvalSuite({
@@ -41,12 +41,12 @@ describe("runEvalSuite", () => {
       // Should produce an error case, not crash
       expect(output.result.summary.totalCases).toBe(1)
       expect(output.result.summary.errorCases).toBe(1)
-      expect(output.result.caseResults[0].errors[0]).toContain("GITHUB_TOKEN")
+      expect(output.result.caseResults[0].errors[0]).toContain("OPENROUTER_API_KEY")
     } finally {
-      if (savedToken !== undefined) {
-        process.env.GITHUB_TOKEN = savedToken
+      if (savedKey !== undefined) {
+        process.env.OPENROUTER_API_KEY = savedKey
       } else {
-        delete process.env.GITHUB_TOKEN
+        delete process.env.OPENROUTER_API_KEY
       }
       rmSync(dir, { recursive: true, force: true })
     }
@@ -114,6 +114,32 @@ describe("runEvalSuite", () => {
     }
   })
 
+  it("copies optional suite metadata into run results", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "weave-evals-runner-suite-meta-"))
+    try {
+      cpSync(join(process.cwd(), "evals"), join(dir, "evals"), { recursive: true })
+
+      const manifestPath = join(dir, "evals", "suites", "prompt-contracts.jsonc")
+      const updatedManifest = `${readFileSync(manifestPath, "utf-8").trimEnd().slice(0, -1)},
+  "suiteMetadata": {
+    "title": "Prompt Contracts",
+    "routingKind": "other"
+  }
+}
+`
+      writeFileSync(manifestPath, updatedManifest)
+
+      const output = await runEvalSuite({ directory: dir, suite: "prompt-contracts" })
+
+      expect(output.result.suiteMetadata).toEqual({
+        title: "Prompt Contracts",
+        routingKind: "other",
+      })
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   describe("trajectory eval", () => {
     it("runs the agent-trajectory suite end-to-end", async () => {
       const dir = mkdtempSync(join(tmpdir(), "weave-evals-runner-trajectory-"))
@@ -123,8 +149,8 @@ describe("runEvalSuite", () => {
 
         expect(output.result.suiteId).toBe("agent-trajectory")
         expect(output.result.phase).toBe("trajectory")
-        expect(output.result.summary.totalCases).toBe(7)
-        expect(output.result.summary.passedCases).toBe(7)
+        expect(output.result.summary.totalCases).toBe(6)
+        expect(output.result.summary.passedCases).toBe(6)
         expect(output.result.summary.failedCases).toBe(0)
         expect(output.result.summary.errorCases).toBe(0)
         expect(output.result.summary.normalizedScore).toBe(1)
@@ -206,7 +232,7 @@ describe("runEvalSuite", () => {
         const trajectoryOutput = await runEvalSuite({ directory: dir, suite: "agent-trajectory" })
         const promptOutput = await runEvalSuite({ directory: dir, suite: "prompt-contracts" })
 
-        expect(trajectoryOutput.result.summary.passedCases).toBe(7)
+        expect(trajectoryOutput.result.summary.passedCases).toBe(6)
         expect(promptOutput.result.summary.normalizedScore).toBeGreaterThan(0)
         expect(promptOutput.result.summary.errorCases).toBe(0)
       } finally {

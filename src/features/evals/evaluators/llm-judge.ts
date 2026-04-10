@@ -7,8 +7,9 @@ function getWeight(spec: LlmJudgeEvaluator): number {
 export function runLlmJudgeEvaluator(spec: LlmJudgeEvaluator, artifacts: EvalArtifacts): AssertionResult[] {
   const output = artifacts.modelOutput ?? ""
   const expected = spec.expectedContains ?? []
+  const expectedAnyOf = spec.expectedAnyOf ?? []
   const forbidden = spec.forbiddenContains ?? []
-  const totalChecks = expected.length + forbidden.length
+  const totalChecks = expected.length + forbidden.length + (expectedAnyOf.length > 0 ? 1 : 0)
   const perItem = totalChecks > 0 ? getWeight(spec) / totalChecks : getWeight(spec)
   const results: AssertionResult[] = []
 
@@ -24,6 +25,20 @@ export function runLlmJudgeEvaluator(spec: LlmJudgeEvaluator, artifacts: EvalArt
       message: passed
         ? `Judge check passed: output contains '${pattern}'`
         : `Judge check failed: output missing '${pattern}'`,
+    })
+  }
+
+  if (expectedAnyOf.length > 0) {
+    const matchedPattern = expectedAnyOf.find((pattern) => outputLower.includes(pattern.toLowerCase()))
+    const passed = matchedPattern !== undefined
+    results.push({
+      evaluatorKind: spec.kind,
+      passed,
+      score: passed ? perItem : 0,
+      maxScore: perItem,
+      message: passed
+        ? `Judge check passed: output contains one of '${expectedAnyOf.join("', '")}' (matched '${matchedPattern}')`
+        : `Judge check failed: output missing all of '${expectedAnyOf.join("', '")}'`,
     })
   }
 

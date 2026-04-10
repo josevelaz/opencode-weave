@@ -1,0 +1,19 @@
+{
+  "id": "agent-routing-intent",
+  "title": "Loom routing intent validation",
+  "phase": "routing",
+  "suiteMetadata": {
+    "title": "Loom Routing Intent",
+    "routingKind": "intent"
+  },
+  "tags": ["routing", "loom", "intent", "judge"],
+  "caseFiles": [
+    "evals/cases/loom/routing-intent/route-to-thread-exploration-intent.jsonc",
+    "evals/cases/loom/routing-intent/route-to-pattern-planning-intent.jsonc",
+    "evals/cases/loom/routing-intent/route-to-warp-security-intent.jsonc",
+    "evals/cases/loom/routing-intent/route-to-shuttle-domain-intent.jsonc",
+    "evals/cases/loom/routing-intent/route-to-spindle-research-intent.jsonc",
+    "evals/cases/loom/routing-intent/ambiguous-exploration-security-intent.jsonc",
+    "evals/cases/loom/routing-intent/ambiguous-research-planning-intent.jsonc"
+  ]
+}

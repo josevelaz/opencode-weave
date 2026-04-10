@@ -65,7 +65,7 @@ function parseMatrixMetadata(): Record<string, string> | undefined {
 
 function printUsage(): void {
   console.error(
-    "Usage: bun run eval [--suite prompt-contracts] [--case id] [--agent loom] [--tag contract] [--provider github-models] [--model gpt-4o-mini] [--json] [--output path] [--baseline path] [--update-baseline] [--fail-on-regression]",
+    "Usage: bun run eval [--suite prompt-contracts|agent-routing-identity|agent-routing-intent|agent-trajectory|tapestry-routing-review] [--case id] [--agent loom] [--tag contract] [--provider openrouter] [--model openai/gpt-5.4] [--json] [--output path] [--baseline path] [--update-baseline] [--fail-on-regression]",
   )
 }
 
@@ -304,7 +304,7 @@ async function main(): Promise<void> {
     }
 
     // Only exit 1 on failures when running with a baseline (deterministic evals).
-    // Live evals (e.g. agent-routing with --jsonl) use the trend report's
+    // Live evals (e.g. agent-routing-identity with --jsonl) use the trend report's
     // --check --threshold to detect regressions instead.
     if (!options.jsonl) {
       process.exit(output.result.summary.failedCases > 0 || output.result.summary.errorCases > 0 ? 1 : 0)

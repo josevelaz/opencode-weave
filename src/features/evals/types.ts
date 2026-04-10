@@ -3,6 +3,9 @@ import type { WeaveAgentName } from "../../agents/types"
 export const EVAL_PHASES = ["prompt", "routing", "trajectory", "experimental"] as const
 export type EvalPhase = (typeof EVAL_PHASES)[number]
 
+export const EVAL_ROUTING_KINDS = ["identity", "intent", "trajectory", "other"] as const
+export type EvalRoutingKind = (typeof EVAL_ROUTING_KINDS)[number]
+
 export const EVAL_TARGET_KINDS = [
   "builtin-agent-prompt",
   "custom-agent-prompt",
@@ -131,7 +134,13 @@ export interface LlmJudgeEvaluator extends WeightedEvaluatorSpec {
   kind: "llm-judge"
   rubricRef?: string
   expectedContains?: string[]
+  expectedAnyOf?: string[]
   forbiddenContains?: string[]
+}
+
+export interface EvalSuiteMetadata {
+  title: string
+  routingKind?: EvalRoutingKind
 }
 
 export interface BaselineDiffEvaluator extends WeightedEvaluatorSpec {
@@ -167,6 +176,7 @@ export interface EvalSuiteManifest {
   title: string
   phase: EvalPhase
   caseFiles: string[]
+  suiteMetadata?: EvalSuiteMetadata
   tags?: string[]
 }
 
@@ -261,6 +271,7 @@ export interface EvalRunResult {
   finishedAt: string
   suiteId: string
   phase: EvalPhase
+  suiteMetadata?: EvalSuiteMetadata
   runMetadata?: EvalRunMetadata
   summary: EvalRunSummary
   caseResults: EvalCaseResult[]

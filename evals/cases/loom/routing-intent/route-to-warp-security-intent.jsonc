@@ -1,9 +1,9 @@
 {
-  "id": "route-to-warp-security",
-  "title": "Routes to Warp for security-sensitive review asks",
-  "description": "Verifies that Loom delegates security-sensitive review requests (auth, token handling) to Warp for a security audit rather than reviewing itself.",
+  "id": "route-to-warp-security-intent",
+  "title": "Intent: preserves security-review workflow for sensitive asks",
+  "description": "Accepts the expected security-review behavior when Loom clearly routes the request through a security audit path rather than skipping review.",
   "phase": "routing",
-  "tags": ["routing", "loom", "security"],
+  "tags": ["routing", "loom", "intent", "security"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"
@@ -18,7 +18,7 @@
     {
       "kind": "llm-judge",
       "rubricRef": "evals/rubrics/loom-routing-rubric.md",
-      "expectedContains": ["warp", "security"],
+      "expectedAnyOf": ["warp", "security audit", "security review"],
       "forbiddenContains": ["skip security review"]
     }
   ]

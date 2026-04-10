@@ -1,6 +1,7 @@
 import { z } from "zod"
 import {
   EVAL_PHASES,
+  EVAL_ROUTING_KINDS,
   EVAL_TARGET_KINDS,
   EXECUTOR_KINDS,
   EVALUATOR_KINDS,
@@ -10,6 +11,12 @@ const NonEmptyString = z.string().trim().min(1)
 const SupportedLiveProviders = z.enum(["github-models", "openrouter"])
 
 export const EvalPhaseSchema = z.enum(EVAL_PHASES)
+export const EvalRoutingKindSchema = z.enum(EVAL_ROUTING_KINDS)
+
+export const EvalSuiteMetadataSchema = z.object({
+  title: NonEmptyString,
+  routingKind: EvalRoutingKindSchema.optional(),
+})
 
 export const BuiltinAgentPromptVariantSchema = z.object({
   disabledAgents: z.array(NonEmptyString).optional(),
@@ -116,6 +123,7 @@ export const LlmJudgeEvaluatorSchema = WeightedEvaluatorSchema.extend({
   kind: z.literal("llm-judge"),
   rubricRef: NonEmptyString.optional(),
   expectedContains: z.array(NonEmptyString).optional(),
+  expectedAnyOf: z.array(NonEmptyString).min(1).optional(),
   forbiddenContains: z.array(NonEmptyString).optional(),
 })
 
@@ -182,6 +190,7 @@ export const EvalSuiteManifestSchema = z.object({
   title: NonEmptyString,
   phase: EvalPhaseSchema,
   caseFiles: z.array(NonEmptyString).min(1),
+  suiteMetadata: EvalSuiteMetadataSchema.optional(),
   tags: z.array(NonEmptyString).optional(),
 })
 
@@ -254,6 +263,7 @@ export const EvalRunResultSchema = z.object({
   finishedAt: z.string(),
   suiteId: z.string(),
   phase: EvalPhaseSchema,
+  suiteMetadata: EvalSuiteMetadataSchema.optional(),
   runMetadata: EvalRunMetadataSchema.optional(),
   summary: EvalRunSummarySchema,
   caseResults: z.array(EvalCaseResultSchema),

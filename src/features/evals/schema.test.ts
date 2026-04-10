@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import {
   EvalCaseSchema,
+  EvalSuiteMetadataSchema,
   EvalSuiteManifestSchema,
   EvalRunResultSchema,
   TrajectoryScenarioSchema,
@@ -43,6 +44,14 @@ describe("eval schemas", () => {
     expect(result.success).toBe(true)
   })
 
+  it("validates suite metadata with routing kind", () => {
+    const result = EvalSuiteMetadataSchema.safeParse({
+      title: "Agent Routing Identity",
+      routingKind: "identity",
+    })
+    expect(result.success).toBe(true)
+  })
+
   it("validates section-contains-all evaluator", () => {
     const result = EvalCaseSchema.safeParse({
       id: "loom-role-scope",
@@ -67,6 +76,23 @@ describe("eval schemas", () => {
           kind: "llm-judge",
           rubricRef: "evals/rubrics/loom-routing-rubric.md",
           expectedContains: ["delegate"],
+        },
+      ],
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it("validates llm-judge evaluator with expectedAnyOf", () => {
+    const result = EvalCaseSchema.safeParse({
+      id: "routing-judge-anyof-test",
+      title: "Routing judge any-of validation",
+      phase: "routing",
+      target: { kind: "builtin-agent-prompt", agent: "loom" },
+      executor: { kind: "model-response", provider: "github-models", model: "gpt-5", input: "test" },
+      evaluators: [
+        {
+          kind: "llm-judge",
+          expectedAnyOf: ["delegate to pattern", "ask Pattern to plan"],
         },
       ],
     })
@@ -121,6 +147,10 @@ describe("eval schemas", () => {
       finishedAt: "2026-04-09T00:00:10.000Z",
       suiteId: "agent-routing",
       phase: "routing",
+      suiteMetadata: {
+        title: "Agent Routing Identity",
+        routingKind: "identity",
+      },
       runMetadata: {
         provider: "openrouter",
         model: "anthropic/claude-3.5-sonnet",

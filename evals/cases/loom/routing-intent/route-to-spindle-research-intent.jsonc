@@ -1,9 +1,9 @@
 {
-  "id": "route-to-spindle-research",
-  "title": "Routes to Spindle for external research asks",
-  "description": "Verifies that Loom delegates external documentation research (e.g. Stripe API best practices) to Spindle rather than answering from its own knowledge.",
+  "id": "route-to-spindle-research-intent",
+  "title": "Intent: routes external research through a research workflow",
+  "description": "Accepts the expected research behavior when Loom clearly treats the request as external-docs research instead of answering from memory or implementing directly.",
   "phase": "routing",
-  "tags": ["routing", "loom"],
+  "tags": ["routing", "loom", "intent"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"
@@ -17,7 +17,7 @@
   "evaluators": [
     {
       "kind": "llm-judge",
-      "expectedContains": ["spindle"],
+      "expectedAnyOf": ["spindle", "research", "docs"],
       "forbiddenContains": ["implement directly", "I'll handle this myself"]
     }
   ]

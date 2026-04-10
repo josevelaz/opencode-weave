@@ -69,13 +69,17 @@ export function buildDelegationSection(disabled: Set<string>): string {
     lines.push("- Use spindle for external docs and research (read-only)")
   }
   if (isAgentEnabled("pattern", disabled)) {
-    lines.push("- Use pattern for detailed planning before complex implementations")
+    lines.push(
+      "- Use pattern for planning, scoping, and work breakdown before substantial implementation begins",
+    )
   }
   if (isAgentEnabled("tapestry", disabled)) {
     lines.push("- Use /start-work to hand off to Tapestry for todo-list driven execution of multi-step plans")
   }
   if (isAgentEnabled("shuttle", disabled)) {
-    lines.push("- Use shuttle for category-specific specialized work")
+    lines.push(
+      "- Use shuttle for category-specific specialist work when the main need is domain expertise rather than planning or scoping",
+    )
   }
   if (isAgentEnabled("weft", disabled)) {
     let weftLine = "- Use Weft for reviewing completed work or validating plans before execution"
@@ -108,7 +112,7 @@ export function buildDelegationNarrationSection(disabled: Set<string> = new Set(
 
   return `<DelegationNarration>
 When delegating:
-1. Tell the user what you're about to delegate and why
+1. Tell the user which agent you're delegating to by name and why
 2. Update the sidebar todo BEFORE the Task tool call
 3. Summarize what the agent found when it returns${durationNote}
 </DelegationNarration>`

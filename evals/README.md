@@ -126,8 +126,7 @@ bun run eval:coverage
 `evals.yml` runs the `agent-routing` suite automatically every **Monday at 10:00 UTC** via a scheduled cron trigger, supports manual `workflow_dispatch`, and also runs on PR/push when prompt files change.
 
 - Phase 2 is **live-only** — it calls a configured provider backend with Loom's real system prompt. No mock mode.
-- Supported providers today: `github-models` and `openrouter`.
-- `github-models` requires `GITHUB_TOKEN` with `models:read` scope (or the built-in `secrets.GITHUB_TOKEN` in GitHub Actions).
+- Supported providers today: `github-models` and `openrouter`, but routing eval CI now standardizes on `openrouter` for operational simplicity.
 - `openrouter` requires `OPENROUTER_API_KEY`.
 - Running without the required provider credential produces a clear error for each case — this is expected and correct.
 - Routing job is intentionally **non-blocking** (`continue-on-error: true`) and is not part of default PR gating.
@@ -138,19 +137,13 @@ bun run eval:coverage
 #### Running Phase 2 Locally
 
 ```bash
-GITHUB_TOKEN=ghp_xxx bun run eval:phase2
-
-# Or use OpenRouter
-OPENROUTER_API_KEY=or_xxx bun run eval:phase2 --provider openrouter --model anthropic/claude-3.5-sonnet
+OPENROUTER_API_KEY=or_xxx bun run eval:phase2 --provider openrouter --model openai/gpt-5.4
 ```
 
 #### Updating the Phase 2 Baseline
 
 ```bash
-GITHUB_TOKEN=ghp_xxx bun run eval --suite agent-routing --update-baseline
-
-# Or use OpenRouter
-OPENROUTER_API_KEY=or_xxx bun run eval --suite agent-routing --provider openrouter --model anthropic/claude-3.5-sonnet --update-baseline
+OPENROUTER_API_KEY=or_xxx bun run eval --suite agent-routing --provider openrouter --model openai/gpt-5.4 --update-baseline
 ```
 
 #### Phase 2 Graduation Criteria
@@ -279,6 +272,6 @@ Each eval case references a scenario via `scenarioRef` and uses `trajectory-asse
 ## Phase 2 Guardrails
 
 - Phase 2 routing uses `model-response` + `llm-judge` in a tightly scoped Loom-only suite.
-- Phase 2 is live-only: it calls the selected provider directly and requires provider-specific env credentials (`GITHUB_TOKEN` or `OPENROUTER_API_KEY`).
+- Phase 2 is live-only: it calls the selected provider directly and requires provider credentials (typically `OPENROUTER_API_KEY` for the standard routing workflow).
 - Never store provider secrets in case files, suite files, or committed baselines.
 - Artifacts must not include auth headers, API keys, bearer tokens, or raw provider secret values.

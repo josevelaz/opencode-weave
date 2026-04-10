@@ -10,8 +10,8 @@
   },
   "executor": {
     "kind": "model-response",
-    "provider": "github-models",
-    "model": "gpt-4o-mini",
+    "provider": "openrouter",
+    "model": "openai/gpt-5.4",
     "input": "Pattern just finished creating a plan for refactoring the logging module at .weave/plans/logging-refactor.md. The plan has 6 tasks and touches 8 files across 3 modules. No security-sensitive changes — just structural refactoring. What should we do before running /start-work?"
   },
   "evaluators": [

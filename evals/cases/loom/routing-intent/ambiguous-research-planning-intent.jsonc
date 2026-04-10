@@ -1,10 +1,9 @@
 {
-  // Two-phase task: research (Spindle) then planning (Pattern) — delegation should happen
-  "id": "ambiguous-research-planning",
-  "title": "Delegates ambiguous research+planning asks",
-  "description": "Two-phase task: research (Spindle) then planning (Pattern). Verifies that Loom delegates rather than attempting to research OAuth2 PKCE and plan the implementation itself.",
+  "id": "ambiguous-research-planning-intent",
+  "title": "Intent: accepts research-first or planning-first orchestration on mixed asks",
+  "description": "Mixed-workflow coverage: accepts either Spindle-led research or Pattern-led planning as long as Loom delegates instead of trying to do both itself.",
   "phase": "routing",
-  "tags": ["routing", "loom", "ambiguous"],
+  "tags": ["routing", "loom", "intent", "ambiguous"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"
@@ -18,6 +17,7 @@
   "evaluators": [
     {
       "kind": "llm-judge",
+      "expectedAnyOf": ["spindle", "pattern"],
       "forbiddenContains": ["I'll handle this myself", "implement directly"]
     }
   ]

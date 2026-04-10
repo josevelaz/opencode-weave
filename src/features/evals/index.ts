@@ -12,10 +12,12 @@
 
 export type {
   EvalPhase,
+  EvalRoutingKind,
   EvalTarget,
   ExecutorSpec,
   EvaluatorSpec,
   EvalSuiteManifest,
+  EvalSuiteMetadata,
   EvalCase,
   LoadedEvalCase,
   LoadedEvalSuiteManifest,
@@ -38,7 +40,9 @@ export { isTrajectoryTrace } from "./types"
 
 export {
   EvalCaseSchema,
+  EvalRoutingKindSchema,
   EvalSuiteManifestSchema,
+  EvalSuiteMetadataSchema,
   EvalRunResultSchema,
   TrajectoryScenarioSchema,
   TrajectoryTurnSchema,

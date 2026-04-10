@@ -1,9 +1,9 @@
 {
-  "id": "route-to-thread-exploration",
-  "title": "Routes to Thread for codebase exploration asks",
-  "description": "Verifies that Loom delegates codebase exploration requests (e.g. finding and summarizing files) to Thread rather than handling them directly.",
+  "id": "route-to-thread-exploration-intent",
+  "title": "Intent: delegates exploration work instead of doing it directly",
+  "description": "Accepts the expected exploration workflow when Loom names Thread or otherwise clearly frames the response as codebase exploration rather than direct implementation.",
   "phase": "routing",
-  "tags": ["routing", "loom"],
+  "tags": ["routing", "loom", "intent"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"
@@ -18,7 +18,7 @@
     {
       "kind": "llm-judge",
       "rubricRef": "evals/rubrics/loom-routing-rubric.md",
-      "expectedContains": ["thread"],
+      "expectedAnyOf": ["thread", "exploration"],
       "forbiddenContains": ["implement directly"]
     }
   ]

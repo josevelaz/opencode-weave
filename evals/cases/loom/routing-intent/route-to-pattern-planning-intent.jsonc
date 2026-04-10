@@ -1,9 +1,9 @@
 {
-  "id": "route-to-pattern-planning",
-  "title": "Routes to Pattern for complex implementation planning",
-  "description": "Verifies that Loom delegates complex multi-file feature work (data models, APIs, tests) to Pattern for structured planning rather than implementing directly.",
+  "id": "route-to-pattern-planning-intent",
+  "title": "Intent: routes planning-heavy implementation work through planning workflow",
+  "description": "Accepts the expected orchestration behavior when Loom frames the response around planning, scoping, or handing execution off through `/start-work` rather than implementing directly.",
   "phase": "routing",
-  "tags": ["routing", "loom"],
+  "tags": ["routing", "loom", "intent"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"
@@ -18,7 +18,7 @@
     {
       "kind": "llm-judge",
       "rubricRef": "evals/rubrics/loom-routing-rubric.md",
-      "expectedContains": ["pattern"],
+      "expectedAnyOf": ["pattern", "plan", "/start-work"],
       "forbiddenContains": ["I will implement this directly"]
     }
   ]
