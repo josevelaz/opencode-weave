@@ -4,19 +4,16 @@
  */
 
 import { info } from "../../shared/log"
-import {
-  discoverWorkflows,
-  loadWorkflowDefinition,
-  getActiveWorkflowInstance,
-  startWorkflow,
-  checkAndAdvance,
-  pauseWorkflow,
-  resumeWorkflow as engineResumeWorkflow,
-} from "./index"
+import { createPlanFsRepository } from "../../infrastructure/fs/plan-fs-repository"
+import { createPlanService } from "../../domain/plans/plan-service"
+import { createWorkflowService } from "../../domain/workflows/workflow-service"
+import { buildWorkflowContinuationPrompt } from "../../domain/workflows/workflow-context"
+import { checkWorkflowCompletion } from "../../domain/workflows/workflow-completion"
 import type { CompletionContext } from "./index"
-import { readWorkState, getPlanProgress } from "../work-state"
 import { parseBuiltinCommandEnvelope } from "../../runtime/opencode/command-envelope"
-import { renderContinuationEnvelope } from "../../runtime/opencode/protocol"
+
+const PlanService = createPlanService(createPlanFsRepository())
+const WorkflowService = createWorkflowService()
 
 /**
  * Marker embedded in workflow continuation prompts so the auto-pause guard
@@ -90,7 +87,7 @@ export function handleRunWorkflow(input: {
   const workStateWarning = checkWorkStatePlanActive(directory)
 
   // Check for existing active instance
-  const activeInstance = getActiveWorkflowInstance(directory)
+  const activeInstance = WorkflowService.getActiveWorkflowInstance(directory)
 
   // Case 1: No args, no active instance → list available definitions
   if (!workflowName && !activeInstance) {
@@ -157,11 +154,11 @@ export function checkWorkflowContinuation(input: {
 }): { continuationPrompt: string | null; switchAgent: string | null } {
   const { directory, lastAssistantMessage, lastUserMessage } = input
 
-  const instance = getActiveWorkflowInstance(directory)
+  const instance = WorkflowService.getActiveWorkflowInstance(directory)
   if (!instance) return { continuationPrompt: null, switchAgent: null }
   if (instance.status !== "running") return { continuationPrompt: null, switchAgent: null }
 
-  const definition = loadWorkflowDefinition(instance.definition_path)
+  const definition = WorkflowService.loadWorkflowDefinition(instance.definition_path)
   if (!definition) return { continuationPrompt: null, switchAgent: null }
 
   const currentStepDef = definition.steps.find((s) => s.id === instance.current_step_id)
@@ -175,31 +172,31 @@ export function checkWorkflowContinuation(input: {
     lastUserMessage,
   }
 
-  const action = checkAndAdvance({ directory, context: completionContext })
+  const action = checkWorkflowCompletion(directory, completionContext)
 
   switch (action.type) {
     case "inject_prompt":
       return {
-        continuationPrompt: `${renderContinuationEnvelope({
-          continuation: "workflow",
+        continuationPrompt: buildWorkflowContinuationPrompt({
           sessionId: input.sessionId,
-        })}\n${WORKFLOW_CONTINUATION_MARKER}\n${action.prompt}`,
+          body: action.prompt ?? "",
+        }),
         switchAgent: null,
       }
     case "complete":
       return {
-        continuationPrompt: `${renderContinuationEnvelope({
-          continuation: "workflow",
+        continuationPrompt: buildWorkflowContinuationPrompt({
           sessionId: input.sessionId,
-        })}\n${WORKFLOW_CONTINUATION_MARKER}\n## Workflow Complete\n${action.reason ?? "All steps have been completed."}\n\nSummarize what was accomplished across all workflow steps.`,
+          body: `## Workflow Complete\n${action.reason ?? "All steps have been completed."}\n\nSummarize what was accomplished across all workflow steps.`,
+        }),
         switchAgent: null,
       }
     case "pause":
       return {
-        continuationPrompt: `${renderContinuationEnvelope({
-          continuation: "workflow",
+        continuationPrompt: buildWorkflowContinuationPrompt({
           sessionId: input.sessionId,
-        })}\n${WORKFLOW_CONTINUATION_MARKER}\n## Workflow Paused\n${action.reason ?? "The workflow has been paused."}\n\nInform the user about the pause and what to do next.`,
+          body: `## Workflow Paused\n${action.reason ?? "The workflow has been paused."}\n\nInform the user about the pause and what to do next.`,
+        }),
         switchAgent: null,
       }
     case "none":
@@ -213,10 +210,10 @@ export function checkWorkflowContinuation(input: {
  * Returns a markdown warning string if active, or null otherwise.
  */
 function checkWorkStatePlanActive(directory: string): string | null {
-  const state = readWorkState(directory)
+  const state = PlanService.readWorkState(directory)
   if (!state) return null
 
-  const progress = getPlanProgress(state.active_plan)
+  const progress = PlanService.getPlanProgress(state.active_plan)
   if (progress.isComplete) return null
 
   const status = state.paused ? "paused" : "running"
@@ -264,7 +261,7 @@ function extractArguments(promptText: string): string {
  * List available workflow definitions.
  */
 function listAvailableWorkflows(directory: string, workflowDirs?: string[]): WorkflowHookResult {
-  const workflows = discoverWorkflows(directory, workflowDirs)
+  const workflows = WorkflowService.discoverWorkflows(directory, workflowDirs)
   if (workflows.length === 0) {
     return {
       contextInjection:
@@ -274,7 +271,7 @@ function listAvailableWorkflows(directory: string, workflowDirs?: string[]): Wor
   }
 
   const listing = workflows
-    .map((w) => `  - **${w.definition.name}**: ${w.definition.description ?? "(no description)"} (${w.scope})`)
+    .map((workflow) => `  - **${workflow.definition.name}**: ${workflow.definition.description ?? "(no description)"} (${workflow.scope})`)
     .join("\n")
 
   return {
@@ -287,12 +284,12 @@ function listAvailableWorkflows(directory: string, workflowDirs?: string[]): Wor
  * Resume the currently active workflow instance.
  */
 function resumeActiveWorkflow(directory: string): WorkflowHookResult {
-  const action = engineResumeWorkflow(directory)
+  const action = WorkflowService.resumeWorkflow(directory)
   if (action.type === "none") {
     // Instance exists but isn't paused — it's running. Return current step info.
-    const instance = getActiveWorkflowInstance(directory)
+    const instance = WorkflowService.getActiveWorkflowInstance(directory)
     if (instance && instance.status === "running") {
-      const definition = loadWorkflowDefinition(instance.definition_path)
+      const definition = WorkflowService.loadWorkflowDefinition(instance.definition_path)
       if (definition) {
         const currentStep = definition.steps.find((s) => s.id === instance.current_step_id)
         return {
@@ -320,7 +317,7 @@ function startNewWorkflow(
   directory: string,
   workflowDirs?: string[],
 ): WorkflowHookResult {
-  const workflows = discoverWorkflows(directory, workflowDirs)
+  const workflows = WorkflowService.discoverWorkflows(directory, workflowDirs)
   const match = workflows.find((w) => w.definition.name === workflowName)
 
   if (!match) {
@@ -331,7 +328,7 @@ function startNewWorkflow(
     }
   }
 
-  const action = startWorkflow({
+  const action = WorkflowService.startWorkflow({
     definition: match.definition,
     definitionPath: match.path,
     goal,

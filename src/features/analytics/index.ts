@@ -45,6 +45,8 @@ export {
 
 export { SessionTracker, createSessionTracker } from "./session-tracker"
 
+export type { AnalyticsService } from "../../domain/analytics/analytics-service"
+
 
 export { generateTokenReport, getTokenReport } from "./token-report"
 

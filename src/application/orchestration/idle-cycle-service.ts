@@ -1,10 +1,13 @@
 import type { CreatedHooks } from "../../hooks/create-hooks"
 import type { RuntimeEffect } from "../../runtime/opencode/effects"
+import { createWorkflowService } from "../../domain/workflows/workflow-service"
 import {
   shouldCheckWorkContinuation,
   shouldCheckWorkflowContinuation,
   shouldFinalizeTodos,
 } from "./execution-coordinator"
+
+const WorkflowService = createWorkflowService()
 
 export async function runIdleCycle(input: {
   sessionId: string
@@ -15,8 +18,9 @@ export async function runIdleCycle(input: {
   todoContinuationEnforcer: { checkAndFinalize: (sessionId: string) => Promise<void> } | null
 }): Promise<RuntimeEffect[]> {
   const effects: RuntimeEffect[] = []
+  const activeWorkflow = WorkflowService.getActiveWorkflowInstance(input.directory)
 
-  if (shouldCheckWorkflowContinuation(input.hooks, input.directory) && input.hooks.workflowContinuation) {
+  if (shouldCheckWorkflowContinuation(input.hooks, input.directory) && activeWorkflow && input.hooks.workflowContinuation) {
     const result = input.hooks.workflowContinuation(input.sessionId, input.lastAssistantMessage, input.lastUserMessage)
     if (result.continuationPrompt) {
       effects.push({

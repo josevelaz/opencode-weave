@@ -1,4 +1,4 @@
-import { readSessionSummaries } from "../../features/analytics/storage"
+import { readSessionSummaries } from "../../features/analytics"
 import { generateTokenReport } from "../../features/analytics/token-report"
 import type { RuntimeEffect } from "../../runtime/opencode/effects"
 

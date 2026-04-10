@@ -1,53 +1,15 @@
-import { readWorkState } from "../../features/work-state"
-import { getActiveWorkflowInstance } from "../../features/workflow"
+import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-lease-fs-store"
 import type { CreatedHooks } from "../../hooks/create-hooks"
+import type { ExecutionLeaseSnapshot } from "../../domain/session/execution-lease"
+
+const ExecutionLeaseStore = createExecutionLeaseFsStore()
 
 export type ExecutionOwner = "none" | "plan" | "workflow"
 
-export interface ExecutionSnapshot {
-  owner: ExecutionOwner
-  hasActivePlan: boolean
-  hasActiveWorkflow: boolean
-  activePlanPaused: boolean
-  activeWorkflowPaused: boolean
-}
+export interface ExecutionSnapshot extends ExecutionLeaseSnapshot {}
 
 export function getExecutionSnapshot(directory: string): ExecutionSnapshot {
-  const workState = readWorkState(directory)
-  const workflow = getActiveWorkflowInstance(directory)
-
-  const hasActivePlan = !!workState
-  const activePlanPaused = workState?.paused === true
-  const hasActiveWorkflow = !!workflow && (workflow.status === "running" || workflow.status === "paused")
-  const activeWorkflowPaused = workflow?.status === "paused"
-
-  if (hasActiveWorkflow && !activeWorkflowPaused) {
-    return {
-      owner: "workflow",
-      hasActivePlan,
-      hasActiveWorkflow,
-      activePlanPaused,
-      activeWorkflowPaused,
-    }
-  }
-
-  if (hasActivePlan && !activePlanPaused) {
-    return {
-      owner: "plan",
-      hasActivePlan,
-      hasActiveWorkflow,
-      activePlanPaused,
-      activeWorkflowPaused,
-    }
-  }
-
-  return {
-    owner: "none",
-    hasActivePlan,
-    hasActiveWorkflow,
-    activePlanPaused,
-    activeWorkflowPaused,
-  }
+  return ExecutionLeaseStore.getExecutionSnapshot(directory)
 }
 
 export function shouldAutoPauseForUserMessage(input: {

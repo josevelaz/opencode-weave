@@ -6,21 +6,15 @@ import type { PluginContext, ToolsRecord } from "../../plugin/types"
 import type { SessionTracker } from "../../features/analytics"
 import { createCompactionTodoPreserver } from "../../hooks/compaction-todo-preserver"
 import { createTodoContinuationEnforcer } from "../../hooks/todo-continuation-enforcer"
-import { pauseWork, readWorkState } from "../../features/work-state"
+import { pauseWork } from "../../features/work-state"
 import { parseCommandEnvelope } from "./command-envelope"
 import { applyRuntimeEffects } from "./apply-effects"
-import { executeStartWorkCommand } from "../../application/commands/start-work-command"
-import { executeRunWorkflowCommand } from "../../application/commands/run-workflow-command"
 import { routeCommandExecuteBefore } from "../../application/commands/command-router"
 import { routeRuntimeEvent, handlePauseExecutionEffect } from "./event-router"
 import { logDelegation, debug, info } from "../../shared/log"
 import { setContextLimit } from "../../hooks"
 import type { RuntimeEffect } from "./effects"
-import {
-  createRuntimeLifecyclePolicySurface,
-  shouldPausePlanForMessage,
-  shouldRunWorkflowCommand,
-} from "../../application/orchestration/session-runtime"
+import { createRuntimeLifecyclePolicySurface } from "../../application/orchestration/session-runtime"
 
 export function createPluginAdapter(args: {
   pluginConfig: WeaveConfig
@@ -108,57 +102,22 @@ export function createPluginAdapter(args: {
           .trim() ?? ""
 
       const parsedEnvelope = parseCommandEnvelope(promptText)
-      const isRunWorkflowCommand = parsedEnvelope?.kind === "builtin-command" && parsedEnvelope.command === "run-workflow"
 
       const effects: RuntimeEffect[] = [
-        ...(await lifecyclePolicy.onChatMessage({ directory, sessionId: sessionID, promptText })),
-        ...executeStartWorkCommand({
-          hooks,
-          promptText,
+        ...(await lifecyclePolicy.onChatMessage({
+          directory,
           sessionId: sessionID,
-          isWorkflowCommand: isRunWorkflowCommand,
-        }),
-        ...executeRunWorkflowCommand({
-          hooks,
           promptText,
-          sessionId: sessionID,
-          isRunWorkflowCommand,
-        }),
+          parsedEnvelope,
+          hooks,
+        })),
       ]
-
-      if (hooks.workflowCommand && promptText && shouldRunWorkflowCommand(directory, hooks)) {
-        const cmdResult = hooks.workflowCommand(promptText)
-        if (cmdResult.handled) {
-          if (cmdResult.switchAgent) {
-            effects.push({ type: "switchAgent", agent: cmdResult.switchAgent })
-          }
-          if (cmdResult.contextInjection) {
-            effects.push({ type: "appendPromptText", text: cmdResult.contextInjection })
-          }
-        }
-      }
 
       if (promptText && sessionID) {
         const isSystemInjected = parsedEnvelope?.kind === "continuation" || promptText.includes("<command-instruction>")
         if (!isSystemInjected) {
           lastUserMessageText.set(sessionID, promptText)
           todoContinuationEnforcer?.clearFinalized(sessionID)
-        }
-      }
-
-      if (directory) {
-        const isBuiltinCommand = parsedEnvelope?.kind === "builtin-command"
-        const isContinuation = parsedEnvelope?.kind === "continuation"
-
-        if (shouldPausePlanForMessage({ directory, isBuiltinCommand: !!isBuiltinCommand, isContinuation: !!isContinuation })) {
-          const state = readWorkState(directory)
-          if (state && !state.paused) {
-            effects.push({
-              type: "pauseExecution",
-              target: "plan",
-              reason: "Auto-paused: user message received during active plan",
-            })
-          }
         }
       }
 
@@ -216,25 +175,6 @@ export function createPluginAdapter(args: {
 
     handleToolExecuteBefore: async (input: { sessionID: string; tool: string; callID: string; agent?: string }, output: { args?: Record<string, unknown> | null }) => {
       const toolArgs = output.args as Record<string, unknown> | null | undefined
-      const filePath = (toolArgs?.file_path as string | undefined) ?? (toolArgs?.path as string | undefined) ?? ""
-
-      if (filePath && hooks.shouldInjectRules && hooks.getRulesForFile && hooks.shouldInjectRules(input.tool)) {
-        hooks.getRulesForFile(filePath)
-      }
-
-      if (filePath && hooks.writeGuard && input.tool === "read") {
-        hooks.writeGuard.trackRead(filePath)
-      }
-
-      if (filePath && hooks.patternMdOnly) {
-        const agentName = input.agent
-        if (agentName) {
-          const check = hooks.patternMdOnly(agentName, input.tool, filePath)
-          if (!check.allowed) {
-            throw new Error(check.reason ?? "Pattern agent is restricted to .md files in .weave/")
-          }
-        }
-      }
 
       if (input.tool === "task" && toolArgs) {
         const agentArg = (toolArgs.subagent_type as string | undefined) ?? (toolArgs.description as string | undefined) ?? "unknown"
@@ -247,6 +187,9 @@ export function createPluginAdapter(args: {
         sessionId: input.sessionID,
         tool: input.tool,
         callId: input.callID,
+        hooks,
+        agent: input.agent,
+        toolArgs,
       })))
       if (tracker && hooks.analyticsEnabled) {
         const agentArg = input.tool === "task" && toolArgs
@@ -270,6 +213,8 @@ export function createPluginAdapter(args: {
         sessionId: input.sessionID,
         tool: input.tool,
         callId: input.callID,
+        hooks,
+        toolArgs: input.args,
       })))
       if (tracker && hooks.analyticsEnabled) {
         const inputArgs = input.args

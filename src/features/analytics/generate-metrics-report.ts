@@ -1,13 +1,15 @@
 import type { WorkState } from "../work-state/types"
+import { createPlanFsRepository } from "../../infrastructure/fs/plan-fs-repository"
 import type { MetricsReport } from "./types"
 import { extractPlannedFiles } from "./plan-parser"
 import { getChangedFiles } from "./git-diff"
 import { calculateAdherence } from "./adherence"
 import { aggregateTokensDetailed } from "./plan-token-aggregator"
 import { writeMetricsReport } from "./storage"
-import { getPlanName, getPlanProgress } from "../work-state/storage"
 import { calculateQualityScore } from "./quality-score"
 import { debug, warn } from "../../shared/log"
+
+const PlanRepository = createPlanFsRepository()
 
 /**
  * Generate a metrics report for a completed plan.
@@ -48,7 +50,7 @@ export function generateMetricsReport(
     // 6. Calculate quality score
     let quality: MetricsReport["quality"]
     try {
-      const progress = getPlanProgress(state.active_plan)
+      const progress = PlanRepository.getPlanProgress(state.active_plan)
       const totalTokens = detailed.total.input + detailed.total.output + detailed.total.reasoning
       quality = calculateQualityScore({
         adherence,
@@ -69,7 +71,7 @@ export function generateMetricsReport(
 
     // 7. Build the report
     const report: MetricsReport = {
-      planName: getPlanName(state.active_plan),
+      planName: PlanRepository.getPlanName(state.active_plan),
       generatedAt: new Date().toISOString(),
       adherence,
       quality,

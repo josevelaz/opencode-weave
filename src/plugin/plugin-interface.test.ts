@@ -471,6 +471,30 @@ describe("createPluginInterface", () => {
     expect(tracked).toEqual(["/some/file.ts"])
   })
 
+  it("tool.execute.before blocks non-markdown Pattern writes through lifecycle policy", async () => {
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks: makeHooks({
+        patternMdOnly: (agentName: string, toolName: string, filePath: string) => {
+          if (agentName === "pattern" && toolName === "write" && filePath.endsWith(".ts")) {
+            return { allowed: false, reason: "Pattern blocked" }
+          }
+          return { allowed: true }
+        },
+      }),
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    await expect(
+      iface["tool.execute.before"](
+        { tool: "write", sessionID: "s1", callID: "c2", agent: "pattern" },
+        { args: { file_path: "/some/file.ts" } },
+      ),
+    ).rejects.toThrow("Pattern blocked")
+  })
+
   it("chat.message injects start-work context into existing text part in-place", async () => {
     const hooks = makeHooks({
       startWork: (_promptText: string, _sessionId: string) => ({

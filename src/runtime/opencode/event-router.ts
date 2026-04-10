@@ -2,13 +2,12 @@ import { pauseWork, readWorkState } from "../../features/work-state"
 import { getPlanProgress } from "../../features/work-state/storage"
 import { generateMetricsReport } from "../../features/analytics/generate-metrics-report"
 import { getActiveWorkflowInstance, pauseWorkflow } from "../../features/workflow"
-import { clearTokenSession, getState as getTokenState, updateUsage } from "../../hooks"
+import { getState as getTokenState } from "../../hooks"
 import { info, warn } from "../../shared/log"
 import type { CreatedHooks } from "../../hooks/create-hooks"
 import type { PluginContext } from "../../plugin/types"
 import type { SessionTracker } from "../../features/analytics"
 import type { RuntimeEffect } from "./effects"
-import { runIdleCycle } from "../../application/orchestration/idle-cycle-service"
 import type { RuntimeLifecyclePolicySurface } from "../../application/orchestration/session-runtime"
 
 export interface EventRouterState {
@@ -41,18 +40,7 @@ export async function routeRuntimeEvent(input: {
     const evt = event as { type: string; properties?: { sessionID?: string; info?: { id?: string } } }
     const sessionId = evt.properties?.sessionID ?? evt.properties?.info?.id ?? ""
     if (sessionId) {
-      effects.push(...(await lifecyclePolicy.onCompaction({ directory, sessionId })))
-    }
-    if (sessionId && hooks.compactionRecovery) {
-      const result = hooks.compactionRecovery(sessionId)
-      if (result.continuationPrompt) {
-        effects.push({
-          type: "injectPromptAsync",
-          sessionId,
-          text: result.continuationPrompt,
-          agent: result.switchAgent,
-        })
-      }
+      effects.push(...(await lifecyclePolicy.onCompaction({ directory, sessionId, hooks })))
     }
   }
 
@@ -70,9 +58,12 @@ export async function routeRuntimeEvent(input: {
   if (event.type === "session.deleted") {
     const evt = event as { type: string; properties: { info: { id: string } } }
     const sessionId = evt.properties.info.id
-    effects.push(...(await lifecyclePolicy.onSessionDeleted({ directory, sessionId })))
-    clearTokenSession(sessionId)
-    todoContinuationEnforcer?.clearSession(sessionId)
+    effects.push(...(await lifecyclePolicy.onSessionDeleted({
+      directory,
+      sessionId,
+      hooks,
+      todoContinuationEnforcer,
+    })))
 
     if (tracker && hooks.analyticsEnabled) {
       tracker.endSession(sessionId)
@@ -99,27 +90,11 @@ export async function routeRuntimeEvent(input: {
     }
     const info = evt.properties?.info
     if (info?.role === "assistant" && info.sessionID) {
-      if (hooks.checkContextWindow) {
-        const inputTokens = info.tokens?.input ?? 0
-        if (inputTokens > 0) {
-          updateUsage(info.sessionID, inputTokens)
-          const tokenState = getTokenState(info.sessionID)
-          if (tokenState && tokenState.maxTokens > 0) {
-            const result = hooks.checkContextWindow({
-              usedTokens: tokenState.usedTokens,
-              maxTokens: tokenState.maxTokens,
-              sessionId: info.sessionID,
-            })
-            if (result.action !== "none") {
-              warn("[context-window] Threshold crossed", {
-                sessionId: info.sessionID,
-                action: result.action,
-                usagePct: result.usagePct,
-              })
-            }
-          }
-        }
-      }
+      effects.push(...(await lifecyclePolicy.onAssistantMessage({
+        sessionId: info.sessionID,
+        hooks,
+        inputTokens: info.tokens?.input ?? 0,
+      })))
 
       if (tracker && hooks.analyticsEnabled) {
         if (typeof info.cost === "number" && info.cost > 0) {
@@ -164,16 +139,14 @@ export async function routeRuntimeEvent(input: {
     const evt = event as { type: string; properties: { sessionID: string } }
     const sessionId = evt.properties?.sessionID ?? ""
     if (sessionId) {
-      effects.push(...(await lifecyclePolicy.onSessionIdle({ directory, sessionId })))
-      const idleEffects = await runIdleCycle({
+      effects.push(...(await lifecyclePolicy.onSessionIdle({
         sessionId,
         directory,
         hooks,
         lastAssistantMessage: state.lastAssistantMessageText.get(sessionId) ?? undefined,
         lastUserMessage: state.lastUserMessageText.get(sessionId) ?? undefined,
         todoContinuationEnforcer,
-      })
-      effects.push(...idleEffects)
+      })))
     }
   }
 

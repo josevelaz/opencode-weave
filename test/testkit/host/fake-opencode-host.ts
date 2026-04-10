@@ -39,6 +39,7 @@ export interface ToolExecutionInput {
   sessionID: string
   tool: string
   callID: string
+  agent?: string
   args?: Record<string, unknown>
 }
 
@@ -74,6 +75,20 @@ export class FakeOpencodeHost {
     await this.plugin["chat.message"]({ sessionID: args.sessionID }, output as never)
     this.outputs.set(args.sessionID, output)
     return output
+  }
+
+  async sendUserMessage(args: {
+    sessionID: string
+    text: string
+    agent?: string
+    message?: Record<string, unknown>
+  }): Promise<HostOutput> {
+    return this.sendChatMessage({
+      sessionID: args.sessionID,
+      agent: args.agent,
+      message: args.message,
+      parts: [{ type: "text", text: args.text }],
+    })
   }
 
   async sendStartWork(args: {
@@ -149,9 +164,9 @@ export class FakeOpencodeHost {
         sessionID: args.sessionID,
         tool: args.tool,
         callID: args.callID,
-        ...(args.args ? { args: args.args } : {}),
+        ...(args.agent ? { agent: args.agent } : {}),
       } as never,
-      {} as never,
+      { ...(args.args ? { args: args.args } : {}) } as never,
     )
 
     await this.plugin["tool.execute.after"](

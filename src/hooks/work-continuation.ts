@@ -3,8 +3,12 @@
  * and returns a continuation prompt to keep the executor going.
  */
 
-import { readWorkState, writeWorkState, getPlanProgress } from "../features/work-state"
+import { createPlanFsRepository } from "../infrastructure/fs/plan-fs-repository"
+import { createPlanService } from "../domain/plans/plan-service"
 import { renderContinuationEnvelope } from "../runtime/opencode/protocol"
+
+const PlanRepository = createPlanFsRepository()
+const PlanService = createPlanService(PlanRepository)
 
 /**
  * Marker embedded in continuation prompts so that `chat.message` can distinguish
@@ -34,7 +38,7 @@ export interface ContinuationResult {
 export function checkContinuation(input: ContinuationInput): ContinuationResult {
   const { directory } = input
 
-  const state = readWorkState(directory)
+  const state = PlanService.readWorkState(directory)
   if (!state) {
     return { continuationPrompt: null }
   }
@@ -49,7 +53,7 @@ export function checkContinuation(input: ContinuationInput): ContinuationResult 
     return { continuationPrompt: null }
   }
 
-  const progress = getPlanProgress(state.active_plan)
+  const progress = PlanService.getPlanProgress(state.active_plan)
   if (progress.isComplete) {
     return { continuationPrompt: null }
   }
@@ -60,22 +64,22 @@ export function checkContinuation(input: ContinuationInput): ContinuationResult 
     // First continuation call — initialize tracking fields
     state.continuation_completed_snapshot = progress.completed
     state.stale_continuation_count = 0
-    writeWorkState(directory, state)
+    PlanRepository.writeWorkState(directory, state)
   } else if (progress.completed > state.continuation_completed_snapshot) {
     // Progress was made — reset stale counter
     state.continuation_completed_snapshot = progress.completed
     state.stale_continuation_count = 0
-    writeWorkState(directory, state)
+    PlanRepository.writeWorkState(directory, state)
   } else {
     // No progress — increment stale counter
     state.stale_continuation_count = (state.stale_continuation_count ?? 0) + 1
     if (state.stale_continuation_count >= MAX_STALE_CONTINUATIONS) {
       // Auto-pause: inline write to preserve stale-tracking fields
       state.paused = true
-      writeWorkState(directory, state)
+      PlanRepository.writeWorkState(directory, state)
       return { continuationPrompt: null }
     }
-    writeWorkState(directory, state)
+    PlanRepository.writeWorkState(directory, state)
   }
 
   const remaining = progress.total - progress.completed

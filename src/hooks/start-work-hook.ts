@@ -3,21 +3,15 @@
  * creates/updates work state, and returns context for injection into the prompt.
  */
 
-import {
-  readWorkState,
-  writeWorkState,
-  clearWorkState,
-  appendSessionId,
-  createWorkState,
-  findPlans,
-  getPlanProgress,
-  getPlanName,
-  validatePlan,
-  resumeWork,
-} from "../features/work-state"
+import { validatePlan } from "../features/work-state"
 import type { ValidationResult } from "../features/work-state"
-import { getActiveWorkflowInstance, loadWorkflowDefinition } from "../features/workflow"
+import { createPlanFsRepository } from "../infrastructure/fs/plan-fs-repository"
+import { createPlanService } from "../domain/plans/plan-service"
+import { createWorkflowService } from "../domain/workflows/workflow-service"
 import { parseBuiltinCommandEnvelope } from "../runtime/opencode/command-envelope"
+
+const PlanService = createPlanService(createPlanFsRepository())
+const WorkflowService = createWorkflowService()
 
 export interface StartWorkInput {
   promptText: string
@@ -52,8 +46,8 @@ export function handleStartWork(input: StartWorkInput): StartWorkResult {
   }
 
   const explicitPlanName = envelope.arguments.trim() || extractPlanName(promptText)
-  const existingState = readWorkState(directory)
-  const allPlans = findPlans(directory)
+  const existingState = PlanService.readWorkState(directory)
+  const allPlans = PlanService.findPlans(directory)
 
   // Case 1: Explicit plan name provided
   if (explicitPlanName) {
@@ -62,20 +56,19 @@ export function handleStartWork(input: StartWorkInput): StartWorkResult {
 
   // Case 2: Existing work state — resume
   if (existingState) {
-    const progress = getPlanProgress(existingState.active_plan)
+    const progress = PlanService.getPlanProgress(existingState.active_plan)
     if (!progress.isComplete) {
       // Validate before resuming — a plan may have been edited and become malformed
       const validation = validatePlan(existingState.active_plan, directory)
       if (!validation.valid) {
-        clearWorkState(directory)
+        PlanService.clearExecution(directory)
         return {
           switchAgent: "tapestry",
           contextInjection: `## Plan Validation Failed\nThe active plan "${existingState.plan_name}" has structural issues. Work state has been cleared.\n\n${formatValidationResults(validation)}\n\nTell the user to fix the plan file and run /start-work again.`,
         }
       }
-      appendSessionId(directory, sessionId)
-      resumeWork(directory)
-      const resumeContext = buildResumeContext(existingState.active_plan, existingState.plan_name, progress, existingState.start_sha, directory)
+      const resumedState = PlanService.resumeExecution(directory, sessionId) ?? existingState
+      const resumeContext = buildResumeContext(resumedState.active_plan, resumedState.plan_name, progress, resumedState.start_sha, directory)
       if (validation.warnings.length > 0) {
         return {
           switchAgent: "tapestry",
@@ -99,13 +92,13 @@ export function handleStartWork(input: StartWorkInput): StartWorkResult {
  * Returns a markdown warning string if active, or null otherwise.
  */
 function checkWorkflowActive(directory: string): string | null {
-  const instance = getActiveWorkflowInstance(directory)
+  const instance = WorkflowService.getActiveWorkflowInstance(directory)
   if (!instance) return null
   if (instance.status !== "running" && instance.status !== "paused") return null
 
-  const definition = loadWorkflowDefinition(instance.definition_path)
+  const definition = WorkflowService.loadWorkflowDefinition(instance.definition_path)
   const totalSteps = definition ? definition.steps.length : 0
-  const completedSteps = Object.values(instance.steps).filter((s) => s.status === "completed").length
+  const completedSteps = Object.values(instance.steps).filter((step) => step.status === "completed").length
 
   const status = instance.status === "paused" ? "paused" : "running"
 
@@ -142,13 +135,13 @@ function handleExplicitPlan(
   sessionId: string,
   directory: string,
 ): StartWorkResult {
-  const matched = findPlanByName(allPlans, requestedName)
+  const matched = PlanService.matchPlanByName(allPlans, requestedName)
 
   if (!matched) {
-    const incompletePlans = allPlans.filter((p) => !getPlanProgress(p).isComplete)
+    const incompletePlans = PlanService.findIncompletePlans(allPlans)
     const listing =
       incompletePlans.length > 0
-        ? incompletePlans.map((p) => `  - ${getPlanName(p)}`).join("\n")
+        ? incompletePlans.map((p) => `  - ${PlanService.getPlanName(p)}`).join("\n")
         : "  (none)"
     return {
       switchAgent: "tapestry",
@@ -156,11 +149,11 @@ function handleExplicitPlan(
     }
   }
 
-  const progress = getPlanProgress(matched)
+  const progress = PlanService.getPlanProgress(matched)
   if (progress.isComplete) {
     return {
       switchAgent: "tapestry",
-      contextInjection: `## Plan Already Complete\nThe plan "${getPlanName(matched)}" has all ${progress.total} tasks completed.\nTell the user this plan is already done and suggest creating a new one with Pattern.`,
+      contextInjection: `## Plan Already Complete\nThe plan "${PlanService.getPlanName(matched)}" has all ${progress.total} tasks completed.\nTell the user this plan is already done and suggest creating a new one with Pattern.`,
     }
   }
 
@@ -168,17 +161,14 @@ function handleExplicitPlan(
   const validation = validatePlan(matched, directory)
   if (!validation.valid) {
     return {
-      switchAgent: "tapestry",
-      contextInjection: `## Plan Validation Failed\nThe plan "${getPlanName(matched)}" has structural issues that must be fixed before execution can begin.\n\n${formatValidationResults(validation)}\n\nTell the user to fix these issues in the plan file and try again.`,
-    }
+        switchAgent: "tapestry",
+        contextInjection: `## Plan Validation Failed\nThe plan "${PlanService.getPlanName(matched)}" has structural issues that must be fixed before execution can begin.\n\n${formatValidationResults(validation)}\n\nTell the user to fix these issues in the plan file and try again.`,
+      }
   }
 
-  // Create fresh state for this plan
-  clearWorkState(directory)
-  const state = createWorkState(matched, sessionId, "tapestry", directory)
-  writeWorkState(directory, state)
+  const state = PlanService.createExecution(directory, matched, sessionId, "tapestry")
 
-  const freshContext = buildFreshContext(matched, getPlanName(matched), progress, state.start_sha, directory)
+  const freshContext = buildFreshContext(matched, PlanService.getPlanName(matched), progress, state.start_sha, directory)
   if (validation.warnings.length > 0) {
     return {
       switchAgent: "tapestry",
@@ -207,7 +197,7 @@ function handlePlanDiscovery(
     }
   }
 
-  const incompletePlans = allPlans.filter((p) => !getPlanProgress(p).isComplete)
+  const incompletePlans = PlanService.findIncompletePlans(allPlans)
 
   if (incompletePlans.length === 0) {
     return {
@@ -219,21 +209,20 @@ function handlePlanDiscovery(
 
   if (incompletePlans.length === 1) {
     const plan = incompletePlans[0]
-    const progress = getPlanProgress(plan)
+    const progress = PlanService.getPlanProgress(plan)
 
     // Validate the plan before creating work state
     const validation = validatePlan(plan, directory)
     if (!validation.valid) {
       return {
         switchAgent: "tapestry",
-        contextInjection: `## Plan Validation Failed\nThe plan "${getPlanName(plan)}" has structural issues that must be fixed before execution can begin.\n\n${formatValidationResults(validation)}\n\nTell the user to fix these issues in the plan file and try again.`,
+        contextInjection: `## Plan Validation Failed\nThe plan "${PlanService.getPlanName(plan)}" has structural issues that must be fixed before execution can begin.\n\n${formatValidationResults(validation)}\n\nTell the user to fix these issues in the plan file and try again.`,
       }
     }
 
-    const state = createWorkState(plan, sessionId, "tapestry", directory)
-    writeWorkState(directory, state)
+    const state = PlanService.createExecution(directory, plan, sessionId, "tapestry")
 
-    const freshContext = buildFreshContext(plan, getPlanName(plan), progress, state.start_sha, directory)
+    const freshContext = buildFreshContext(plan, PlanService.getPlanName(plan), progress, state.start_sha, directory)
     if (validation.warnings.length > 0) {
       return {
         switchAgent: "tapestry",
@@ -249,8 +238,8 @@ function handlePlanDiscovery(
   // Multiple incomplete plans — list them for the user to choose
   const listing = incompletePlans
     .map((p) => {
-      const progress = getPlanProgress(p)
-      return `  - **${getPlanName(p)}** (${progress.completed}/${progress.total} tasks done)`
+      const progress = PlanService.getPlanProgress(p)
+      return `  - **${PlanService.getPlanName(p)}** (${progress.completed}/${progress.total} tasks done)`
     })
     .join("\n")
 
@@ -258,17 +247,6 @@ function handlePlanDiscovery(
     switchAgent: "tapestry",
     contextInjection: `## Multiple Plans Found\nThere are ${incompletePlans.length} incomplete plans:\n${listing}\n\nAsk the user which plan to work on. They can run \`/start-work [plan-name]\` to select one.`,
   }
-}
-
-/**
- * Find a plan by name (exact match first, then partial).
- */
-function findPlanByName(plans: string[], requestedName: string): string | null {
-  const lower = requestedName.toLowerCase()
-  const exact = plans.find((p) => getPlanName(p).toLowerCase() === lower)
-  if (exact) return exact
-  const partial = plans.find((p) => getPlanName(p).toLowerCase().includes(lower))
-  return partial || null
 }
 
 /**

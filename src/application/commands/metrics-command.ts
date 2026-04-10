@@ -1,4 +1,4 @@
-import { readMetricsReports, readSessionSummaries } from "../../features/analytics/storage"
+import { readMetricsReports, readSessionSummaries } from "../../features/analytics"
 import { formatMetricsMarkdown } from "../../features/analytics/format-metrics"
 import type { RuntimeEffect } from "../../runtime/opencode/effects"
 
