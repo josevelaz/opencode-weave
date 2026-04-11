@@ -9,16 +9,21 @@ import type { PluginContext } from "../../plugin/types"
 import type { SessionTracker } from "../../features/analytics"
 import type { RuntimeEffect } from "./effects"
 import type { RuntimeLifecyclePolicySurface } from "../../application/orchestration/session-runtime"
+import { doesSessionOwnExecution } from "../../application/orchestration/execution-coordinator"
+import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-lease-fs-store"
 
 export interface EventRouterState {
   lastAssistantMessageText: Map<string, string>
   lastUserMessageText: Map<string, string>
 }
 
+const ExecutionLeaseRepository = createExecutionLeaseFsStore()
+
 export async function routeRuntimeEvent(input: {
   event: { type: string; properties?: unknown }
   directory: string
   hooks: CreatedHooks
+  enabledAgents?: ReadonlySet<string>
   client?: PluginContext["client"]
   tracker?: SessionTracker
   state: EventRouterState
@@ -29,7 +34,7 @@ export async function routeRuntimeEvent(input: {
   } | null
   lifecyclePolicy: RuntimeLifecyclePolicySurface
 }): Promise<RuntimeEffect[]> {
-  const { event, directory, hooks, client, tracker, state, compactionPreserver, todoContinuationEnforcer, lifecyclePolicy } = input
+  const { event, directory, hooks, enabledAgents, client, tracker, state, compactionPreserver, todoContinuationEnforcer, lifecyclePolicy } = input
   const effects: RuntimeEffect[] = []
 
   if (compactionPreserver) {
@@ -40,7 +45,7 @@ export async function routeRuntimeEvent(input: {
     const evt = event as { type: string; properties?: { sessionID?: string; info?: { id?: string } } }
     const sessionId = evt.properties?.sessionID ?? evt.properties?.info?.id ?? ""
     if (sessionId) {
-      effects.push(...(await lifecyclePolicy.onCompaction({ directory, sessionId, hooks })))
+      effects.push(...(await lifecyclePolicy.onCompaction({ directory, sessionId, hooks, enabledAgents })))
     }
   }
 
@@ -121,9 +126,17 @@ export async function routeRuntimeEvent(input: {
   }
 
   if (event.type === "tui.command.execute") {
-    const evt = event as { type: string; properties: { command: string } }
+    const evt = event as { type: string; properties: { command: string; sessionID?: string; sessionId?: string } }
     if (evt.properties?.command === "session.interrupt") {
-      effects.push({ type: "pauseExecution", target: "both", reason: "User interrupt" })
+      const sessionId = evt.properties.sessionID ?? evt.properties.sessionId ?? ""
+      if (sessionId && doesSessionOwnExecution(directory, sessionId)) {
+        effects.push({
+          type: "pauseExecution",
+          target: getOwnedExecutionTarget(directory, sessionId),
+          reason: "User interrupt",
+          sessionId,
+        })
+      }
     }
   }
 
@@ -153,12 +166,36 @@ export async function routeRuntimeEvent(input: {
   return effects
 }
 
-export function handlePauseExecutionEffect(input: { effectReason: string; directory: string }): void {
-  pauseWork(input.directory)
-  info("[work-continuation] User interrupt detected — work paused")
-  const activeWorkflow = getActiveWorkflowInstance(input.directory)
-  if (activeWorkflow && activeWorkflow.status === "running") {
-    pauseWorkflow(input.directory, input.effectReason)
-    info("[workflow] User interrupt detected — workflow paused")
+export function handlePauseExecutionEffect(input: { effectReason: string; directory: string; sessionId?: string; target?: "plan" | "workflow" | "both" | "none" }): void {
+  if (input.sessionId && !doesSessionOwnExecution(input.directory, input.sessionId)) {
+    return
   }
+  const target = input.target ?? (input.sessionId ? getOwnedExecutionTarget(input.directory, input.sessionId) : "none")
+  if (target === "plan") {
+    pauseWork(input.directory)
+    info("[work-continuation] User interrupt detected — work paused")
+    return
+  }
+  if (target === "workflow") {
+    const activeWorkflow = getActiveWorkflowInstance(input.directory)
+    if (activeWorkflow && activeWorkflow.status === "running") {
+      pauseWorkflow(input.directory, input.effectReason)
+      info("[workflow] User interrupt detected — workflow paused")
+    }
+  }
+}
+
+function getOwnedExecutionTarget(directory: string, sessionId: string): "plan" | "workflow" | "none" {
+  const snapshot = ExecutionLeaseRepository.getExecutionSnapshot(directory)
+  if (snapshot.sessionId !== sessionId) {
+    return "none"
+  }
+
+  if (snapshot.owner === "plan") {
+    return "plan"
+  }
+  if (snapshot.owner === "workflow") {
+    return "workflow"
+  }
+  return "none"
 }

@@ -39,6 +39,27 @@ describe("applyRuntimeEffects", () => {
     expect(calls[0].path.id).toBe("s1")
   })
 
+  it("restores agent identity without prompt text", async () => {
+    const calls: Array<{ path: { id: string }; body: { parts: Array<{ type: string; text?: string }>; agent?: string } }> = []
+    const client = {
+      session: {
+        promptAsync: async (input: { path: { id: string }; body: { parts: Array<{ type: string; text?: string }>; agent?: string } }) => {
+          calls.push(input)
+        },
+      },
+    }
+
+    await applyRuntimeEffects({
+      effects: [{ type: "restoreAgent", sessionId: "s2", agent: "loom" }],
+      client: client as never,
+    })
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].path.id).toBe("s2")
+    expect(calls[0].body.agent).toBe("Loom (Main Orchestrator)")
+    expect(calls[0].body.parts).toEqual([])
+  })
+
   it("appends command output as a new text part", async () => {
     const output = { parts: [] as Array<{ type: string; text: string }> }
 

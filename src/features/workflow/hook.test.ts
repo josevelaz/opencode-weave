@@ -15,6 +15,7 @@ import {
   getActiveWorkflowInstance,
   clearActiveInstance,
 } from "./storage"
+import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-lease-fs-store"
 import {
   WORKFLOWS_STATE_DIR,
   WORKFLOWS_DIR_PROJECT,
@@ -24,6 +25,7 @@ import { writeWorkState, createWorkState } from "../work-state/storage"
 import { WEAVE_DIR, PLANS_DIR } from "../work-state/constants"
 
 let testDir: string
+const ExecutionLeaseRepository = createExecutionLeaseFsStore()
 
 const TWO_STEP_DEF: WorkflowDefinition = {
   name: "test-workflow",
@@ -182,11 +184,13 @@ describe("handleRunWorkflow", () => {
     })
     expect(result.contextInjection).not.toBeNull()
     expect(result.contextInjection).toContain("Add OAuth2 login")
-    expect(result.switchAgent).toBeNull()
+    expect(result.switchAgent).toBe("loom")
 
     const instance = getActiveWorkflowInstance(testDir)
     expect(instance).not.toBeNull()
     expect(instance!.goal).toBe("Add OAuth2 login")
+    expect(ExecutionLeaseRepository.readExecutionLease(testDir)?.owner_kind).toBe("workflow")
+    expect(ExecutionLeaseRepository.readSessionRuntime(testDir, "sess-1")?.foreground_agent).toBe("loom")
   })
 
   it("resumes active workflow when no args provided", () => {
@@ -288,7 +292,8 @@ describe("checkWorkflowContinuation", () => {
     })
     expect(result.continuationPrompt).not.toBeNull()
     expect(result.continuationPrompt).toContain(WORKFLOW_CONTINUATION_MARKER)
-    expect(result.switchAgent).toBeNull()
+    expect(result.switchAgent).toBe("tapestry")
+    expect(ExecutionLeaseRepository.readExecutionLease(testDir)?.executor_agent).toBe("tapestry")
   })
 
   it("includes WORKFLOW_CONTINUATION_MARKER in all continuation prompts", () => {
@@ -323,6 +328,43 @@ describe("checkWorkflowContinuation", () => {
     expect(result.continuationPrompt).not.toBeNull()
     expect(result.continuationPrompt).toContain(WORKFLOW_CONTINUATION_MARKER)
     expect(result.continuationPrompt).toContain("Workflow Complete")
+  })
+
+  it("ignores workflow continuation for sessions not bound to the workflow", () => {
+    setupRunningInstance(testDir)
+
+    const result = checkWorkflowContinuation({
+      sessionId: "sess-other",
+      directory: testDir,
+      lastUserMessage: "approved, let's proceed",
+    })
+
+    expect(result.continuationPrompt).toBeNull()
+    expect(result.switchAgent).toBeNull()
+  })
+
+  it("ignores stale historical sessions after workflow ownership is rebound", () => {
+    const instance = setupRunningInstance(testDir)
+    instance.session_ids = ["sess-1", "sess-2"]
+    writeWorkflowInstance(testDir, instance)
+    ExecutionLeaseRepository.writeExecutionLease(testDir, {
+      owner_kind: "workflow",
+      owner_ref: `${instance.instance_id}/${instance.current_step_id}`,
+      status: "running",
+      session_id: "sess-2",
+      executor_agent: "loom",
+      started_at: instance.started_at,
+      updated_at: instance.started_at,
+    })
+
+    const result = checkWorkflowContinuation({
+      sessionId: "sess-1",
+      directory: testDir,
+      lastUserMessage: "approved, let's proceed",
+    })
+
+    expect(result.continuationPrompt).toBeNull()
+    expect(result.switchAgent).toBeNull()
   })
 
   it("does not advance when autonomous step has no completion signal", () => {
@@ -389,6 +431,81 @@ describe("handleRunWorkflow with active work-state plan", () => {
     expect(result.contextInjection).toContain("Proceed anyway")
     expect(result.contextInjection).toContain("Abort the plan first")
     expect(result.contextInjection).toContain("Cancel")
+  })
+
+  it("returns the current step agent when starting a workflow", () => {
+    writeDefinitionFile(testDir)
+
+    const result = handleRunWorkflow({
+      promptText: makePromptText('test-workflow "Build a thing"'),
+      sessionId: "sess-1",
+      directory: testDir,
+    })
+
+    expect(result.switchAgent).toBe("loom")
+  })
+
+  it("returns the current step agent when resuming a paused workflow", () => {
+    writeDefinitionFile(testDir)
+    handleRunWorkflow({
+      promptText: makePromptText('test-workflow "Build a thing"'),
+      sessionId: "sess-1",
+      directory: testDir,
+    })
+
+    const instance = getActiveWorkflowInstance(testDir)
+    expect(instance).not.toBeNull()
+    instance!.status = "paused"
+    writeWorkflowInstance(testDir, instance!)
+
+    const result = handleRunWorkflow({
+      promptText: makePromptText("test-workflow"),
+      sessionId: "sess-1",
+      directory: testDir,
+    })
+
+    expect(result.switchAgent).toBe("loom")
+  })
+
+  it("blocks resume from a non-owning session when workflow is paused", () => {
+    writeDefinitionFile(testDir)
+    handleRunWorkflow({
+      promptText: makePromptText('test-workflow "Build a thing"'),
+      sessionId: "sess-1",
+      directory: testDir,
+    })
+
+    const instance = getActiveWorkflowInstance(testDir)
+    expect(instance).not.toBeNull()
+    instance!.status = "paused"
+    writeWorkflowInstance(testDir, instance!)
+
+    const result = handleRunWorkflow({
+      promptText: makePromptText("test-workflow"),
+      sessionId: "sess-2",
+      directory: testDir,
+    })
+
+    expect(result.switchAgent).toBeNull()
+    expect(result.contextInjection).toBeNull()
+  })
+
+  it("blocks start attempts from a non-owning session while workflow is active", () => {
+    writeDefinitionFile(testDir)
+    handleRunWorkflow({
+      promptText: makePromptText('test-workflow "Build a thing"'),
+      sessionId: "sess-1",
+      directory: testDir,
+    })
+
+    const result = handleRunWorkflow({
+      promptText: makePromptText('other-workflow "Do another thing"'),
+      sessionId: "sess-2",
+      directory: testDir,
+    })
+
+    expect(result.switchAgent).toBeNull()
+    expect(result.contextInjection).toContain("Workflow Owned By Another Session")
   })
 
   it("shows paused status when work-state plan is paused", () => {

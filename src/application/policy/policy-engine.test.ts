@@ -11,6 +11,8 @@ import { join } from "path"
 import { tmpdir } from "os"
 import { renderBuiltinCommandEnvelope } from "../../runtime/opencode/protocol"
 import { setContextLimit } from "../../hooks"
+import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-lease-fs-store"
+import { createExecutionLeaseState, createSessionRuntimeState } from "../../domain/session/execution-lease"
 
 function makeHooks(overrides?: Partial<CreatedHooks>): CreatedHooks {
   return {
@@ -66,6 +68,7 @@ describe("createPolicyEngine", () => {
 
     expect(effects).toEqual([
       { type: "switchAgent", agent: "tapestry" },
+      { type: "restoreAgent", sessionId: "sess-1", agent: "tapestry" },
       { type: "appendPromptText", text: "plan context" },
     ])
   })
@@ -74,6 +77,13 @@ describe("createPolicyEngine", () => {
     const directory = mkdtempSync(join(tmpdir(), "weave-policy-engine-"))
     mkdirSync(join(directory, ".weave"), { recursive: true })
     writeWorkState(directory, createWorkState("plan.md", "2026-01-01T00:00:00.000Z"))
+    createExecutionLeaseFsStore().writeExecutionLease(directory, createExecutionLeaseState({
+      ownerKind: "plan",
+      ownerRef: "plan.md",
+      status: "running",
+      sessionId: "sess-plan",
+      executorAgent: "tapestry",
+    }))
 
     try {
       const engine = createPolicyEngine({
@@ -84,7 +94,7 @@ describe("createPolicyEngine", () => {
 
       const effects = await engine.onChatMessage({
         directory,
-        sessionId: "sess-2",
+        sessionId: "sess-plan",
         promptText: "normal user message",
         parsedEnvelope: null,
         hooks: makeHooks(),
@@ -148,5 +158,44 @@ describe("createPolicyEngine", () => {
     })
 
     expect(receivedUsedTokens).toBe(50_000)
+  })
+
+  it("clears per-session runtime state through session deletion policy", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "weave-policy-delete-"))
+    const executionLease = createExecutionLeaseFsStore()
+    executionLease.writeExecutionLease(directory, createExecutionLeaseState({
+      ownerKind: "workflow",
+      ownerRef: "wf_1/review",
+      status: "running",
+      sessionId: "sess-delete",
+      executorAgent: "weft",
+    }))
+    executionLease.writeSessionRuntime(directory, createSessionRuntimeState({
+      sessionId: "sess-delete",
+      foregroundAgent: "weft",
+      mode: "workflow",
+      executionRef: "wf_1/review",
+      status: "running",
+    }))
+
+    try {
+      const engine = createPolicyEngine({
+        chatPolicies: [createCommandChatPolicy(), createAutoPauseChatPolicy()],
+        toolPolicies: [createHookBackedToolPolicy()],
+        sessionPolicies: [createHookBackedSessionPolicy()],
+      })
+
+      await engine.onSessionDeleted({
+        directory,
+        sessionId: "sess-delete",
+        hooks: makeHooks(),
+        todoContinuationEnforcer: null,
+      })
+
+      expect(executionLease.readExecutionLease(directory)).toBeNull()
+      expect(executionLease.readSessionRuntime(directory, "sess-delete")).toBeNull()
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
   })
 })

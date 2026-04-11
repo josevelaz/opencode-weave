@@ -76,7 +76,7 @@ describe("handleWorkflowCommand", () => {
     describe("pause", () => {
       it("pauses with 'workflow pause'", () => {
         setupRunningInstance(testDir)
-        const result = handleWorkflowCommand("workflow pause", testDir)
+        const result = handleWorkflowCommand("workflow pause", testDir, "sess-1")
         expect(result.handled).toBe(true)
         expect(result.contextInjection).toContain("Workflow Paused")
 
@@ -86,14 +86,14 @@ describe("handleWorkflowCommand", () => {
 
       it("pauses with 'pause workflow'", () => {
         setupRunningInstance(testDir)
-        const result = handleWorkflowCommand("pause workflow", testDir)
+        const result = handleWorkflowCommand("pause workflow", testDir, "sess-1")
         expect(result.handled).toBe(true)
         expect(result.contextInjection).toContain("Workflow Paused")
       })
 
       it("pauses case-insensitively", () => {
         setupRunningInstance(testDir)
-        const result = handleWorkflowCommand("Workflow Pause", testDir)
+        const result = handleWorkflowCommand("Workflow Pause", testDir, "sess-1")
         expect(result.handled).toBe(true)
         expect(result.contextInjection).toContain("Workflow Paused")
       })
@@ -103,32 +103,39 @@ describe("handleWorkflowCommand", () => {
         inst.status = "paused"
         writeWorkflowInstance(testDir, inst)
 
-        const result = handleWorkflowCommand("workflow pause", testDir)
+        const result = handleWorkflowCommand("workflow pause", testDir, "sess-1")
         expect(result.handled).toBe(true)
         expect(result.contextInjection).toContain("Not Running")
+      })
+
+      it("ignores pause requests from non-owning sessions", () => {
+        setupRunningInstance(testDir)
+        const result = handleWorkflowCommand("workflow pause", testDir, "sess-other")
+        expect(result.handled).toBe(false)
+        expect(getActiveWorkflowInstance(testDir)?.status).toBe("running")
       })
     })
 
     describe("skip", () => {
       it("skips with 'workflow skip'", () => {
         setupRunningInstance(testDir)
-        const result = handleWorkflowCommand("workflow skip", testDir)
+        const result = handleWorkflowCommand("workflow skip", testDir, "sess-1")
         expect(result.handled).toBe(true)
         expect(result.contextInjection).toContain("Step Skipped")
       })
 
       it("skips with 'skip step'", () => {
         setupRunningInstance(testDir)
-        const result = handleWorkflowCommand("skip step", testDir)
+        const result = handleWorkflowCommand("skip step", testDir, "sess-1")
         expect(result.handled).toBe(true)
         expect(result.contextInjection).toContain("Step Skipped")
       })
 
       it("advances to next step and switches agent", () => {
         setupRunningInstance(testDir)
-        const result = handleWorkflowCommand("workflow skip", testDir)
+        const result = handleWorkflowCommand("workflow skip", testDir, "sess-1")
         expect(result.handled).toBe(true)
-        expect(result.switchAgent).toBeUndefined()
+        expect(result.switchAgent).toBe("tapestry")
 
         const instance = getActiveWorkflowInstance(testDir)
         expect(instance?.current_step_id).toBe("build")
@@ -145,7 +152,7 @@ describe("handleWorkflowCommand", () => {
         inst.steps["build"].started_at = new Date().toISOString()
         writeWorkflowInstance(testDir, inst)
 
-        const result = handleWorkflowCommand("skip step", testDir)
+        const result = handleWorkflowCommand("skip step", testDir, "sess-1")
         expect(result.handled).toBe(true)
         expect(result.contextInjection).toContain("Workflow Complete")
       })
@@ -155,16 +162,23 @@ describe("handleWorkflowCommand", () => {
         inst.status = "paused"
         writeWorkflowInstance(testDir, inst)
 
-        const result = handleWorkflowCommand("workflow skip", testDir)
+        const result = handleWorkflowCommand("workflow skip", testDir, "sess-1")
         expect(result.handled).toBe(true)
         expect(result.contextInjection).toContain("Not Running")
+      })
+
+      it("ignores skip requests from non-owning sessions", () => {
+        setupRunningInstance(testDir)
+        const result = handleWorkflowCommand("workflow skip", testDir, "sess-other")
+        expect(result.handled).toBe(false)
+        expect(getActiveWorkflowInstance(testDir)?.current_step_id).toBe("gather")
       })
     })
 
     describe("abort", () => {
       it("aborts with 'workflow abort'", () => {
         setupRunningInstance(testDir)
-        const result = handleWorkflowCommand("workflow abort", testDir)
+        const result = handleWorkflowCommand("workflow abort", testDir, "sess-1")
         expect(result.handled).toBe(true)
         expect(result.contextInjection).toContain("Workflow Aborted")
         expect(result.contextInjection).toContain("test-workflow")
@@ -175,7 +189,7 @@ describe("handleWorkflowCommand", () => {
 
       it("aborts with 'abort workflow'", () => {
         setupRunningInstance(testDir)
-        const result = handleWorkflowCommand("abort workflow", testDir)
+        const result = handleWorkflowCommand("abort workflow", testDir, "sess-1")
         expect(result.handled).toBe(true)
         expect(result.contextInjection).toContain("Workflow Aborted")
       })
@@ -185,9 +199,16 @@ describe("handleWorkflowCommand", () => {
         inst.status = "paused"
         writeWorkflowInstance(testDir, inst)
 
-        const result = handleWorkflowCommand("workflow abort", testDir)
+        const result = handleWorkflowCommand("workflow abort", testDir, "sess-1")
         expect(result.handled).toBe(true)
         expect(result.contextInjection).toContain("Workflow Aborted")
+      })
+
+      it("ignores abort requests from non-owning sessions", () => {
+        setupRunningInstance(testDir)
+        const result = handleWorkflowCommand("workflow abort", testDir, "sess-other")
+        expect(result.handled).toBe(false)
+        expect(getActiveWorkflowInstance(testDir)).not.toBeNull()
       })
     })
 

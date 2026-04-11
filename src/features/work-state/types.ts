@@ -1,3 +1,36 @@
+export type ExecutionOwnerKind = "none" | "plan" | "workflow"
+
+export type ExecutionLeaseStatus = "running" | "paused" | "completed"
+
+export type SessionRuntimeMode = "ad_hoc" | "plan" | "workflow"
+
+export type SessionRuntimeStatus = "running" | "paused" | "awaiting_user" | "idle"
+
+/**
+ * Repo-scoped runtime execution lease stored at .weave/runtime/active-execution.json.
+ */
+export interface ExecutionLeaseState {
+  owner_kind: ExecutionOwnerKind
+  owner_ref: string | null
+  status: ExecutionLeaseStatus
+  session_id: string | null
+  executor_agent: string | null
+  started_at: string
+  updated_at: string
+}
+
+/**
+ * Session-scoped runtime state stored at .weave/runtime/sessions/{sessionId}.json.
+ */
+export interface SessionRuntimeState {
+  session_id: string
+  foreground_agent: string | null
+  mode: SessionRuntimeMode
+  execution_ref: string | null
+  status: SessionRuntimeStatus
+  updated_at: string
+}
+
 /**
  * Tracks the active plan being executed via /start-work.
  * Stored at .weave/state.json in the project root.

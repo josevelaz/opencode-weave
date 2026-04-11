@@ -1,5 +1,6 @@
 export type RuntimeEffect =
   | SwitchAgentEffect
+  | RestoreAgentEffect
   | AppendPromptTextEffect
   | InjectPromptAsyncEffect
   | PauseExecutionEffect
@@ -8,6 +9,12 @@ export type RuntimeEffect =
 
 export interface SwitchAgentEffect {
   type: "switchAgent"
+  agent: string
+}
+
+export interface RestoreAgentEffect {
+  type: "restoreAgent"
+  sessionId: string
   agent: string
 }
 
@@ -26,8 +33,9 @@ export interface InjectPromptAsyncEffect {
 
 export interface PauseExecutionEffect {
   type: "pauseExecution"
-  target: "plan" | "workflow" | "both"
+  target: "plan" | "workflow" | "both" | "none"
   reason: string
+  sessionId?: string
 }
 
 export interface TrackAnalyticsEffect {

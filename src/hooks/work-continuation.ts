@@ -6,9 +6,12 @@
 import { createPlanFsRepository } from "../infrastructure/fs/plan-fs-repository"
 import { createPlanService } from "../domain/plans/plan-service"
 import { renderContinuationEnvelope } from "../runtime/opencode/protocol"
+import { createExecutionLeaseFsStore } from "../infrastructure/fs/execution-lease-fs-store"
+import { projectExecutionTransition } from "../domain/session/execution-lease"
 
 const PlanRepository = createPlanFsRepository()
 const PlanService = createPlanService(PlanRepository)
+const ExecutionLeaseRepository = createExecutionLeaseFsStore()
 
 /**
  * Marker embedded in continuation prompts so that `chat.message` can distinguish
@@ -29,6 +32,8 @@ export interface ContinuationInput {
 export interface ContinuationResult {
   /** Continuation prompt to inject, or null if no active work / plan complete */
   continuationPrompt: string | null
+  /** Agent to restore before injecting continuation, when needed */
+  switchAgent?: string | null
 }
 
 /**
@@ -40,22 +45,39 @@ export function checkContinuation(input: ContinuationInput): ContinuationResult 
 
   const state = PlanService.readWorkState(directory)
   if (!state) {
-    return { continuationPrompt: null }
+    return { continuationPrompt: null, switchAgent: null }
   }
 
   if (state.paused) {
-    return { continuationPrompt: null }
+    return { continuationPrompt: null, switchAgent: null }
+  }
+
+  const activeLease = ExecutionLeaseRepository.readExecutionLease(directory)
+  if (activeLease?.owner_kind === "plan" && activeLease.session_id && activeLease.session_id !== input.sessionId) {
+    return { continuationPrompt: null, switchAgent: null }
   }
 
   // Session scoping: only fire continuations for sessions that are working on this plan.
   // Empty session_ids (legacy states) are allowed through gracefully.
-  if (state.session_ids.length > 0 && !state.session_ids.includes(input.sessionId)) {
-    return { continuationPrompt: null }
+  if (state.session_ids.length > 0 && state.session_ids.at(-1) !== input.sessionId) {
+    return { continuationPrompt: null, switchAgent: null }
   }
 
   const progress = PlanService.getPlanProgress(state.active_plan)
   if (progress.isComplete) {
-    return { continuationPrompt: null }
+    const projection = projectExecutionTransition({
+      event: "complete_owner",
+      sessionId: input.sessionId,
+      executionRef: state.active_plan,
+      currentLease: ExecutionLeaseRepository.readExecutionLease(directory),
+      currentSessionRuntime: ExecutionLeaseRepository.readSessionRuntime(directory, input.sessionId),
+    })
+
+    ExecutionLeaseRepository.clearExecutionLease(directory)
+    if (projection.sessionRuntime) {
+      ExecutionLeaseRepository.writeSessionRuntime(directory, projection.sessionRuntime)
+    }
+    return { continuationPrompt: null, switchAgent: null }
   }
 
   // Stale progress detection: compare current progress to the last-seen snapshot.
@@ -77,13 +99,14 @@ export function checkContinuation(input: ContinuationInput): ContinuationResult 
       // Auto-pause: inline write to preserve stale-tracking fields
       state.paused = true
       PlanRepository.writeWorkState(directory, state)
-      return { continuationPrompt: null }
+      return { continuationPrompt: null, switchAgent: null }
     }
     PlanRepository.writeWorkState(directory, state)
   }
 
   const remaining = progress.total - progress.completed
   return {
+    switchAgent: state.agent ?? "tapestry",
     continuationPrompt: `${renderContinuationEnvelope({
       continuation: "work",
       sessionId: input.sessionId,

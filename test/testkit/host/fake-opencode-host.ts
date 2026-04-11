@@ -184,12 +184,16 @@ export class FakeOpencodeHost {
     await this.emitEvent({ type: "session.idle", properties: { sessionID } })
   }
 
-  async emitCommandExecute(command: string): Promise<void> {
-    await this.emitEvent({ type: "tui.command.execute", properties: { command } })
+  async emitCommandExecute(command: string, sessionID?: string): Promise<void> {
+    await this.emitEvent({ type: "tui.command.execute", properties: { command, ...(sessionID ? { sessionID } : {}) } })
   }
 
   async emitSessionDeleted(sessionID: string): Promise<void> {
     await this.emitEvent({ type: "session.deleted", properties: { info: { id: sessionID } } })
+  }
+
+  async emitSessionCompacted(sessionID: string): Promise<void> {
+    await this.emitEvent({ type: "session.compacted", properties: { sessionID } })
   }
 
   async emitMessageUpdated(info: MessageUpdatedEventInfo): Promise<void> {

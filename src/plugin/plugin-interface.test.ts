@@ -698,7 +698,7 @@ describe("createPluginInterface", () => {
       mkdirSync(plansDir, { recursive: true })
       const planFile = join(plansDir, "test-plan.md")
       writeFileSync(planFile, "# Test Plan\n\n- [ ] Task 1\n- [ ] Task 2\n", "utf-8")
-      const state = createWorkState(planFile, "test-plan")
+      const state = createWorkState(planFile, "sess-interrupted")
       writeWorkState(tempDir, state)
     })
 
@@ -740,7 +740,7 @@ describe("createPluginInterface", () => {
       })
 
       // User interrupts via TUI
-      const interruptEvent = { type: "tui.command.execute", properties: { command: "session.interrupt" } }
+      const interruptEvent = { type: "tui.command.execute", properties: { command: "session.interrupt", sessionID: "sess-interrupted" } }
       await iface.event({ event: interruptEvent as Parameters<typeof iface.event>[0]["event"] })
 
       // Verify state.json has paused: true
@@ -784,7 +784,7 @@ describe("createPluginInterface", () => {
       })
 
       // User interrupts
-      const interruptEvent = { type: "tui.command.execute", properties: { command: "session.interrupt" } }
+      const interruptEvent = { type: "tui.command.execute", properties: { command: "session.interrupt", sessionID: "sess-1" } }
       await iface.event({ event: interruptEvent as Parameters<typeof iface.event>[0]["event"] })
 
       // First idle — suppressed
@@ -836,7 +836,7 @@ describe("createPluginInterface", () => {
       expect(stateAfter?.paused).not.toBe(true)
 
       // Session goes idle — should still continue (not suppressed)
-      const idleEvent = { type: "session.idle", properties: { sessionID: "test-plan" } }
+      const idleEvent = { type: "session.idle", properties: { sessionID: "sess-interrupted" } }
       await iface.event({ event: idleEvent as Parameters<typeof iface.event>[0]["event"] })
 
       expect(promptAsyncCalls.length).toBe(1)
@@ -852,7 +852,7 @@ describe("createPluginInterface", () => {
       mkdirSync(plansDir, { recursive: true })
       const planFile = join(plansDir, "test-plan.md")
       writeFileSync(planFile, "# Test Plan\n\n- [ ] Task 1\n- [ ] Task 2\n", "utf-8")
-      const state = createWorkState(planFile, "test-plan")
+      const state = createWorkState(planFile, "sess-1")
       writeWorkState(tempDir, state)
     })
 
@@ -900,13 +900,13 @@ describe("createPluginInterface", () => {
         message: {} as never,
         parts: [{ type: "text", text: "Can you help me plan something else?" }],
       }
-      await iface["chat.message"]({ sessionID: "sess-user" }, output)
+      await iface["chat.message"]({ sessionID: "sess-1" }, output)
 
       // State should now be paused
       expect(readWorkState(tempDir)?.paused).toBe(true)
 
       // Session goes idle — continuation should be suppressed because state is paused
-      const idleEvent = { type: "session.idle", properties: { sessionID: "sess-user" } }
+      const idleEvent = { type: "session.idle", properties: { sessionID: "sess-1" } }
       await iface.event({ event: idleEvent as Parameters<typeof iface.event>[0]["event"] })
 
       expect(promptAsyncCalls.length).toBe(0)
@@ -1396,6 +1396,7 @@ describe("analytics: agent name and cost tracking", () => {
     expect(session.agentName).toBe("Loom (Main Orchestrator)")
   })
 
+
   it("chat.params is no-op for agent name when tracker is absent", async () => {
     const iface = createPluginInterface({
       pluginConfig: baseConfig,
@@ -1672,7 +1673,7 @@ describe("workflow integration in plugin-interface", () => {
       const hooks = makeHooks({
         workflowStart: (_promptText: string, _sessionId: string) => ({
           contextInjection: "## Workflow Started\nGoal: Add OAuth2 login",
-          switchAgent: null,
+          switchAgent: "weft",
         }),
       })
 
@@ -1697,8 +1698,7 @@ describe("workflow integration in plugin-interface", () => {
 
       expect(parts[0].text).toContain("Workflow Started")
       expect(parts[0].text).toContain("Add OAuth2 login")
-      // Agent should NOT change — workflows delegate via Task tool, not agent switching
-      expect(message.agent).toBe("Loom (Main Orchestrator)")
+      expect(message.agent).toBe("weft")
     })
 
     it("does NOT trigger workflowStart for non-workflow messages", async () => {
@@ -1859,7 +1859,7 @@ describe("workflow integration in plugin-interface", () => {
         directory: tempDir,
       })
 
-      const event = { type: "tui.command.execute", properties: { command: "session.interrupt" } }
+      const event = { type: "tui.command.execute", properties: { command: "session.interrupt", sessionID: "test-plan" } }
       // Should not throw even without an active workflow
       await expect(
         iface.event({ event: event as Parameters<typeof iface.event>[0]["event"] }),
@@ -1966,7 +1966,7 @@ describe("workflow integration in plugin-interface", () => {
         message: {} as never,
         parts: [{ type: "text", text: "Can you help me with something else?" }],
       }
-      await iface["chat.message"]({ sessionID: "sess-no-wf" }, output)
+      await iface["chat.message"]({ sessionID: "test-plan" }, output)
 
       // State SHOULD be paused — no workflow active, regular message triggers auto-pause
       expect(readWorkState(tempDir)?.paused).toBe(true)
@@ -2445,6 +2445,53 @@ describe("workflow integration in plugin-interface", () => {
       await iface.event({ event: { type: "session.compacted", properties: { sessionID: "ses-recover" } } })
 
       expect(promptAsync).not.toHaveBeenCalled()
+    })
+
+    it("restores agent before injecting recovery prompt when recovery provides switchAgent", async () => {
+      const promptAsync = spyOn(
+        {
+          fn: async (_input: unknown) => undefined,
+        },
+        "fn",
+      )
+      const mockClient = {
+        session: {
+          promptAsync: promptAsync,
+        },
+      } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks({
+          continuation: {
+            recovery: { compaction: true },
+            idle: { enabled: false, work: false, workflow: false, todo_prompt: false },
+          },
+          compactionRecovery: () => ({ continuationPrompt: "resume after compaction", switchAgent: "loom" }),
+        }),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client: mockClient,
+      })
+
+      await iface.event({ event: { type: "session.compacted", properties: { sessionID: "ses-recover" } } })
+
+      expect(promptAsync).toHaveBeenCalledTimes(2)
+      expect(promptAsync.mock.calls[0]?.[0]).toEqual({
+        path: { id: "ses-recover" },
+        body: {
+          parts: [],
+          agent: "Loom (Main Orchestrator)",
+        },
+      })
+      expect(promptAsync.mock.calls[1]?.[0]).toEqual({
+        path: { id: "ses-recover" },
+        body: {
+          parts: [{ type: "text", text: "resume after compaction" }],
+          agent: "Loom (Main Orchestrator)",
+        },
+      })
     })
   })
 

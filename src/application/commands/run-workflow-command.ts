@@ -15,6 +15,7 @@ export function executeRunWorkflowCommand(input: {
   const effects: RuntimeEffect[] = []
   if (result.switchAgent) {
     effects.push({ type: "switchAgent", agent: result.switchAgent })
+    effects.push({ type: "restoreAgent", sessionId: input.sessionId, agent: result.switchAgent })
   }
   if (result.contextInjection) {
     effects.push({ type: "appendPromptText", text: result.contextInjection })

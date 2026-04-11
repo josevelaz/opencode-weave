@@ -5,6 +5,8 @@ import { tmpdir } from "os"
 import { checkContinuation, CONTINUATION_MARKER, MAX_STALE_CONTINUATIONS } from "./work-continuation"
 import { writeWorkState, createWorkState, readWorkState } from "../features/work-state/storage"
 import { PLANS_DIR } from "../features/work-state/constants"
+import { createExecutionLeaseFsStore } from "../infrastructure/fs/execution-lease-fs-store"
+import { createExecutionLeaseState, createSessionRuntimeState } from "../domain/session/execution-lease"
 
 let testDir: string
 
@@ -29,6 +31,8 @@ function createPlanFile(name: string, content: string): string {
 }
 
 describe("checkContinuation", () => {
+  const executionLeaseRepository = createExecutionLeaseFsStore()
+
   it("returns null when no work state exists", () => {
     const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
     expect(result.continuationPrompt).toBeNull()
@@ -40,6 +44,35 @@ describe("checkContinuation", () => {
 
     const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
     expect(result.continuationPrompt).toBeNull()
+  })
+
+  it("clears plan ownership when plan becomes complete", () => {
+    const planPath = createPlanFile("done-runtime", "# Done\n- [x] Task 1\n- [x] Task 2\n")
+    writeWorkState(testDir, createWorkState(planPath, "sess_1", "tapestry"))
+    executionLeaseRepository.writeExecutionLease(testDir, createExecutionLeaseState({
+      ownerKind: "plan",
+      ownerRef: planPath,
+      status: "running",
+      sessionId: "sess_1",
+      executorAgent: "tapestry",
+    }))
+    executionLeaseRepository.writeSessionRuntime(testDir, createSessionRuntimeState({
+      sessionId: "sess_1",
+      foregroundAgent: "tapestry",
+      mode: "plan",
+      executionRef: planPath,
+      status: "running",
+    }))
+
+    const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
+
+    expect(result.continuationPrompt).toBeNull()
+    expect(executionLeaseRepository.readExecutionLease(testDir)).toBeNull()
+    expect(executionLeaseRepository.readSessionRuntime(testDir, "sess_1")).toMatchObject({
+      foreground_agent: "tapestry",
+      mode: "ad_hoc",
+      status: "idle",
+    })
   })
 
   it("returns null when plan file is missing", () => {
@@ -56,6 +89,7 @@ describe("checkContinuation", () => {
 
     const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
     expect(result.continuationPrompt).not.toBeNull()
+    expect(result.switchAgent).toBe("tapestry")
     expect(result.continuationPrompt).toContain("my-plan")
     expect(result.continuationPrompt).toContain("1/3 tasks completed")
     expect(result.continuationPrompt).toContain("2 remaining")

@@ -37,7 +37,12 @@ export async function runIdleCycle(input: {
   if (shouldCheckWorkContinuation(input.hooks, input.directory) && input.hooks.workContinuation) {
     const result = input.hooks.workContinuation(input.sessionId)
     if (result.continuationPrompt) {
-      effects.push({ type: "injectPromptAsync", sessionId: input.sessionId, text: result.continuationPrompt })
+      effects.push({
+        type: "injectPromptAsync",
+        sessionId: input.sessionId,
+        text: result.continuationPrompt,
+        agent: result.switchAgent,
+      })
       continuationFired = true
     }
   }

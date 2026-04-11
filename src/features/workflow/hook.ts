@@ -11,9 +11,11 @@ import { buildWorkflowContinuationPrompt } from "../../domain/workflows/workflow
 import { checkWorkflowCompletion } from "../../domain/workflows/workflow-completion"
 import type { CompletionContext } from "./index"
 import { parseBuiltinCommandEnvelope } from "../../runtime/opencode/command-envelope"
+import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-lease-fs-store"
 
 const PlanService = createPlanService(createPlanFsRepository())
 const WorkflowService = createWorkflowService()
+const ExecutionLeaseRepository = createExecutionLeaseFsStore()
 
 /**
  * Marker embedded in workflow continuation prompts so the auto-pause guard
@@ -97,13 +99,19 @@ export function handleRunWorkflow(input: {
 
   // Case 2: No args, active instance exists → resume it
   if (!workflowName && activeInstance) {
-    const result = resumeActiveWorkflow(directory)
+    if (!isSessionAllowedForWorkflow(directory, activeInstance, sessionId)) {
+      return { contextInjection: null, switchAgent: null }
+    }
+    const result = resumeActiveWorkflow(directory, sessionId)
     return prependWarning(result, workStateWarning)
   }
 
   // Case 3: Workflow name provided, no goal, active instance matches → resume
   if (workflowName && !goal && activeInstance && activeInstance.definition_id === workflowName) {
-    const result = resumeActiveWorkflow(directory)
+    if (!isSessionAllowedForWorkflow(directory, activeInstance, sessionId)) {
+      return { contextInjection: null, switchAgent: null }
+    }
+    const result = resumeActiveWorkflow(directory, sessionId)
     return prependWarning(result, workStateWarning)
   }
 
@@ -111,6 +119,13 @@ export function handleRunWorkflow(input: {
   if (workflowName && goal) {
     // Check for existing active instance — can't start new while one is active
     if (activeInstance) {
+       if (!isSessionAllowedForWorkflow(directory, activeInstance, sessionId)) {
+        return {
+          contextInjection: `## Workflow Owned By Another Session\nWorkflow "${activeInstance.definition_name}" is currently bound to another session (${activeInstance.instance_id}).\nGoal: "${activeInstance.goal}"\n\nResume it from the owning session, or abort it there before starting a new workflow.`,
+          switchAgent: null,
+        }
+      }
+
       return {
         contextInjection: `## Workflow Already Active\nThere is already an active workflow: "${activeInstance.definition_name}" (${activeInstance.instance_id}).\nGoal: "${activeInstance.goal}"\n\nTo start a new workflow, first abort the current one with \`/workflow abort\` or let it complete.`,
         switchAgent: null,
@@ -124,6 +139,13 @@ export function handleRunWorkflow(input: {
   // Case 5: Workflow name provided, no goal, no matching active instance → start with name only
   if (workflowName && !goal) {
     if (activeInstance) {
+      if (!isSessionAllowedForWorkflow(directory, activeInstance, sessionId)) {
+        return {
+          contextInjection: `## Workflow Owned By Another Session\nWorkflow "${activeInstance.definition_name}" is currently bound to another session (${activeInstance.instance_id}).\nGoal: "${activeInstance.goal}"\n\nResume it from the owning session, or abort it there before starting a new workflow.`,
+          switchAgent: null,
+        }
+      }
+
       return {
         contextInjection: `## Workflow Already Active\nThere is already an active workflow: "${activeInstance.definition_name}" (${activeInstance.instance_id}).\nGoal: "${activeInstance.goal}"\n\nDid you mean to resume the active workflow? Run \`/run-workflow\` without arguments to resume.`,
         switchAgent: null,
@@ -157,6 +179,13 @@ export function checkWorkflowContinuation(input: {
   const instance = WorkflowService.getActiveWorkflowInstance(directory)
   if (!instance) return { continuationPrompt: null, switchAgent: null }
   if (instance.status !== "running") return { continuationPrompt: null, switchAgent: null }
+  const activeLease = ExecutionLeaseRepository.readExecutionLease(directory)
+  if (activeLease?.owner_kind === "workflow" && activeLease.session_id && activeLease.session_id !== input.sessionId) {
+    return { continuationPrompt: null, switchAgent: null }
+  }
+  if (instance.session_ids.length > 0 && instance.session_ids.at(-1) !== input.sessionId) {
+    return { continuationPrompt: null, switchAgent: null }
+  }
 
   const definition = WorkflowService.loadWorkflowDefinition(instance.definition_path)
   if (!definition) return { continuationPrompt: null, switchAgent: null }
@@ -181,7 +210,7 @@ export function checkWorkflowContinuation(input: {
           sessionId: input.sessionId,
           body: action.prompt ?? "",
         }),
-        switchAgent: null,
+        switchAgent: action.agent ?? currentStepDef.agent,
       }
     case "complete":
       return {
@@ -189,7 +218,7 @@ export function checkWorkflowContinuation(input: {
           sessionId: input.sessionId,
           body: `## Workflow Complete\n${action.reason ?? "All steps have been completed."}\n\nSummarize what was accomplished across all workflow steps.`,
         }),
-        switchAgent: null,
+        switchAgent: currentStepDef.agent,
       }
     case "pause":
       return {
@@ -197,7 +226,7 @@ export function checkWorkflowContinuation(input: {
           sessionId: input.sessionId,
           body: `## Workflow Paused\n${action.reason ?? "The workflow has been paused."}\n\nInform the user about the pause and what to do next.`,
         }),
-        switchAgent: null,
+        switchAgent: currentStepDef.agent,
       }
     case "none":
     default:
@@ -283,8 +312,8 @@ function listAvailableWorkflows(directory: string, workflowDirs?: string[]): Wor
 /**
  * Resume the currently active workflow instance.
  */
-function resumeActiveWorkflow(directory: string): WorkflowHookResult {
-  const action = WorkflowService.resumeWorkflow(directory)
+function resumeActiveWorkflow(directory: string, sessionId: string): WorkflowHookResult {
+  const action = WorkflowService.resumeWorkflow(directory, sessionId)
   if (action.type === "none") {
     // Instance exists but isn't paused — it's running. Return current step info.
     const instance = WorkflowService.getActiveWorkflowInstance(directory)
@@ -294,7 +323,7 @@ function resumeActiveWorkflow(directory: string): WorkflowHookResult {
         const currentStep = definition.steps.find((s) => s.id === instance.current_step_id)
         return {
           contextInjection: `## Workflow In Progress\nWorkflow "${instance.definition_name}" is already running.\nCurrent step: **${currentStep?.name ?? instance.current_step_id}**\nGoal: "${instance.goal}"\n\nContinue with the current step.`,
-          switchAgent: null,
+          switchAgent: currentStep?.agent ?? null,
         }
       }
     }
@@ -303,8 +332,21 @@ function resumeActiveWorkflow(directory: string): WorkflowHookResult {
 
   return {
     contextInjection: action.prompt ?? null,
-    switchAgent: null,
+    switchAgent: action.agent ?? null,
   }
+}
+
+function isSessionAllowedForWorkflow(
+  directory: string,
+  instance: { session_ids: string[] },
+  sessionId: string,
+): boolean {
+  const activeLease = ExecutionLeaseRepository.readExecutionLease(directory)
+  if (activeLease?.owner_kind === "workflow" && activeLease.session_id) {
+    return activeLease.session_id === sessionId
+  }
+
+  return instance.session_ids.length === 0 || instance.session_ids.at(-1) === sessionId
 }
 
 /**
@@ -344,6 +386,6 @@ function startNewWorkflow(
 
   return {
     contextInjection: action.prompt ?? null,
-    switchAgent: null,
+    switchAgent: action.agent ?? null,
   }
 }

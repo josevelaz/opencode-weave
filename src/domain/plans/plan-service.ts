@@ -1,9 +1,11 @@
 import type { ValidationResult } from "../../features/work-state"
 import type { WorkState } from "../../features/work-state/types"
+import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-lease-fs-store"
 import type { PlanRepository } from "./plan-repository"
 import { createFreshPlanExecution, resumePlanExecution } from "./plan-execution"
 import { getPlanProgressView } from "./plan-progress"
 import { findPlanByName, listIncompletePlans } from "./plan-selection"
+import type { ExecutionLeaseRepository } from "../session/execution-lease"
 
 export interface PlanService {
   readWorkState(directory: string): WorkState | null
@@ -18,6 +20,13 @@ export interface PlanService {
 }
 
 export function createPlanService(planRepository: PlanRepository): PlanService {
+  return createPlanServiceWithExecutionLease(planRepository, createExecutionLeaseFsStore())
+}
+
+export function createPlanServiceWithExecutionLease(
+  planRepository: PlanRepository,
+  executionLeaseRepository?: ExecutionLeaseRepository,
+): PlanService {
   return {
     readWorkState(directory) {
       return planRepository.readWorkState(directory)
@@ -40,6 +49,7 @@ export function createPlanService(planRepository: PlanRepository): PlanService {
     createExecution(directory, planPath, sessionId, agent) {
       return createFreshPlanExecution({
         planRepository,
+        executionLeaseRepository,
         directory,
         planPath,
         sessionId,
@@ -49,6 +59,7 @@ export function createPlanService(planRepository: PlanRepository): PlanService {
     resumeExecution(directory, sessionId) {
       return resumePlanExecution({
         planRepository,
+        executionLeaseRepository,
         directory,
         sessionId,
       })

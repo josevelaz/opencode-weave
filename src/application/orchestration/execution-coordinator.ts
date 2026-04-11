@@ -1,6 +1,10 @@
 import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-lease-fs-store"
 import type { CreatedHooks } from "../../hooks/create-hooks"
-import type { ExecutionLeaseSnapshot } from "../../domain/session/execution-lease"
+import {
+  isExecutionOwnerActive,
+  isExecutionOwnerPaused,
+  type ExecutionLeaseSnapshot,
+} from "../../domain/session/execution-lease"
 
 const ExecutionLeaseStore = createExecutionLeaseFsStore()
 
@@ -14,6 +18,7 @@ export function getExecutionSnapshot(directory: string): ExecutionSnapshot {
 
 export function shouldAutoPauseForUserMessage(input: {
   directory: string
+  sessionId: string
   isBuiltinCommand: boolean
   isContinuation: boolean
 }): boolean {
@@ -22,14 +27,15 @@ export function shouldAutoPauseForUserMessage(input: {
   }
 
   const snapshot = getExecutionSnapshot(input.directory)
-  return snapshot.owner === "plan"
+  return isExecutionOwnerActive(snapshot, "plan") && snapshot.sessionId === input.sessionId
 }
 
-export function shouldHandleWorkflowCommand(directory: string): boolean {
+export function shouldHandleWorkflowCommand(directory: string, sessionId: string): boolean {
   if (!directory) {
     return true
   }
-  return getExecutionSnapshot(directory).owner === "workflow"
+  const snapshot = getExecutionSnapshot(directory)
+  return snapshot.owner === "workflow" && snapshot.sessionId === sessionId && (snapshot.status === "running" || snapshot.status === "paused")
 }
 
 export function shouldCheckWorkflowContinuation(hooks: CreatedHooks, directory: string): boolean {
@@ -39,7 +45,7 @@ export function shouldCheckWorkflowContinuation(hooks: CreatedHooks, directory: 
   if (!directory) {
     return true
   }
-  return getExecutionSnapshot(directory).owner === "workflow"
+  return isExecutionOwnerActive(getExecutionSnapshot(directory), "workflow")
 }
 
 export function shouldCheckWorkContinuation(hooks: CreatedHooks, directory: string): boolean {
@@ -50,7 +56,20 @@ export function shouldCheckWorkContinuation(hooks: CreatedHooks, directory: stri
     return true
   }
   const snapshot = getExecutionSnapshot(directory)
-  return snapshot.owner === "plan" || (!snapshot.hasActivePlan && !snapshot.hasActiveWorkflow)
+  return isExecutionOwnerActive(snapshot, "plan") || (snapshot.owner === "none" && !snapshot.hasActivePlan && !snapshot.hasActiveWorkflow)
+}
+
+export function doesSessionOwnExecution(directory: string, sessionId: string, owner?: ExecutionOwner): boolean {
+  if (!directory) {
+    return true
+  }
+
+  const snapshot = getExecutionSnapshot(directory)
+  if (owner && snapshot.owner !== owner) {
+    return false
+  }
+
+  return snapshot.sessionId === sessionId
 }
 
 export function shouldFinalizeTodos(hooks: CreatedHooks, directory: string, continuationFired: boolean): boolean {
@@ -63,7 +82,7 @@ export function shouldFinalizeTodos(hooks: CreatedHooks, directory: string, cont
   }
 
   const snapshot = getExecutionSnapshot(directory)
-  if (snapshot.owner !== "none") {
+  if (snapshot.owner !== "none" || isExecutionOwnerPaused(snapshot, "plan") || isExecutionOwnerPaused(snapshot, "workflow")) {
     return false
   }
 

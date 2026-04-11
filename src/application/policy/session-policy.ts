@@ -3,6 +3,8 @@ import { warn } from "../../shared/log"
 import { createPolicyResult, type PolicyResult } from "../../domain/policy/policy-result"
 import type { RuntimeEffect } from "../../runtime/opencode/effects"
 import { runIdleCycle } from "../orchestration/idle-cycle-service"
+import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-lease-fs-store"
+import { projectExecutionTransition } from "../../domain/session/execution-lease"
 import type {
   RuntimeAssistantMessageInput,
   RuntimeCompactionInput,
@@ -18,6 +20,8 @@ export interface SessionPolicy {
 }
 
 export function createHookBackedSessionPolicy(): SessionPolicy {
+  const executionLeaseRepository = createExecutionLeaseFsStore()
+
   return {
     onAssistantMessage(input) {
       if (input.hooks.checkContextWindow && input.inputTokens > 0) {
@@ -57,20 +61,45 @@ export function createHookBackedSessionPolicy(): SessionPolicy {
       clearTokenSession(input.sessionId)
       input.todoContinuationEnforcer?.clearSession(input.sessionId)
 
+      if (input.directory) {
+        const projection = projectExecutionTransition({
+          event: "delete_session",
+          sessionId: input.sessionId,
+          currentLease: executionLeaseRepository.readExecutionLease(input.directory),
+          currentSessionRuntime: executionLeaseRepository.readSessionRuntime(input.directory, input.sessionId),
+        })
+
+        if (projection.lease) {
+          executionLeaseRepository.writeExecutionLease(input.directory, projection.lease)
+        } else {
+          executionLeaseRepository.clearExecutionLease(input.directory)
+        }
+        executionLeaseRepository.clearSessionRuntime(input.directory, input.sessionId)
+      }
+
       return createPolicyResult<RuntimeEffect>()
     },
     onCompaction(input) {
       if (input.hooks.continuation.recovery.compaction && input.hooks.compactionRecovery) {
-        const result = input.hooks.compactionRecovery(input.sessionId)
+        const result = input.hooks.compactionRecovery(input.sessionId, input.enabledAgents)
+        const effects: RuntimeEffect[] = []
+        if (result.switchAgent) {
+          effects.push({
+            type: "restoreAgent",
+            sessionId: input.sessionId,
+            agent: result.switchAgent,
+          })
+        }
         if (result.continuationPrompt) {
-          return createPolicyResult<RuntimeEffect>([
-            {
-              type: "injectPromptAsync",
-              sessionId: input.sessionId,
-              text: result.continuationPrompt,
-              agent: result.switchAgent,
-            },
-          ])
+          effects.push({
+            type: "injectPromptAsync",
+            sessionId: input.sessionId,
+            text: result.continuationPrompt,
+            agent: result.switchAgent,
+          })
+        }
+        if (effects.length > 0) {
+          return createPolicyResult<RuntimeEffect>(effects)
         }
       }
 

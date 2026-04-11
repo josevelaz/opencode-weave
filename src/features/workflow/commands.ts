@@ -3,10 +3,13 @@
  * These are NOT separate slash commands — they're natural language keywords detected in chat.message.
  */
 
-import { pauseWorkflow, skipStep, abortWorkflow } from "./engine"
+import { skipStep } from "./engine"
 import { getActiveWorkflowInstance } from "./storage"
 import { loadWorkflowDefinition } from "./discovery"
 import type { WorkflowInstance } from "./types"
+import { createWorkflowService } from "../../domain/workflows/workflow-service"
+
+const WorkflowService = createWorkflowService()
 
 export interface WorkflowCommandResult {
   /** Whether a workflow control keyword was detected and handled */
@@ -30,9 +33,13 @@ const STATUS_PATTERNS = [/\bworkflow\s+status\b/i]
 export function handleWorkflowCommand(
   message: string,
   directory: string,
+  sessionId?: string,
 ): WorkflowCommandResult {
   const instance = getActiveWorkflowInstance(directory)
   if (!instance) return { handled: false }
+  if (sessionId && instance.session_ids.length > 0 && instance.session_ids.at(-1) !== sessionId) {
+    return { handled: false }
+  }
 
   const trimmed = message.trim()
 
@@ -70,7 +77,7 @@ function handlePause(directory: string, instance: WorkflowInstance): WorkflowCom
     }
   }
 
-  pauseWorkflow(directory, "Paused by user command")
+  WorkflowService.pauseWorkflow(directory, "Paused by user command")
   return {
     handled: true,
     contextInjection: `## Workflow Paused\nWorkflow "${instance.definition_name}" has been paused.\nGoal: "${instance.goal}"\nCurrent step: ${instance.current_step_id}\n\nTo resume, run \`/run-workflow\`.`,
@@ -113,7 +120,7 @@ function handleAbort(directory: string, instance: WorkflowInstance): WorkflowCom
   const name = instance.definition_name
   const goal = instance.goal
 
-  abortWorkflow(directory)
+  WorkflowService.abortWorkflow(directory)
   return {
     handled: true,
     contextInjection: `## Workflow Aborted\nWorkflow "${name}" has been cancelled.\nGoal: "${goal}"\n\nThe workflow instance has been terminated and the active pointer cleared.`,

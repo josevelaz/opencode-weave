@@ -15,6 +15,28 @@ import { logDelegation, debug, info } from "../../shared/log"
 import { setContextLimit } from "../../hooks"
 import type { RuntimeEffect } from "./effects"
 import { createRuntimeLifecyclePolicySurface } from "../../application/orchestration/session-runtime"
+import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-lease-fs-store"
+import { getAgentConfigKey } from "../../shared/agent-display-names"
+import { projectExecutionTransition } from "../../domain/session/execution-lease"
+
+function buildEnabledAgentKeys(pluginConfig: WeaveConfig): Set<string> {
+  const disabled = new Set(pluginConfig.disabled_agents ?? [])
+  const enabled = new Set<string>()
+
+  for (const builtin of ["loom", "tapestry", "shuttle", "pattern", "thread", "spindle", "weft", "warp"]) {
+    if (!disabled.has(builtin)) {
+      enabled.add(builtin)
+    }
+  }
+
+  for (const custom of Object.keys(pluginConfig.custom_agents ?? {})) {
+    if (!disabled.has(custom)) {
+      enabled.add(custom)
+    }
+  }
+
+  return enabled
+}
 
 export function createPluginAdapter(args: {
   pluginConfig: WeaveConfig
@@ -28,6 +50,8 @@ export function createPluginAdapter(args: {
 }) {
   const { pluginConfig, hooks, configHandler, agents, client, directory = "", tracker } = args
   const lifecyclePolicy = createRuntimeLifecyclePolicySurface()
+  const executionLeaseRepository = createExecutionLeaseFsStore()
+  const enabledAgents = buildEnabledAgentKeys(pluginConfig)
 
   const lastAssistantMessageText = new Map<string, string>()
   const lastUserMessageText = new Map<string, string>()
@@ -135,10 +159,25 @@ export function createPluginAdapter(args: {
 
     handleChatParams: async (input: { sessionID?: string; agent?: string; model?: { id?: string; limit?: { context?: number } } }) => {
       const sessionId = input.sessionID ?? ""
+      const observedAgent = input.agent ? getAgentConfigKey(input.agent) : null
       const maxTokens = input.model?.limit?.context ?? 0
       if (sessionId && maxTokens > 0) {
         setContextLimit(sessionId, maxTokens)
         debug("[context-window] Captured context limit", { sessionId, maxTokens })
+      }
+
+      if (directory && sessionId && observedAgent) {
+        const projection = projectExecutionTransition({
+          event: "observe_ad_hoc_agent",
+          sessionId,
+          foregroundAgent: observedAgent,
+          currentLease: executionLeaseRepository.readExecutionLease(directory),
+          currentSessionRuntime: executionLeaseRepository.readSessionRuntime(directory, sessionId),
+        })
+
+        if (projection.sessionRuntime) {
+          executionLeaseRepository.writeSessionRuntime(directory, projection.sessionRuntime)
+        }
       }
 
       const effects: RuntimeEffect[] = []
@@ -162,14 +201,25 @@ export function createPluginAdapter(args: {
         compactionPreserver,
         todoContinuationEnforcer,
         lifecyclePolicy,
+        enabledAgents,
       })
 
       await applyRuntimeEffects({
         effects,
         client,
         tracker,
-        pausePlan: directory ? () => handlePauseExecutionEffect({ effectReason: "User interrupt", directory }) : undefined,
-        pauseWorkflow: () => {},
+        pauseWorkflow: directory ? () => handlePauseExecutionEffect({
+          effectReason: "User interrupt",
+          directory,
+          sessionId: effects.find((effect) => effect.type === "pauseExecution")?.sessionId,
+          target: effects.find((effect) => effect.type === "pauseExecution")?.target,
+        }) : undefined,
+        pausePlan: directory ? () => handlePauseExecutionEffect({
+          effectReason: "User interrupt",
+          directory,
+          sessionId: effects.find((effect) => effect.type === "pauseExecution")?.sessionId,
+          target: effects.find((effect) => effect.type === "pauseExecution")?.target,
+        }) : undefined,
       })
     },
 

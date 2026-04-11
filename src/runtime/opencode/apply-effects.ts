@@ -1,4 +1,5 @@
 import { getAgentDisplayName } from "../../shared/agent-display-names"
+import { createSessionClient } from "../../infrastructure/opencode/session-client"
 import type { PluginContext } from "../../plugin/types"
 import type { SessionTracker } from "../../features/analytics"
 import type { RuntimeEffect } from "./effects"
@@ -12,6 +13,7 @@ export async function applyRuntimeEffects(args: {
   pauseWorkflow?: (reason: string) => void
 }): Promise<void> {
   const { effects, output, client, tracker, pausePlan, pauseWorkflow } = args
+  const sessionClient = client ? createSessionClient(client) : null
 
   for (const effect of effects) {
     switch (effect.type) {
@@ -34,13 +36,20 @@ export async function applyRuntimeEffects(args: {
         break
       }
       case "injectPromptAsync": {
-        if (client) {
-          await client.session.promptAsync({
-            path: { id: effect.sessionId },
-            body: {
-              parts: [{ type: "text", text: effect.text }],
-              ...(effect.agent ? { agent: getAgentDisplayName(effect.agent) } : {}),
-            },
+        if (sessionClient) {
+          await sessionClient.promptAsync({
+            sessionId: effect.sessionId,
+            parts: [{ type: "text", text: effect.text }],
+            ...(effect.agent ? { agent: getAgentDisplayName(effect.agent) } : {}),
+          })
+        }
+        break
+      }
+      case "restoreAgent": {
+        if (sessionClient) {
+          await sessionClient.restoreAgent({
+            sessionId: effect.sessionId,
+            agent: getAgentDisplayName(effect.agent),
           })
         }
         break

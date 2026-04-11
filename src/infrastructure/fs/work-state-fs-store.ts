@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from "fs"
 import { execSync } from "child_process"
 import { basename, join } from "path"
-import type { PlanProgress, WorkState } from "../../features/work-state/types"
-import { PLANS_DIR, WEAVE_DIR, WORK_STATE_FILE } from "../../features/work-state/constants"
+import type { PlanProgress, SessionRuntimeState, WorkState } from "../../features/work-state/types"
+import { PLANS_DIR, SESSION_RUNTIME_DIR, WEAVE_DIR, WORK_STATE_FILE } from "../../features/work-state/constants"
 
 const UncheckedRegex = /^[-*]\s*\[\s*\]/gm
 const CheckedRegex = /^[-*]\s*\[[xX]\]/gm
@@ -162,4 +162,69 @@ export function resumeWorkInFs(directory: string): boolean {
 
   state.paused = false
   return writeWorkStateToFs(directory, state)
+}
+
+export function readSessionRuntimeFromFs(directory: string, sessionId: string): SessionRuntimeState | null {
+  const filePath = getSessionRuntimeFilePath(directory, sessionId)
+  try {
+    if (!existsSync(filePath)) {
+      return null
+    }
+
+    const raw = readFileSync(filePath, "utf-8")
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null
+    }
+    if (typeof parsed.session_id !== "string") {
+      return null
+    }
+    if (parsed.session_id !== sessionId) {
+      return null
+    }
+    if (typeof parsed.mode !== "string") {
+      return null
+    }
+    if (typeof parsed.status !== "string") {
+      return null
+    }
+
+    return parsed as SessionRuntimeState
+  } catch {
+    return null
+  }
+}
+
+export function writeSessionRuntimeToFs(directory: string, state: SessionRuntimeState): boolean {
+  try {
+    const sessionDir = join(directory, SESSION_RUNTIME_DIR)
+    if (!existsSync(sessionDir)) {
+      mkdirSync(sessionDir, { recursive: true })
+    }
+
+    writeFileSync(getSessionRuntimeFilePath(directory, state.session_id), JSON.stringify(state, null, 2), "utf-8")
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function clearSessionRuntimeFromFs(directory: string, sessionId: string): boolean {
+  const filePath = getSessionRuntimeFilePath(directory, sessionId)
+  try {
+    if (existsSync(filePath)) {
+      unlinkSync(filePath)
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+function getSessionRuntimeFilePath(directory: string, sessionId: string): string {
+  return join(directory, SESSION_RUNTIME_DIR, `${encodeSessionId(sessionId)}.json`)
+}
+
+function encodeSessionId(sessionId: string): string {
+  return Buffer.from(sessionId, "utf-8").toString("base64url")
 }

@@ -50,6 +50,7 @@ export interface RuntimeCompactionInput {
   directory: string
   sessionId: string
   hooks: CreatedHooks
+  enabledAgents?: ReadonlySet<string>
 }
 
 export interface RuntimeAssistantMessageInput {

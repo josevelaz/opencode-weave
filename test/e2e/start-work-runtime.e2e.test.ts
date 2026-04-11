@@ -92,15 +92,16 @@ describe("E2E: /start-work runtime flow", () => {
       planName: "idle-plan",
       timestamp: "2026-01-01T00:00:00.000Z",
     })
+    host.client.clearEffects()
     await host.emitSessionIdle("sess-idle-1")
 
     expect(host.client.promptAsyncCalls).toHaveLength(1)
-    expect(host.client.lastPromptAsyncCall?.path.id).toBe("sess-idle-1")
-    expect(host.client.lastPromptAsyncCall?.body.parts).toHaveLength(1)
-    expect(host.client.lastPromptAsyncCall?.body.parts[0].type).toBe("text")
-    expect(host.client.lastPromptAsyncCall?.body.parts[0].text).toContain(CONTINUATION_MARKER)
-    expect(host.client.lastPromptAsyncCall?.body.parts[0].text).toContain("idle-plan")
-    expect(host.client.lastPromptAsyncCall?.body.parts[0].text).toContain("0/2 tasks completed")
+    expect(host.client.promptAsyncCalls[0].path.id).toBe("sess-idle-1")
+    expect(host.client.promptAsyncCalls[0].body.parts).toHaveLength(1)
+    expect(host.client.promptAsyncCalls[0].body.parts[0].type).toBe("text")
+    expect(host.client.promptAsyncCalls[0].body.parts[0].text).toContain(CONTINUATION_MARKER)
+    expect(host.client.promptAsyncCalls[0].body.parts[0].text).toContain("idle-plan")
+    expect(host.client.promptAsyncCalls[0].body.parts[0].text).toContain("0/2 tasks completed")
   })
 
   it("pauses active work on session.interrupt and suppresses later idle continuation", async () => {
@@ -131,7 +132,8 @@ describe("E2E: /start-work runtime flow", () => {
       planName: "interrupt-plan",
       timestamp: "2026-01-01T00:00:00.000Z",
     })
-    await host.emitCommandExecute("session.interrupt")
+    host.client.clearEffects()
+    await host.emitCommandExecute("session.interrupt", "sess-interrupt-1")
 
     const stateAfterInterrupt = readWorkState(fixture.directory)
     expect(stateAfterInterrupt).not.toBeNull()

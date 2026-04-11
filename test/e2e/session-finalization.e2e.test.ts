@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test"
 import { readMetricsReports, readSessionSummaries } from "../../src/features/analytics"
 import { readWorkState } from "../../src/features/work-state"
+import { createExecutionLeaseFsStore } from "../../src/infrastructure/fs/execution-lease-fs-store"
+import { createExecutionLeaseState, createSessionRuntimeState } from "../../src/domain/session/execution-lease"
 import { createProjectFixture, type ProjectFixture } from "../testkit/fixtures/project-fixture"
 import { FakeOpencodeHost } from "../testkit/host/fake-opencode-host"
 
 describe("E2E: session finalization", () => {
+  const executionLeaseRepository = createExecutionLeaseFsStore()
   let fixture: ProjectFixture
 
   beforeEach(() => {
@@ -178,5 +181,34 @@ describe("E2E: session finalization", () => {
     expect(readSessionSummaries(fixture.directory)).toEqual([])
     expect(readMetricsReports(fixture.directory)).toEqual([])
     expect(readWorkState(fixture.directory)).toBeNull()
+  })
+
+  it("clears per-session runtime state on session deletion", async () => {
+    executionLeaseRepository.writeExecutionLease(
+      fixture.directory,
+      createExecutionLeaseState({
+        ownerKind: "plan",
+        ownerRef: "/tmp/plan.md",
+        status: "running",
+        sessionId: "sess-runtime-delete",
+        executorAgent: "tapestry",
+      }),
+    )
+    executionLeaseRepository.writeSessionRuntime(
+      fixture.directory,
+      createSessionRuntimeState({
+        sessionId: "sess-runtime-delete",
+        foregroundAgent: "tapestry",
+        mode: "plan",
+        executionRef: "/tmp/plan.md",
+        status: "running",
+      }),
+    )
+
+    const host = await FakeOpencodeHost.boot({ directory: fixture.directory })
+    await host.emitSessionDeleted("sess-runtime-delete")
+
+    expect(executionLeaseRepository.readExecutionLease(fixture.directory)).toBeNull()
+    expect(executionLeaseRepository.readSessionRuntime(fixture.directory, "sess-runtime-delete")).toBeNull()
   })
 })

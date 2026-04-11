@@ -5,6 +5,7 @@ import { tmpdir } from "os"
 import { handleStartWork, formatValidationResults } from "./start-work-hook"
 import { PLANS_DIR } from "../features/work-state/constants"
 import { writeWorkState, createWorkState, readWorkState } from "../features/work-state/storage"
+import { createExecutionLeaseFsStore } from "../infrastructure/fs/execution-lease-fs-store"
 import {
   createWorkflowInstance,
   writeWorkflowInstance,
@@ -14,6 +15,7 @@ import { WORKFLOWS_STATE_DIR, WORKFLOWS_DIR_PROJECT } from "../features/workflow
 import type { WorkflowDefinition } from "../features/workflow/types"
 
 let testDir: string
+const ExecutionLeaseRepository = createExecutionLeaseFsStore()
 
 beforeEach(() => {
   testDir = mkdtempSync(join(tmpdir(), "weave-sw-test-"))
@@ -115,6 +117,8 @@ describe("handleStartWork", () => {
       expect(state).not.toBeNull()
       expect(state!.plan_name).toBe("my-feature")
       expect(state!.agent).toBe("tapestry")
+      expect(ExecutionLeaseRepository.readExecutionLease(testDir)?.owner_kind).toBe("plan")
+      expect(ExecutionLeaseRepository.readSessionRuntime(testDir, "sess_1")?.foreground_agent).toBe("tapestry")
     })
 
     it("does not include Start SHA for non-git directory", () => {

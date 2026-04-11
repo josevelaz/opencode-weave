@@ -43,8 +43,8 @@ export function createCommandChatPolicy(): ChatPolicy {
         }),
       ]
 
-      if (input.hooks.workflowCommand && input.promptText && shouldHandleWorkflowCommand(input.directory)) {
-        const result = input.hooks.workflowCommand(input.promptText)
+      if (input.hooks.workflowCommand && input.promptText && shouldHandleWorkflowCommand(input.directory, input.sessionId)) {
+        const result = input.hooks.workflowCommand(input.promptText, input.sessionId)
         if (result.handled) {
           if (result.switchAgent) {
             effects.push({ type: "switchAgent", agent: result.switchAgent })
@@ -72,6 +72,7 @@ export function createAutoPauseChatPolicy(): ChatPolicy {
 
       if (!shouldAutoPauseForUserMessage({
         directory: input.directory,
+        sessionId: input.sessionId,
         isBuiltinCommand: !!isBuiltinCommand,
         isContinuation: !!isContinuation,
       })) {

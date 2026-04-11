@@ -47,6 +47,7 @@ export function startWorkflow(input: {
   return {
     type: "inject_prompt",
     prompt,
+    agent: firstStepDef.agent,
   }
 }
 
@@ -168,6 +169,7 @@ function advanceToNextStep(
   return {
     type: "inject_prompt",
     prompt,
+    agent: nextStepDef.agent,
   }
 }
 
@@ -213,6 +215,7 @@ export function resumeWorkflow(directory: string): EngineAction {
   return {
     type: "inject_prompt",
     prompt,
+    agent: currentStepDef.agent,
   }
 }
 

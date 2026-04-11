@@ -67,7 +67,7 @@ export function createHooks(args: {
       : null,
 
     compactionRecovery: isHookEnabled("work-continuation")
-      ? (sessionId: string) => checkCompactionRecovery({ sessionId, directory })
+      ? (sessionId: string, enabledAgents?: ReadonlySet<string>) => checkCompactionRecovery({ sessionId, directory, enabledAgents })
       : null,
 
     workflowStart: isHookEnabled("workflow")
@@ -81,7 +81,7 @@ export function createHooks(args: {
       : null,
 
     workflowCommand: isHookEnabled("workflow")
-      ? (message: string) => handleWorkflowCommand(message, directory)
+      ? (message: string, sessionId: string) => handleWorkflowCommand(message, directory, sessionId)
       : null,
 
     verificationReminder: isHookEnabled("verification-reminder")
