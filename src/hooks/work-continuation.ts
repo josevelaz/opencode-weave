@@ -128,6 +128,8 @@ You have an active work plan with incomplete tasks. Continue working.
 3. Find the first unchecked \`- [ ]\` task
 4. Execute it, verify it, mark \`- [ ]\` → \`- [x]\`
 5. Update sidebar todos as you complete tasks
-6. Do not stop until all tasks are complete`,
+6. Immediately continue to the next unchecked task
+7. Do not stop, ask what to do next, or mention post-execution review while unchecked tasks remain
+8. Only stop when all tasks are complete, the user explicitly stops you, or every remaining unchecked task is truly blocked`,
   }
 }

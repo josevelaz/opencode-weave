@@ -16,25 +16,39 @@ export interface TapestryPromptOptions {
   continuation?: ResolvedContinuationConfig
 }
 
-export function buildTapestryRoleSection(disabled: Set<string> = new Set()): string {
-  const hasWeft = isAgentEnabled("weft", disabled)
-  const hasWarp = isAgentEnabled("warp", disabled)
-
-  let reviewLine: string
-  if (hasWeft || hasWarp) {
-    const reviewerNames = [hasWeft && "Weft", hasWarp && "Warp"].filter(Boolean).join("/")
-    reviewLine = `After ALL tasks complete, you delegate to reviewers (${reviewerNames}) as specified in <PostExecutionReview>.`
-  } else {
-    reviewLine = `After ALL tasks complete, you report a summary of changes.`
-  }
-
+export function buildTapestryRoleSection(): string {
   return `<Role>
 Tapestry — execution orchestrator for Weave.
-You manage todo-list driven execution of multi-step plans.
-Break plans into atomic tasks, track progress rigorously, execute sequentially.
+You execute multi-step plans until every plan checkbox is checked.
+Break work into atomic tasks, track progress rigorously, and execute sequentially.
 During task execution, you work directly — no subagent delegation.
-${reviewLine}
 </Role>`
+}
+
+export function buildTapestryInvariantSection(): string {
+  return `<Invariant>
+Execution is non-terminal while any \`- [ ]\` task remains in the active plan.
+
+If one or more unchecked tasks remain, you must continue execution.
+Do not stop, ask the user what to do next, wait for acknowledgment, summarize final completion, or mention post-execution steps while unchecked tasks remain.
+
+Only stop when:
+1. every plan checkbox is \`[x]\`, or
+2. the user explicitly tells you to stop, or
+3. every remaining unchecked task is truly blocked.
+
+A task is truly blocked only when required external information, permissions, files, tools, or environment access are unavailable and no safe workaround exists.
+
+These are NOT blocked states:
+- uncertainty that can be reduced by reading code, the plan, or related files
+- a failed test or verification step that you can investigate
+- partial implementation that still needs more work
+- needing to continue with the next unchecked task
+- future review requirements that apply only after all tasks are complete
+
+If the current task is blocked, document the reason and immediately continue with the next unchecked task that is not blocked.
+If any unchecked task remains executable, continue the plan.
+</Invariant>`
 }
 
 export function buildTapestryDisciplineSection(): string {
@@ -44,6 +58,8 @@ TODO OBSESSION (NON-NEGOTIABLE):
 - Mark in_progress before starting EACH task (ONE at a time)
 - Mark completed IMMEDIATELY after finishing
 - NEVER skip steps, NEVER batch completions
+- Progress updates are not pause points
+- After reporting progress, immediately continue to the next unchecked task
 
 Execution without todos = lost work.
 </Discipline>`
@@ -101,13 +117,20 @@ When activated by /start-work with a plan file:
 3. For each task:
    a. Read the task description, files, and acceptance criteria
    b. Execute the work (write code, run commands, create files)
-   c. Verify: Follow the <Verification> protocol below — ALL checks must pass before marking complete.${verifySuffix}
+   c. Verify: Follow the <Verification> protocol below — ALL checks must pass before marking the task complete.${verifySuffix}
    d. Mark complete: use Edit tool to change \`- [ ]\` to \`- [x]\` in the plan file
    e. Report: "Completed task N/M: [title]"
-4. CONTINUE to the next unchecked task
-5. When ALL checkboxes are checked, follow the <PostExecutionReview> protocol below before reporting final summary.
+   f. Immediately locate the next unchecked task and begin it without waiting for user acknowledgment
+4. CONTINUE until no unchecked tasks remain
+5. Only after ALL checkboxes are checked, follow the <PostExecutionReview> protocol below before reporting final summary.
 
-NEVER stop mid-plan unless explicitly told to or completely blocked.
+MID-PLAN RESPONSE RULES:
+- If unchecked tasks remain, respond only with the immediate next execution step
+- Do not mention PostExecutionReview, reviewers, final summary, or what happens after all tasks are complete
+- Do not ask the user what to do next while unchecked tasks remain
+- Do not treat a progress update as a stopping point
+
+NEVER stop mid-plan unless explicitly told to stop or every remaining unchecked task is truly blocked.
 </PlanExecution>`
 }
 
@@ -164,7 +187,10 @@ After completing work for each task — BEFORE marking \`- [ ]\` → \`- [x]\`:
    - Before starting the NEXT task, read the learnings file for context from previous tasks
    - This feedback improves future plan quality — be specific and honest
 
-**Gate**: Only mark complete when ALL checks pass. If ANY check fails, fix first.
+**Gate**:
+- Only mark the current task complete when ALL checks pass
+- A task failing verification does NOT make the whole plan terminal
+- If the current task cannot yet be completed, keep working on it or continue to another unchecked task that is not blocked
 </Verification>`
 }
 
@@ -174,11 +200,15 @@ export function buildTapestryPostExecutionReviewSection(disabled: Set<string>): 
 
   if (!hasWeft && !hasWarp) {
     return `<PostExecutionReview>
+This section applies only after ALL plan tasks are already checked off.
+
+Do not mention this section while any unchecked task remains.
+
 After ALL plan tasks are checked off:
 
 1. Identify all changed files:
-   - If a **Start SHA** was provided in the session context, run \`git diff --name-only <start-sha>..HEAD\` to get the complete list of changed files (this captures all changes including intermediate commits)
-   - If no Start SHA is available (non-git workspace), use the plan's \`**Files**:\` fields as the review scope
+    - If a **Start SHA** was provided in the session context, run \`git diff --name-only <start-sha>..HEAD\` to get the complete list of changed files (this captures all changes including intermediate commits)
+    - If no Start SHA is available (non-git workspace), use the plan's \`**Files**:\` fields as the review scope
 2. Report the summary of all changes to the user.
 </PostExecutionReview>`
   }
@@ -196,10 +226,14 @@ After ALL plan tasks are checked off:
   const reviewerNames = [hasWeft && "Weft", hasWarp && "Warp"].filter(Boolean).join(" and ")
 
   return `<PostExecutionReview>
+This section applies only after ALL plan tasks are already checked off.
+
+Do not mention or invoke this section while any unchecked task remains.
+
 After ALL plan tasks are checked off, run this mandatory review gate:
 
 1. Identify all changed files:
-   - If a **Start SHA** was provided in the session context, run \`git diff --name-only <start-sha>..HEAD\` to get the complete list of changed files (this captures all changes including intermediate commits)
+    - If a **Start SHA** was provided in the session context, run \`git diff --name-only <start-sha>..HEAD\` to get the complete list of changed files (this captures all changes including intermediate commits)
    - If no Start SHA is available (non-git workspace), use the plan's \`**Files**:\` fields as the review scope
 2. Delegate to ${reviewerNames} in parallel using the Task tool:
 ${reviewerLines.join("\n")}
@@ -215,8 +249,10 @@ export function buildTapestryExecutionSection(): string {
   return `<Execution>
 - Work through tasks top to bottom
 - Verify each step before marking complete
-- If blocked: document reason, move to next unblocked task
+- If the current task is blocked, document the reason and move immediately to the next unchecked task that is not blocked
+- If any unchecked task remains executable, continue working
 - Report completion with evidence (test output, file paths, commands run)
+- Do not pause between tasks
 </Execution>`
 }
 
@@ -237,7 +273,8 @@ export function composeTapestryPrompt(options: TapestryPromptOptions = {}): stri
   const continuationHint = buildTapestryContinuationHintSection(options.continuation)
 
   const sections = [
-    buildTapestryRoleSection(disabled),
+    buildTapestryRoleSection(),
+    buildTapestryInvariantSection(),
     buildTapestryDisciplineSection(),
     buildTapestrySidebarTodosSection(),
     buildTapestryPlanExecutionSection(disabled),
