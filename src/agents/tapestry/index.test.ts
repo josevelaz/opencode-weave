@@ -31,11 +31,11 @@ describe("createTapestryAgent", () => {
     expect(config.tools?.["call_weave_agent"]).toBe(false)
   })
 
-  it("completion step references PostExecutionReview", () => {
+  it("completion step references terminal-state behavior", () => {
     const config = createTapestryAgent("claude-sonnet-4")
     const prompt = config.prompt as string
     const planExec = prompt.slice(prompt.indexOf("<PlanExecution>"), prompt.indexOf("</PlanExecution>"))
-    expect(planExec).toContain("PostExecutionReview")
+    expect(planExec).toContain("terminal-state behavior")
   })
 
   it("contains a PostExecutionReview section", () => {

@@ -121,10 +121,10 @@ describe("individual tapestry section builders", () => {
     expect(section).toContain("final todowrite")
   })
 
-  it("buildTapestryPlanExecutionSection references Verification and PostExecutionReview", () => {
+  it("buildTapestryPlanExecutionSection references Verification and terminal-state behavior", () => {
     const section = buildTapestryPlanExecutionSection()
     expect(section).toContain("Verification")
-    expect(section).toContain("PostExecutionReview")
+    expect(section).toContain("terminal-state behavior")
   })
 
   it("buildTapestryPlanExecutionSection mentions Weft by default", () => {
