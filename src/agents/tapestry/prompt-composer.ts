@@ -222,17 +222,17 @@ After ALL plan tasks are checked off:
 
   const reviewerLines: string[] = []
   if (hasWeft) {
-    reviewerLines.push(`   - Weft: subagent_type "weft" — reviews code quality`)
+    reviewerLines.push(`   - Delegate to Weft: subagent_type "weft" — reviews code quality`)
   }
   if (hasWarp) {
     reviewerLines.push(
-      `   - Warp: subagent_type "warp" — audits security (self-triages; fast-exits with APPROVE if no security-relevant changes)`,
+      `   - Delegate to Warp: subagent_type "warp" — audits security (self-triages; fast-exits with APPROVE if no security-relevant changes)`,
     )
   }
 
   const reviewerNames = [hasWeft && "Weft", hasWarp && "Warp"].filter(Boolean).join(" and ")
 
-  return `<TerminalState>
+  return `<PostExecutionReview>
 This section applies only when no unchecked plan tasks remain.
 
 Ignore this section completely while any unchecked task remains.
@@ -249,7 +249,7 @@ ${reviewerLines.join("\n")}
    - Summarize ${reviewerNames}'s findings (APPROVE or REJECT with details)
    - If either validator REJECTS, present the blocking issues to the user for decision — do NOT attempt to fix them yourself
    - Tapestry follows the plan; terminal findings require user approval before any further changes
-</TerminalState>`
+</PostExecutionReview>`
 }
 
 export function buildTapestryExecutionSection(): string {
