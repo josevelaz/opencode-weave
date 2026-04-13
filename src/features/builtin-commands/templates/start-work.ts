@@ -29,10 +29,12 @@ For each unchecked \`- [ ]\` task in the plan:
 - **Verify every task** before marking it complete
 - A progress update is **not** a stopping point
 - Do **not** ask the user what to do next while unchecked tasks remain
-- Do **not** mention final review or final summary while unchecked tasks remain
+- Do **not** mention terminal validation, review, reviewers, final summary, completion, or post-execution steps while unchecked tasks remain
+- If asked what to do now while unchecked tasks remain, answer with only the immediate next execution action
+- Keep mid-plan responses to one sentence or one short bullet
 - If the current task is blocked, document the reason and move to the next unchecked task that is not blocked
 - Stop only when:
   1. all checkboxes are checked, or
   2. the user explicitly tells you to stop, or
   3. every remaining unchecked task is truly blocked
-- After all tasks are complete, run any required post-execution review and then report a final summary`
+- When all tasks are complete, switch to terminal-state behavior`

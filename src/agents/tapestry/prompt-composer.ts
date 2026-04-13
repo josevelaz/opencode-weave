@@ -32,6 +32,12 @@ Execution is non-terminal while any \`- [ ]\` task remains in the active plan.
 If one or more unchecked tasks remain, you must continue execution.
 Do not stop, ask the user what to do next, wait for acknowledgment, summarize final completion, or mention post-execution steps while unchecked tasks remain.
 
+ACTIVE-STATE RESPONSE CONTRACT:
+- If any unchecked task remains, respond with ONLY the immediate next execution action.
+- Do not mention later phases, terminal steps, or anything that happens after the current remaining work.
+- Forbidden while unchecked tasks remain: review, reviewer, Weft, Warp, final summary, completion, all tasks complete, execution is complete.
+- Keep the response to one sentence or one short bullet.
+
 Only stop when:
 1. every plan checkbox is \`[x]\`, or
 2. the user explicitly tells you to stop, or
@@ -44,7 +50,7 @@ These are NOT blocked states:
 - a failed test or verification step that you can investigate
 - partial implementation that still needs more work
 - needing to continue with the next unchecked task
-- future review requirements that apply only after all tasks are complete
+- future terminal-state requirements
 
 If the current task is blocked, document the reason and immediately continue with the next unchecked task that is not blocked.
 If any unchecked task remains executable, continue the plan.
@@ -122,13 +128,14 @@ When activated by /start-work with a plan file:
    e. Report: "Completed task N/M: [title]"
    f. Immediately locate the next unchecked task and begin it without waiting for user acknowledgment
 4. CONTINUE until no unchecked tasks remain
-5. Only after ALL checkboxes are checked, follow the <PostExecutionReview> protocol below before reporting final summary.
+5. When no unchecked tasks remain, switch to terminal-state behavior.
 
 MID-PLAN RESPONSE RULES:
 - If unchecked tasks remain, respond only with the immediate next execution step
-- Do not mention PostExecutionReview, reviewers, final summary, or what happens after all tasks are complete
+- Do not mention terminal-state behavior or what happens after all tasks are complete
 - Do not ask the user what to do next while unchecked tasks remain
 - Do not treat a progress update as a stopping point
+- Keep mid-plan responses to one sentence or one short bullet
 
 NEVER stop mid-plan unless explicitly told to stop or every remaining unchecked task is truly blocked.
 </PlanExecution>`
@@ -225,24 +232,24 @@ After ALL plan tasks are checked off:
 
   const reviewerNames = [hasWeft && "Weft", hasWarp && "Warp"].filter(Boolean).join(" and ")
 
-  return `<PostExecutionReview>
-This section applies only after ALL plan tasks are already checked off.
+  return `<TerminalState>
+This section applies only when no unchecked plan tasks remain.
 
-Do not mention or invoke this section while any unchecked task remains.
+Ignore this section completely while any unchecked task remains.
 
-After ALL plan tasks are checked off, run this mandatory review gate:
+When all plan tasks are checked off:
 
 1. Identify all changed files:
     - If a **Start SHA** was provided in the session context, run \`git diff --name-only <start-sha>..HEAD\` to get the complete list of changed files (this captures all changes including intermediate commits)
    - If no Start SHA is available (non-git workspace), use the plan's \`**Files**:\` fields as the review scope
-2. Delegate to ${reviewerNames} in parallel using the Task tool:
+2. Run the required terminal validation workflow using the Task tool:
 ${reviewerLines.join("\n")}
-   - Include the list of changed files in your prompt to each reviewer
-3. Report the review results to the user:
+   - Include the list of changed files in your prompt to each terminal validator
+3. Report the terminal results to the user:
    - Summarize ${reviewerNames}'s findings (APPROVE or REJECT with details)
-   - If either reviewer REJECTS, present the blocking issues to the user for decision — do NOT attempt to fix them yourself
-   - Tapestry follows the plan; review findings require user approval before any further changes
-</PostExecutionReview>`
+   - If either validator REJECTS, present the blocking issues to the user for decision — do NOT attempt to fix them yourself
+   - Tapestry follows the plan; terminal findings require user approval before any further changes
+</TerminalState>`
 }
 
 export function buildTapestryExecutionSection(): string {
