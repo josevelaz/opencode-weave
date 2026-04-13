@@ -4,10 +4,7 @@ import type { ConfigHandler } from "../../managers/config-handler"
 import type { CreatedHooks } from "../../hooks/create-hooks"
 import type { PluginContext, ToolsRecord } from "../../plugin/types"
 import type { SessionTracker } from "../../features/analytics"
-import { createCompactionTodoPreserver } from "../../hooks/compaction-todo-preserver"
-import { createTodoContinuationEnforcer } from "../../hooks/todo-continuation-enforcer"
 import { pauseWork } from "../../features/work-state"
-import { parseCommandEnvelope } from "./command-envelope"
 import { applyRuntimeEffects } from "./apply-effects"
 import { routeCommandExecuteBefore } from "../../application/commands/command-router"
 import { routeRuntimeEvent, handlePauseExecutionEffect } from "./event-router"
@@ -15,9 +12,12 @@ import { logDelegation, debug, info } from "../../shared/log"
 import { setContextLimit } from "../../hooks"
 import type { RuntimeEffect } from "./effects"
 import { createRuntimeLifecyclePolicySurface } from "../../application/orchestration/session-runtime"
+import type { RuntimePolicyFlags } from "../../application/orchestration/session-runtime"
 import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-lease-fs-store"
 import { getAgentConfigKey } from "../../shared/agent-display-names"
 import { projectExecutionTransition } from "../../domain/session/execution-lease"
+import { createTrustedMessageState } from "./trusted-message-state"
+import type { BuiltinCommandEnvelopeName } from "./protocol"
 
 function buildEnabledAgentKeys(pluginConfig: WeaveConfig): Set<string> {
   const disabled = new Set(pluginConfig.disabled_agents ?? [])
@@ -49,24 +49,23 @@ export function createPluginAdapter(args: {
   tracker?: SessionTracker
 }) {
   const { pluginConfig, hooks, configHandler, agents, client, directory = "", tracker } = args
-  const lifecyclePolicy = createRuntimeLifecyclePolicySurface()
+  const trustedMessageState = createTrustedMessageState()
+  const trackedClient = client ? wrapClientWithTrustedPromptTracking(client, trustedMessageState) : undefined
+  const lifecyclePolicy = createRuntimeLifecyclePolicySurface({ hooks, client: trackedClient })
   const executionLeaseRepository = createExecutionLeaseFsStore()
   const enabledAgents = buildEnabledAgentKeys(pluginConfig)
 
   const lastAssistantMessageText = new Map<string, string>()
   const lastUserMessageText = new Map<string, string>()
 
-  const compactionPreserver =
-    hooks.compactionTodoPreserverEnabled && client
-      ? createCompactionTodoPreserver(client)
-      : null
-
-  const todoContinuationEnforcer =
-    hooks.todoContinuationEnforcerEnabled && client
-      ? createTodoContinuationEnforcer(client, {
-          allowPromptFallback: hooks.continuation.idle.todo_prompt,
-        })
-      : null
+  const policyFlags: RuntimePolicyFlags = {
+    contextWindowThresholds: hooks.contextWindowThresholds,
+    rulesInjectorEnabled: hooks.rulesInjectorEnabled,
+    patternMdOnlyEnabled: hooks.patternMdOnlyEnabled,
+    verificationReminderEnabled: hooks.verificationReminderEnabled,
+    todoDescriptionOverrideEnabled: hooks.todoDescriptionOverrideEnabled,
+    todoContinuationEnforcerEnabled: hooks.todoContinuationEnforcerEnabled,
+  }
 
   return {
     config: async (config: Record<string, unknown>) => {
@@ -125,7 +124,10 @@ export function createPluginAdapter(args: {
           .join("\n")
           .trim() ?? ""
 
-      const parsedEnvelope = parseCommandEnvelope(promptText)
+      const parsedEnvelope = trustedMessageState.consumeTrustedEnvelope(sessionID, promptText)
+      if (parsedEnvelope?.kind !== "builtin-command") {
+        trustedMessageState.clearPendingBuiltin(sessionID)
+      }
 
       const effects: RuntimeEffect[] = [
         ...(await lifecyclePolicy.onChatMessage({
@@ -133,22 +135,27 @@ export function createPluginAdapter(args: {
           sessionId: sessionID,
           promptText,
           parsedEnvelope,
-          hooks,
+          hooks: {
+            ...policyFlags,
+            startWork: hooks.startWork,
+            workflowStart: hooks.workflowStart,
+            workflowCommand: hooks.workflowCommand,
+            continuation: hooks.continuation,
+          },
         })),
       ]
 
       if (promptText && sessionID) {
-        const isSystemInjected = parsedEnvelope?.kind === "continuation" || promptText.includes("<command-instruction>")
+        const isSystemInjected = parsedEnvelope !== null
         if (!isSystemInjected) {
           lastUserMessageText.set(sessionID, promptText)
-          todoContinuationEnforcer?.clearFinalized(sessionID)
         }
       }
 
       await applyRuntimeEffects({
         effects,
         output,
-        client,
+        client: trackedClient,
         tracker,
         pausePlan: directory ? () => {
           pauseWork(directory)
@@ -191,22 +198,27 @@ export function createPluginAdapter(args: {
     },
 
     handleEvent: async (input: { event: { type: string; properties?: unknown } }) => {
+      const deletedSessionId = getDeletedSessionId(input.event)
+      if (deletedSessionId) {
+        trustedMessageState.clearSession(deletedSessionId)
+        lastUserMessageText.delete(deletedSessionId)
+        lastAssistantMessageText.delete(deletedSessionId)
+      }
+
       const effects = await routeRuntimeEvent({
         event: input.event,
         directory,
         hooks,
-        client,
+        client: trackedClient,
         tracker,
         state: { lastAssistantMessageText, lastUserMessageText },
-        compactionPreserver,
-        todoContinuationEnforcer,
         lifecyclePolicy,
         enabledAgents,
       })
 
       await applyRuntimeEffects({
         effects,
-        client,
+        client: trackedClient,
         tracker,
         pauseWorkflow: directory ? () => handlePauseExecutionEffect({
           effectReason: "User interrupt",
@@ -237,7 +249,10 @@ export function createPluginAdapter(args: {
         sessionId: input.sessionID,
         tool: input.tool,
         callId: input.callID,
-        hooks,
+        hooks: {
+          ...policyFlags,
+          writeGuard: hooks.writeGuard,
+        },
         agent: input.agent,
         toolArgs,
       })))
@@ -263,7 +278,7 @@ export function createPluginAdapter(args: {
         sessionId: input.sessionID,
         tool: input.tool,
         callId: input.callID,
-        hooks,
+        hooks: policyFlags,
         toolArgs: input.args,
       })))
       if (tracker && hooks.analyticsEnabled) {
@@ -277,6 +292,10 @@ export function createPluginAdapter(args: {
     },
 
     handleCommandExecuteBefore: async (input: { command: string; sessionID: string; arguments: string }, output: { parts: Array<{ type: string; text: string }> }) => {
+      if (isBuiltinChatCommand(input.command)) {
+        trustedMessageState.registerBuiltinCommand(input.sessionID, input.command, input.arguments)
+      }
+
       const effects = routeCommandExecuteBefore({
         command: input.command,
         argumentsText: input.arguments,
@@ -289,16 +308,79 @@ export function createPluginAdapter(args: {
     },
 
     handleToolDefinition: async (input: { toolID: string }, output: { description: string; parameters?: unknown }) => {
-      hooks.todoDescriptionOverride?.(input, output)
+      await lifecyclePolicy.onToolDefinition({
+        toolId: input.toolID,
+        hooks: policyFlags,
+        output,
+      })
     },
 
     handleSessionCompacting: async (input: { sessionID?: string }) => {
-      if (compactionPreserver) {
-        const sessionID = input.sessionID ?? ""
-        if (sessionID) {
-          await compactionPreserver.capture(sessionID)
-        }
+      const sessionID = input.sessionID ?? ""
+      if (!sessionID) {
+        return
       }
+
+      await lifecyclePolicy.beforeCompaction({
+        directory,
+        sessionId: sessionID,
+        hooks: policyFlags,
+      })
     },
   }
+}
+
+function isBuiltinChatCommand(command: string): command is BuiltinCommandEnvelopeName {
+  return command === "start-work"
+    || command === "run-workflow"
+    || command === "metrics"
+    || command === "token-report"
+    || command === "weave-health"
+}
+
+function wrapClientWithTrustedPromptTracking(
+  client: PluginContext["client"],
+  trustedMessageState: ReturnType<typeof createTrustedMessageState>,
+): PluginContext["client"] {
+  return {
+    ...client,
+    session: Object.assign({}, client.session, {
+      promptAsync: (input: Parameters<typeof client.session.promptAsync>[0]) => {
+        const result = client.session.promptAsync(input)
+        const text = extractPromptText(input.body)
+        return result.then((value) => {
+          if (text) {
+            trustedMessageState.registerInjectedPrompt(input.path.id, text)
+          }
+          return value
+        }) as typeof result
+      },
+    }),
+  } as PluginContext["client"]
+}
+
+function extractPromptText(body: { parts: Array<{ type?: string; text?: string }> } | undefined): string | null {
+  if (!body) {
+    return null
+  }
+
+  const textParts = body.parts
+    ?.filter((part) => part.type === "text" && typeof part.text === "string")
+    .map((part) => part.text?.trim() ?? "")
+    .filter((text) => text.length > 0) ?? []
+
+  if (textParts.length === 0) {
+    return null
+  }
+
+  return textParts.join("\n")
+}
+
+function getDeletedSessionId(event: { type: string; properties?: unknown }): string | null {
+  if (event.type !== "session.deleted") {
+    return null
+  }
+
+  const properties = event.properties as { sessionID?: string; sessionId?: string; info?: { id?: string } } | undefined
+  return properties?.info?.id ?? properties?.sessionID ?? properties?.sessionId ?? null
 }

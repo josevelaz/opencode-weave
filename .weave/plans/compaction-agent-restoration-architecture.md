@@ -33,24 +33,24 @@ This matrix is both the behavioral contract and the primary consumer-facing expl
 Make compaction recovery restore the correct active agent and continuation behavior by using explicit persisted runtime state for both execution ownership and per-session foreground identity.
 
 ### Deliverables
-- [ ] A concrete persisted runtime/session state model that distinguishes plan execution, workflow execution, and ad-hoc agent-led work.
-- [ ] A single ownership/state-machine design used by `/start-work`, workflows, idle continuation, and compaction recovery.
-- [ ] A reconciliation-first compaction resume algorithm that restores Tapestry only for active plan execution, restores workflow step agents for active workflows, and restores Loom or other agents for ad-hoc sessions.
-- [ ] A compatibility-safe migration and rollout plan that keeps existing `.weave/state.json` and workflow state readable during transition.
+- [x] A concrete persisted runtime/session state model that distinguishes plan execution, workflow execution, and ad-hoc agent-led work.
+- [x] A single ownership/state-machine design used by `/start-work`, workflows, idle continuation, and compaction recovery.
+- [x] A reconciliation-first compaction resume algorithm that restores Tapestry only for active plan execution, restores workflow step agents for active workflows, and restores Loom or other agents for ad-hoc sessions.
+- [x] A compatibility-safe migration and rollout plan that keeps existing `.weave/state.json` and workflow state readable during transition.
 
 ### Definition of Done
-- [ ] The runtime has one authoritative design for `owner` vs `foregroundAgent`, documented and implemented through `.weave/runtime/` state.
-- [ ] `session.compacted` recovery can be explained by one deterministic algorithm rather than plan/workflow-specific heuristics.
-- [ ] The execution-ownership matrix (Loom ad-hoc, Tapestry plan, workflow step agent) is documented in this plan and reflected 1:1 in end-to-end coverage.
-- [ ] `bun test test/e2e/start-work-runtime.e2e.test.ts test/e2e/execution-ownership.e2e.test.ts test/e2e/workflow-precedence.e2e.test.ts` covers the updated ownership behavior.
-- [ ] New compaction-specific regression coverage exists for plan, workflow, Loom ad-hoc, paused, and stale-state scenarios.
+- [x] The runtime has one authoritative design for `owner` vs `foregroundAgent`, documented and implemented through `.weave/runtime/` state.
+- [x] `session.compacted` recovery can be explained by one deterministic algorithm rather than plan/workflow-specific heuristics.
+- [x] The execution-ownership matrix (Loom ad-hoc, Tapestry plan, workflow step agent) is documented in this plan and reflected 1:1 in end-to-end coverage.
+- [x] `bun test test/e2e/start-work-runtime.e2e.test.ts test/e2e/execution-ownership.e2e.test.ts test/e2e/workflow-precedence.e2e.test.ts` covers the updated ownership behavior.
+- [x] New compaction-specific regression coverage exists for plan, workflow, Loom ad-hoc, paused, and stale-state scenarios.
 
 ### Guardrails (Must NOT)
-- [ ] Must NOT blindly restore Tapestry when no active plan execution owns the session.
-- [ ] Must NOT treat analytics/session-tracker data as the source of truth for recovery.
-- [ ] Must NOT auto-resume paused or completed plans/workflows after compaction.
-- [ ] Must NOT make workflow state or plan state alone responsible for ad-hoc Loom-led sessions.
-- [ ] Must NOT introduce a second compaction decision path outside the PolicyEngine/session-policy flow.
+- [x] Must NOT blindly restore Tapestry when no active plan execution owns the session.
+- [x] Must NOT treat analytics/session-tracker data as the source of truth for recovery.
+- [x] Must NOT auto-resume paused or completed plans/workflows after compaction.
+- [x] Must NOT make workflow state or plan state alone responsible for ad-hoc Loom-led sessions.
+- [x] Must NOT introduce a second compaction decision path outside the PolicyEngine/session-policy flow.
 
 ## TODOs
 

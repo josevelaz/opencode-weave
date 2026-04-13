@@ -20,6 +20,23 @@ describe("applyRuntimeEffects", () => {
     expect(output.parts[0].text).toContain("## Injected")
   })
 
+  it("appends prompt text by creating a new text part when needed", async () => {
+    const output = {
+      message: { agent: "Loom (Main Orchestrator)" },
+      parts: [{ type: "image" }],
+    }
+
+    await applyRuntimeEffects({
+      effects: [{ type: "appendPromptText", text: "## Injected" }],
+      output,
+    })
+
+    expect(output.parts).toEqual([
+      { type: "image" },
+      { type: "text", text: "## Injected" },
+    ])
+  })
+
   it("injects promptAsync through client", async () => {
     const calls: Array<{ path: { id: string }; body: unknown }> = []
     const client = {

@@ -1,7 +1,7 @@
 import { CONTINUATION_MARKER } from "../../hooks/work-continuation"
-import { FINALIZE_TODOS_MARKER } from "../../hooks/todo-continuation-enforcer"
 import { WORKFLOW_CONTINUATION_MARKER } from "../../features/workflow/hook"
 import {
+  FINALIZE_TODOS_MARKER,
   parseEnvelopeBlock,
   type BuiltinCommandEnvelope,
   type BuiltinCommandEnvelopeName,

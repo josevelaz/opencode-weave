@@ -18,6 +18,7 @@ import { checkContinuation } from "./hooks/work-continuation"
 import { checkPatternWrite } from "./hooks/pattern-md-only"
 import { buildVerificationReminder } from "./hooks/verification-reminder"
 import { createHooks } from "./hooks/create-hooks"
+import { DEFAULT_CONTINUATION_CONFIG } from "./config/continuation"
 
 import {
   readWorkState,
@@ -532,6 +533,7 @@ describe("Integration: createHooks wired workflow", () => {
   it("startWork → workContinuation → full cycle through hooks object", () => {
     const hooks = createHooks({
       pluginConfig: {} as any,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
       isHookEnabled: () => true,
       directory: testDir,
     })
@@ -559,15 +561,17 @@ describe("Integration: createHooks wired workflow", () => {
   it("verificationReminder is wired and references Weft", () => {
     const hooks = createHooks({
       pluginConfig: {} as any,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
       isHookEnabled: () => true,
       directory: testDir,
     })
 
-    const result = hooks.verificationReminder!({
+    const result = buildVerificationReminder({
       planName: "test-plan",
       progress: { total: 3, completed: 3 },
     })
 
+    expect(hooks.verificationReminderEnabled).toBe(true)
     expect(result.verificationPrompt).not.toBeNull()
     expect(result.verificationPrompt!.toLowerCase()).toContain("weft")
     expect(result.verificationPrompt).toContain("test-plan")
@@ -576,30 +580,33 @@ describe("Integration: createHooks wired workflow", () => {
   it("createHooks patternMdOnly guard is wired correctly", () => {
     const hooks = createHooks({
       pluginConfig: {} as any,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
       isHookEnabled: () => true,
       directory: testDir,
     })
 
-    const blocked = hooks.patternMdOnly!("pattern", "write", join(testDir, "src", "foo.ts"))
+    const blocked = checkPatternWrite("pattern", "write", join(testDir, "src", "foo.ts"))
     expect(blocked.allowed).toBe(false)
 
-    const allowed = hooks.patternMdOnly!("pattern", "write", join(testDir, ".weave", "plans", "plan.md"))
+    const allowed = checkPatternWrite("pattern", "write", join(testDir, ".weave", "plans", "plan.md"))
     expect(allowed.allowed).toBe(true)
+    expect(hooks.patternMdOnlyEnabled).toBe(true)
   })
 
   it("disabled hooks return null via createHooks", () => {
     const disabledNames = new Set(["start-work", "work-continuation", "verification-reminder"])
     const hooks = createHooks({
       pluginConfig: {} as any,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
       isHookEnabled: (name) => !disabledNames.has(name),
       directory: testDir,
     })
 
     expect(hooks.startWork).toBeNull()
     expect(hooks.workContinuation).toBeNull()
-    expect(hooks.verificationReminder).toBeNull()
+    expect(hooks.verificationReminderEnabled).toBe(false)
     // Others should still be active
-    expect(hooks.patternMdOnly).not.toBeNull()
+    expect(hooks.patternMdOnlyEnabled).toBe(true)
   })
 })
 

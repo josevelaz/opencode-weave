@@ -31,14 +31,13 @@ describe("createHooks", () => {
       directory: "",
     })
 
-    expect(hooks).toHaveProperty("checkContextWindow")
+    expect(hooks).toHaveProperty("contextWindowThresholds")
     expect(hooks).toHaveProperty("writeGuard")
-    expect(hooks).toHaveProperty("shouldInjectRules")
-    expect(hooks).toHaveProperty("getRulesForFile")
+    expect(hooks).toHaveProperty("rulesInjectorEnabled")
     expect(hooks).toHaveProperty("firstMessageVariant")
     expect(hooks).toHaveProperty("processMessageForKeywords")
-    expect(hooks).toHaveProperty("verificationReminder")
-    expect(hooks).toHaveProperty("todoDescriptionOverride")
+    expect(hooks).toHaveProperty("patternMdOnlyEnabled")
+    expect(hooks).toHaveProperty("verificationReminderEnabled")
     expect(hooks).toHaveProperty("compactionTodoPreserverEnabled")
     expect(hooks).toHaveProperty("todoContinuationEnforcerEnabled")
     expect(hooks).toHaveProperty("continuation")
@@ -52,7 +51,7 @@ describe("createHooks", () => {
       directory: "",
     })
 
-    expect(hooks.checkContextWindow).toBeNull()
+    expect(hooks.contextWindowThresholds).toBeNull()
   })
 
   it("disabled hooks return null for rules-injector", () => {
@@ -63,8 +62,7 @@ describe("createHooks", () => {
       directory: "",
     })
 
-    expect(hooks.shouldInjectRules).toBeNull()
-    expect(hooks.getRulesForFile).toBeNull()
+    expect(hooks.rulesInjectorEnabled).toBe(false)
   })
 
   it("enabled hooks return non-null values", () => {
@@ -75,12 +73,12 @@ describe("createHooks", () => {
       directory: "",
     })
 
-    expect(hooks.checkContextWindow).not.toBeNull()
+    expect(hooks.contextWindowThresholds).not.toBeNull()
     expect(hooks.writeGuard).not.toBeNull()
-    expect(hooks.shouldInjectRules).not.toBeNull()
-    expect(hooks.getRulesForFile).not.toBeNull()
+    expect(hooks.rulesInjectorEnabled).toBe(true)
     expect(hooks.firstMessageVariant).not.toBeNull()
     expect(hooks.processMessageForKeywords).not.toBeNull()
+    expect(hooks.patternMdOnlyEnabled).toBe(true)
   })
 
   it("writeGuard is null when write-existing-file-guard disabled", () => {
@@ -102,12 +100,12 @@ describe("createHooks", () => {
       directory: "",
     })
 
-    expect(hooks.checkContextWindow).toBeNull()
+    expect(hooks.contextWindowThresholds).toBeNull()
     expect(hooks.writeGuard).toBeNull()
-    expect(hooks.shouldInjectRules).toBeNull()
-    expect(hooks.getRulesForFile).toBeNull()
+    expect(hooks.rulesInjectorEnabled).toBe(false)
     expect(hooks.firstMessageVariant).toBeNull()
     expect(hooks.processMessageForKeywords).toBeNull()
+    expect(hooks.patternMdOnlyEnabled).toBe(false)
   })
 
   it("firstMessageVariant is null when first-message-variant disabled", () => {
@@ -121,7 +119,7 @@ describe("createHooks", () => {
     expect(hooks.firstMessageVariant).toBeNull()
   })
 
-  it("checkContextWindow calls through correctly when enabled", () => {
+  it("returns configured context-window thresholds when enabled", () => {
     const hooks = createHooks({
       pluginConfig: baseConfig,
       continuation: DEFAULT_CONTINUATION_CONFIG,
@@ -129,44 +127,30 @@ describe("createHooks", () => {
       directory: "",
     })
 
-    const result = hooks.checkContextWindow!({
-      sessionId: "test-session",
-      usedTokens: 100,
-      maxTokens: 1000,
+    expect(hooks.contextWindowThresholds).toEqual({
+      warningPct: 0.8,
+      criticalPct: 0.95,
     })
-
-    expect(result.action).toBe("none")
-    expect(result.usagePct).toBeCloseTo(0.1)
   })
 
-  it("verificationReminder exists in returned hooks when all enabled", () => {
-    const hooks = createHooks({
-      pluginConfig: baseConfig,
-      continuation: DEFAULT_CONTINUATION_CONFIG,
-      isHookEnabled: allEnabled,
-      directory: "",
-    })
-    expect(hooks).toHaveProperty("verificationReminder")
-  })
-
-  it("verificationReminder is null when verification-reminder hook disabled", () => {
+  it("verificationReminderEnabled is false when verification-reminder disabled", () => {
     const hooks = createHooks({
       pluginConfig: baseConfig,
       continuation: DEFAULT_CONTINUATION_CONFIG,
       isHookEnabled: disableHook("verification-reminder"),
       directory: "",
     })
-    expect(hooks.verificationReminder).toBeNull()
+    expect(hooks.verificationReminderEnabled).toBe(false)
   })
 
-  it("verificationReminder is non-null when enabled", () => {
+  it("verificationReminderEnabled is true when enabled", () => {
     const hooks = createHooks({
       pluginConfig: baseConfig,
       continuation: DEFAULT_CONTINUATION_CONFIG,
       isHookEnabled: allEnabled,
       directory: "",
     })
-    expect(hooks.verificationReminder).not.toBeNull()
+    expect(hooks.verificationReminderEnabled).toBe(true)
   })
 
   it("custom context_window_warning_threshold is applied from config", () => {
@@ -183,13 +167,10 @@ describe("createHooks", () => {
       directory: "",
     })
 
-    // 65% usage — below default 80% but above custom 60% → should warn with custom config
-    const result = hooks.checkContextWindow!({
-      sessionId: "test-session",
-      usedTokens: 65_000,
-      maxTokens: 100_000,
+    expect(hooks.contextWindowThresholds).toEqual({
+      warningPct: 0.6,
+      criticalPct: 0.9,
     })
-    expect(result.action).toBe("warn")
   })
 
   it("default thresholds (80%/95%) used when not configured", () => {
@@ -200,13 +181,10 @@ describe("createHooks", () => {
       directory: "",
     })
 
-    // 65% usage — below default 80% → should return none
-    const result = hooks.checkContextWindow!({
-      sessionId: "test-session",
-      usedTokens: 65_000,
-      maxTokens: 100_000,
+    expect(hooks.contextWindowThresholds).toEqual({
+      warningPct: 0.8,
+      criticalPct: 0.95,
     })
-    expect(result.action).toBe("none")
   })
 
   it("custom critical threshold triggers recover action", () => {
@@ -223,13 +201,10 @@ describe("createHooks", () => {
       directory: "",
     })
 
-    // 92% usage — above custom 90% critical threshold → should recover
-    const result = hooks.checkContextWindow!({
-      sessionId: "test-session",
-      usedTokens: 92_000,
-      maxTokens: 100_000,
+    expect(hooks.contextWindowThresholds).toEqual({
+      warningPct: 0.6,
+      criticalPct: 0.9,
     })
-    expect(result.action).toBe("recover")
   })
 
   it("analyticsEnabled defaults to false when not passed", () => {
@@ -264,36 +239,71 @@ describe("createHooks", () => {
   })
 
   describe("todo-description-override hook", () => {
-    it("todoDescriptionOverride is non-null when enabled", () => {
-        const hooks = createHooks({
-          pluginConfig: baseConfig,
-          continuation: DEFAULT_CONTINUATION_CONFIG,
-          isHookEnabled: allEnabled,
-          directory: "",
-        })
-      expect(hooks.todoDescriptionOverride).not.toBeNull()
-    })
-
-    it("todoDescriptionOverride is null when disabled", () => {
+    it("todoDescriptionOverrideEnabled is true when enabled", () => {
       const hooks = createHooks({
-          pluginConfig: baseConfig,
-          continuation: DEFAULT_CONTINUATION_CONFIG,
-          isHookEnabled: disableHook("todo-description-override"),
-          directory: "",
+        pluginConfig: baseConfig,
+        continuation: DEFAULT_CONTINUATION_CONFIG,
+        isHookEnabled: allEnabled,
+        directory: "",
       })
-      expect(hooks.todoDescriptionOverride).toBeNull()
+      expect(hooks.todoDescriptionOverrideEnabled).toBe(true)
     })
 
-    it("todoDescriptionOverride when enabled mutates description for todowrite", () => {
-        const hooks = createHooks({
-          pluginConfig: baseConfig,
-          continuation: DEFAULT_CONTINUATION_CONFIG,
-          isHookEnabled: allEnabled,
-          directory: "",
-        })
-      const output = { description: "original", parameters: {} }
-      hooks.todoDescriptionOverride!({ toolID: "todowrite" }, output)
-      expect(output.description).not.toBe("original")
+    it("todoDescriptionOverrideEnabled is false when disabled", () => {
+      const hooks = createHooks({
+        pluginConfig: baseConfig,
+        continuation: DEFAULT_CONTINUATION_CONFIG,
+        isHookEnabled: disableHook("todo-description-override"),
+        directory: "",
+      })
+      expect(hooks.todoDescriptionOverrideEnabled).toBe(false)
+    })
+  })
+
+  describe("policy enablement metadata", () => {
+    it("patternMdOnlyEnabled is true when enabled", () => {
+      const hooks = createHooks({
+        pluginConfig: baseConfig,
+        continuation: DEFAULT_CONTINUATION_CONFIG,
+        isHookEnabled: allEnabled,
+        directory: "",
+      })
+
+      expect(hooks.patternMdOnlyEnabled).toBe(true)
+    })
+
+    it("verificationReminderEnabled follows hook enablement", () => {
+      const enabled = createHooks({
+        pluginConfig: baseConfig,
+        continuation: DEFAULT_CONTINUATION_CONFIG,
+        isHookEnabled: allEnabled,
+        directory: "",
+      })
+      const disabled = createHooks({
+        pluginConfig: baseConfig,
+        continuation: DEFAULT_CONTINUATION_CONFIG,
+        isHookEnabled: disableHook("verification-reminder"),
+        directory: "",
+      })
+
+      expect(enabled.verificationReminderEnabled).toBe(true)
+      expect(disabled.verificationReminderEnabled).toBe(false)
+    })
+
+    it("does not expose legacy executable policy callbacks", () => {
+      const hooks = createHooks({
+        pluginConfig: baseConfig,
+        continuation: DEFAULT_CONTINUATION_CONFIG,
+        isHookEnabled: allEnabled,
+        directory: "",
+      })
+
+      expect(hooks).not.toHaveProperty("checkContextWindow")
+      expect(hooks).not.toHaveProperty("shouldInjectRules")
+      expect(hooks).not.toHaveProperty("getRulesForFile")
+      expect(hooks).not.toHaveProperty("patternMdOnly")
+      expect(hooks).not.toHaveProperty("verificationReminder")
+      expect(hooks).not.toHaveProperty("todoDescriptionOverride")
     })
   })
 

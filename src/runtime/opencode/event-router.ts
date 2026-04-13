@@ -9,6 +9,7 @@ import type { PluginContext } from "../../plugin/types"
 import type { SessionTracker } from "../../features/analytics"
 import type { RuntimeEffect } from "./effects"
 import type { RuntimeLifecyclePolicySurface } from "../../application/orchestration/session-runtime"
+import type { RuntimePolicyFlags } from "../../application/orchestration/session-runtime"
 import { doesSessionOwnExecution } from "../../application/orchestration/execution-coordinator"
 import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-lease-fs-store"
 
@@ -27,26 +28,34 @@ export async function routeRuntimeEvent(input: {
   client?: PluginContext["client"]
   tracker?: SessionTracker
   state: EventRouterState
-  compactionPreserver: { handleEvent: (event: { type: string; properties?: unknown }) => Promise<void>; capture: (sessionId: string) => Promise<void> } | null
-  todoContinuationEnforcer: {
-    checkAndFinalize: (sessionId: string) => Promise<void>
-    clearSession: (sessionId: string) => void
-  } | null
   lifecyclePolicy: RuntimeLifecyclePolicySurface
 }): Promise<RuntimeEffect[]> {
-  const { event, directory, hooks, enabledAgents, client, tracker, state, compactionPreserver, todoContinuationEnforcer, lifecyclePolicy } = input
+  const { event, directory, hooks, enabledAgents, client, tracker, state, lifecyclePolicy } = input
   const effects: RuntimeEffect[] = []
-
-  if (compactionPreserver) {
-    await compactionPreserver.handleEvent(event)
+  const policyFlags: RuntimePolicyFlags = {
+    contextWindowThresholds: hooks.contextWindowThresholds,
+    rulesInjectorEnabled: hooks.rulesInjectorEnabled,
+    patternMdOnlyEnabled: hooks.patternMdOnlyEnabled,
+    verificationReminderEnabled: hooks.verificationReminderEnabled,
+    todoDescriptionOverrideEnabled: hooks.todoDescriptionOverrideEnabled,
+    todoContinuationEnforcerEnabled: hooks.todoContinuationEnforcerEnabled,
   }
 
-  if (event.type === "session.compacted" && client && hooks.continuation.recovery.compaction) {
+  if (event.type === "session.compacted") {
     const evt = event as { type: string; properties?: { sessionID?: string; info?: { id?: string } } }
-    const sessionId = evt.properties?.sessionID ?? evt.properties?.info?.id ?? ""
-    if (sessionId) {
-      effects.push(...(await lifecyclePolicy.onCompaction({ directory, sessionId, hooks, enabledAgents })))
-    }
+      const sessionId = evt.properties?.sessionID ?? evt.properties?.info?.id ?? ""
+      if (sessionId) {
+        effects.push(...(await lifecyclePolicy.onCompaction({
+          directory,
+          sessionId,
+          hooks: {
+            ...policyFlags,
+            continuation: hooks.continuation,
+            compactionRecovery: hooks.compactionRecovery,
+          },
+          enabledAgents,
+        })))
+      }
   }
 
   if (hooks.firstMessageVariant) {
@@ -55,34 +64,38 @@ export async function routeRuntimeEvent(input: {
       hooks.firstMessageVariant.markSessionCreated(evt.properties.info.id)
     }
     if (event.type === "session.deleted") {
-      const evt = event as { type: string; properties: { info: { id: string } } }
-      hooks.firstMessageVariant.clearSession(evt.properties.info.id)
+      const evt = event as { type: string; properties?: { sessionID?: string; sessionId?: string; info?: { id?: string } } }
+      const sessionId = evt.properties?.info?.id ?? evt.properties?.sessionID ?? evt.properties?.sessionId ?? ""
+      if (sessionId) {
+        hooks.firstMessageVariant.clearSession(sessionId)
+      }
     }
   }
 
   if (event.type === "session.deleted") {
-    const evt = event as { type: string; properties: { info: { id: string } } }
-    const sessionId = evt.properties.info.id
-    effects.push(...(await lifecyclePolicy.onSessionDeleted({
-      directory,
-      sessionId,
-      hooks,
-      todoContinuationEnforcer,
-    })))
+    const evt = event as { type: string; properties?: { sessionID?: string; sessionId?: string; info?: { id?: string } } }
+    const sessionId = evt.properties?.info?.id ?? evt.properties?.sessionID ?? evt.properties?.sessionId ?? ""
+    if (sessionId) {
+      effects.push(...(await lifecyclePolicy.onSessionDeleted({
+        directory,
+        sessionId,
+        hooks: policyFlags,
+      })))
 
-    if (tracker && hooks.analyticsEnabled) {
-      tracker.endSession(sessionId)
-      if (directory) {
-        try {
-          const workState = readWorkState(directory)
-          if (workState) {
-            const progress = getPlanProgress(workState.active_plan)
-            if (progress.isComplete) {
-              generateMetricsReport(directory, workState)
+      if (tracker && hooks.analyticsEnabled) {
+        tracker.endSession(sessionId)
+        if (directory) {
+          try {
+            const workState = readWorkState(directory)
+            if (workState) {
+              const progress = getPlanProgress(workState.active_plan)
+              if (progress.isComplete) {
+                generateMetricsReport(directory, workState)
+              }
             }
+          } catch (err) {
+            warn("[analytics] Failed to generate metrics report on session end (non-fatal)", { error: String(err) })
           }
-        } catch (err) {
-          warn("[analytics] Failed to generate metrics report on session end (non-fatal)", { error: String(err) })
         }
       }
     }
@@ -97,7 +110,7 @@ export async function routeRuntimeEvent(input: {
     if (info?.role === "assistant" && info.sessionID) {
       effects.push(...(await lifecyclePolicy.onAssistantMessage({
         sessionId: info.sessionID,
-        hooks,
+        hooks: policyFlags,
         inputTokens: info.tokens?.input ?? 0,
       })))
 
@@ -155,10 +168,14 @@ export async function routeRuntimeEvent(input: {
       effects.push(...(await lifecyclePolicy.onSessionIdle({
         sessionId,
         directory,
-        hooks,
+        hooks: {
+          ...policyFlags,
+          continuation: hooks.continuation,
+          workContinuation: hooks.workContinuation,
+          workflowContinuation: hooks.workflowContinuation,
+        },
         lastAssistantMessage: state.lastAssistantMessageText.get(sessionId) ?? undefined,
         lastUserMessage: state.lastUserMessageText.get(sessionId) ?? undefined,
-        todoContinuationEnforcer,
       })))
     }
   }

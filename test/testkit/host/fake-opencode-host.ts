@@ -128,9 +128,18 @@ export class FakeOpencodeHost {
     timestamp?: string
     agent?: string
   }): Promise<HostOutput> {
+    await this.plugin["command.execute.before"](
+      {
+        command: args.command,
+        sessionID: args.sessionID,
+        arguments: args.arguments ?? "",
+      } as Parameters<PluginInterface["command.execute.before"]>[0],
+      { parts: [] } as Parameters<PluginInterface["command.execute.before"]>[1],
+    )
+
     const template = BUILTIN_COMMANDS[args.command].template
       .replace(/\$SESSION_ID/g, args.sessionID)
-      .replace(/\$TIMESTAMP/g, args.timestamp ?? new Date().toISOString())
+      .replace(/\$TIMESTAMP/g, new Date().toISOString())
       .replace(/\$ARGUMENTS/g, args.arguments ?? "")
 
     return this.sendChatMessage({

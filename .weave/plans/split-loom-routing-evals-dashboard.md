@@ -32,31 +32,31 @@ Separate routing evaluation into three interpretable dimensions:
 - **Trajectory**: Did the observed multi-turn delegation chain follow the expected path?
 
 ### Deliverables
-- [ ] Loom prompt guidance updated so delegation narration explicitly names the delegated agent and clarifies Pattern vs Shuttle boundaries.
-- [ ] New Loom-only suite layout with `agent-routing-identity` and `agent-routing-intent`.
-- [ ] Existing `agent-trajectory` retained as the canonical trajectory suite.
-- [ ] Tapestry post-execution routing coverage moved to a separate Tapestry-focused suite.
-- [ ] Minimal eval schema/output change so website code can group runs by routing kind without brittle suite-id parsing.
-- [ ] CI fan-out/fan-in updated to publish separate canonical JSONL files per suite.
-- [ ] `/Users/pgermishuys/source/weave-website/evals/index.html` updated to support Overview, Identity, Intent, and Trajectory views.
+- [x] Loom prompt guidance updated so delegation narration explicitly names the delegated agent and clarifies Pattern vs Shuttle boundaries.
+- [x] New Loom-only suite layout with `agent-routing-identity` and `agent-routing-intent`.
+- [x] Existing `agent-trajectory` retained as the canonical trajectory suite.
+- [x] Tapestry post-execution routing coverage moved to a separate Tapestry-focused suite.
+- [x] Minimal eval schema/output change so website code can group runs by routing kind without brittle suite-id parsing.
+- [x] CI fan-out/fan-in updated to publish separate canonical JSONL files per suite.
+- [x] `/Users/pgermishuys/source/weave-website/evals/index.html` updated to support Overview, Identity, Intent, and Trajectory views.
 
 ### Definition of Done
-- [ ] `bun test` passes in `/Users/pgermishuys/source/weave`.
-- [ ] `bun run eval --suite agent-routing-identity --provider openrouter --model openai/gpt-5.4 --json` succeeds locally.
-- [ ] `bun run eval --suite agent-routing-intent --provider openrouter --model openai/gpt-5.4 --json` succeeds locally.
-- [ ] `bun run eval --suite agent-trajectory --json` succeeds locally.
-- [ ] `bun run eval --suite tapestry-routing-review --json` succeeds locally.
-- [ ] `bun run script/eval-trend-report.ts --suite agent-routing-identity --model-key openrouter/openai/gpt-5.4` succeeds.
-- [ ] `bun run script/eval-trend-report.ts --suite agent-routing-intent --model-key openrouter/openai/gpt-5.4` succeeds.
-- [ ] `bun run script/eval-trend-report.ts --suite agent-trajectory --model-key openrouter/openai/gpt-5.4` succeeds.
-- [ ] `/Users/pgermishuys/source/weave-website/evals/index.html` renders all four views against published JSONL files without requiring a backend.
+- [x] `bun test` passes in `/Users/pgermishuys/source/weave`.
+- [x] `bun run eval --suite agent-routing-identity --provider openrouter --model openai/gpt-5.4 --json` succeeds locally.
+- [x] `bun run eval --suite agent-routing-intent --provider openrouter --model openai/gpt-5.4 --json` succeeds locally.
+- [x] `bun run eval --suite agent-trajectory --json` succeeds locally.
+- [x] `bun run eval --suite tapestry-routing-review --json` succeeds locally.
+- [x] `bun run script/eval-trend-report.ts --suite agent-routing-identity --model-key openrouter/openai/gpt-5.4` succeeds.
+- [x] `bun run script/eval-trend-report.ts --suite agent-routing-intent --model-key openrouter/openai/gpt-5.4` succeeds.
+- [x] `bun run script/eval-trend-report.ts --suite agent-trajectory --model-key openrouter/openai/gpt-5.4` succeeds.
+- [x] `/Users/pgermishuys/source/weave-website/evals/index.html` renders all four views against published JSONL files without requiring a backend.
 
 ### Guardrails (Must NOT)
-- [ ] Do not redesign the whole eval framework; keep changes additive and optional.
-- [ ] Do not require a server-side API or database for the website dashboard.
-- [ ] Do not break old JSONL readers; new run fields must be backward-compatible optional additions.
-- [ ] Do not create a duplicate trajectory suite if the existing `agent-trajectory` suite can remain canonical.
-- [ ] Do not mix cross-suite Overview metrics across different commits when a commit-aligned comparison is unavailable.
+- [x] Do not redesign the whole eval framework; keep changes additive and optional.
+- [x] Do not require a server-side API or database for the website dashboard.
+- [x] Do not break old JSONL readers; new run fields must be backward-compatible optional additions.
+- [x] Do not create a duplicate trajectory suite if the existing `agent-trajectory` suite can remain canonical.
+- [x] Do not mix cross-suite Overview metrics across different commits when a commit-aligned comparison is unavailable.
 
 ## TODOs
 

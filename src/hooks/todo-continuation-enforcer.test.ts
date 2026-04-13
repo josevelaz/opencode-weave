@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "bun:test"
-import { createTodoContinuationEnforcer, FINALIZE_TODOS_MARKER } from "./todo-continuation-enforcer"
+import { createTodoContinuationEnforcer } from "./todo-continuation-enforcer"
+import { FINALIZE_TODOS_MARKER } from "../runtime/opencode/protocol"
 
 const SESSION_ID = "ses_enforcer_test"
 

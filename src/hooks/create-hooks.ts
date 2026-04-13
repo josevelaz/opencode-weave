@@ -1,19 +1,14 @@
 import type { WeaveConfig } from "../config/schema"
 import type { ResolvedContinuationConfig } from "../config/continuation"
-import { checkContextWindow } from "./context-window-monitor"
 import type { ContextWindowThresholds } from "./context-window-monitor"
 import { createWriteGuardState, createWriteGuard } from "./write-existing-file-guard"
-import { getRulesForFile, shouldInjectRules } from "./rules-injector"
 import { shouldApplyVariant, markApplied, markSessionCreated, clearSession } from "./first-message-variant"
 import { processMessageForKeywords } from "./keyword-detector"
-import { checkPatternWrite } from "./pattern-md-only"
 import { handleStartWork } from "./start-work-hook"
 import { checkCompactionRecovery } from "./compaction-recovery"
 import { checkContinuation } from "./work-continuation"
-import { buildVerificationReminder } from "./verification-reminder"
 import { handleRunWorkflow, checkWorkflowContinuation } from "../features/workflow"
 import { handleWorkflowCommand } from "../features/workflow"
-import { applyTodoDescriptionOverride } from "./todo-description-override"
 
 export type CreatedHooks = ReturnType<typeof createHooks>
 
@@ -37,15 +32,13 @@ export function createHooks(args: {
   }
 
   return {
-    checkContextWindow: isHookEnabled("context-window-monitor")
-      ? (state: Parameters<typeof checkContextWindow>[0]) =>
-          checkContextWindow(state, contextWindowThresholds)
+    contextWindowThresholds: isHookEnabled("context-window-monitor")
+      ? contextWindowThresholds
       : null,
 
-    writeGuard: isHookEnabled("write-existing-file-guard") ? writeGuard : null,
+    rulesInjectorEnabled: isHookEnabled("rules-injector"),
 
-    shouldInjectRules: isHookEnabled("rules-injector") ? shouldInjectRules : null,
-    getRulesForFile: isHookEnabled("rules-injector") ? getRulesForFile : null,
+    writeGuard: isHookEnabled("write-existing-file-guard") ? writeGuard : null,
 
     firstMessageVariant: isHookEnabled("first-message-variant")
       ? { shouldApplyVariant, markApplied, markSessionCreated, clearSession }
@@ -55,7 +48,7 @@ export function createHooks(args: {
       ? processMessageForKeywords
       : null,
 
-    patternMdOnly: isHookEnabled("pattern-md-only") ? checkPatternWrite : null,
+    patternMdOnlyEnabled: isHookEnabled("pattern-md-only"),
 
     startWork: isHookEnabled("start-work")
       ? (promptText: string, sessionId: string) =>
@@ -84,13 +77,9 @@ export function createHooks(args: {
       ? (message: string, sessionId: string) => handleWorkflowCommand(message, directory, sessionId)
       : null,
 
-    verificationReminder: isHookEnabled("verification-reminder")
-      ? buildVerificationReminder
-      : null,
+    verificationReminderEnabled: isHookEnabled("verification-reminder"),
 
-    todoDescriptionOverride: isHookEnabled("todo-description-override")
-      ? applyTodoDescriptionOverride
-      : null,
+    todoDescriptionOverrideEnabled: isHookEnabled("todo-description-override"),
 
     compactionTodoPreserverEnabled: isHookEnabled("compaction-todo-preserver"),
 

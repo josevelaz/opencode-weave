@@ -1,6 +1,9 @@
 import { createPolicyResult, type PolicyResult } from "../../domain/policy/policy-result"
 import type { RuntimeEffect } from "../../runtime/opencode/effects"
 import type { RuntimeAfterToolInput, RuntimeBeforeToolInput } from "./runtime-policy"
+import { createPatternToolPolicy } from "./pattern-tool-policy"
+import { createRulesToolPolicy } from "./rules-tool-policy"
+import { createWriteGuardToolPolicy } from "./write-guard-tool-policy"
 
 export interface ToolPolicy {
   beforeTool(input: RuntimeBeforeToolInput): PolicyResult<RuntimeEffect> | Promise<PolicyResult<RuntimeEffect>>
@@ -8,29 +11,17 @@ export interface ToolPolicy {
 }
 
 export function createHookBackedToolPolicy(): ToolPolicy {
+  const patternPolicy = createPatternToolPolicy()
+  const rulesPolicy = createRulesToolPolicy()
+  const writeGuardPolicy = createWriteGuardToolPolicy()
+
   return {
     beforeTool(input) {
-      const filePath =
-        (input.toolArgs?.file_path as string | undefined) ??
-        (input.toolArgs?.path as string | undefined) ??
-        ""
-
-      if (filePath && input.hooks.shouldInjectRules && input.hooks.getRulesForFile && input.hooks.shouldInjectRules(input.tool)) {
-        input.hooks.getRulesForFile(filePath)
-      }
-
-      if (filePath && input.hooks.writeGuard && input.tool === "read") {
-        input.hooks.writeGuard.trackRead(filePath)
-      }
-
-      if (filePath && input.hooks.patternMdOnly && input.agent) {
-        const check = input.hooks.patternMdOnly(input.agent, input.tool, filePath)
-        if (!check.allowed) {
-          throw new Error(check.reason ?? "Pattern agent is restricted to .md files in .weave/")
-        }
-      }
-
-      return createPolicyResult<RuntimeEffect>()
+      const effects: RuntimeEffect[] = []
+      patternPolicy.beforeTool(input)
+      rulesPolicy.beforeTool(input)
+      writeGuardPolicy.beforeTool(input)
+      return createPolicyResult<RuntimeEffect>(effects)
     },
     afterTool() {
       return createPolicyResult<RuntimeEffect>()

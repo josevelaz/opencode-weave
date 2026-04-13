@@ -2,9 +2,8 @@ import { describe, expect, it } from "bun:test"
 import { BUILTIN_COMMANDS } from "../../features/builtin-commands/commands"
 import { WORKFLOW_CONTINUATION_MARKER } from "../../features/workflow/hook"
 import { CONTINUATION_MARKER } from "../../hooks/work-continuation"
-import { FINALIZE_TODOS_MARKER } from "../../hooks/todo-continuation-enforcer"
 import { parseBuiltinCommandEnvelope, parseCommandEnvelope, parseContinuationEnvelope } from "./command-envelope"
-import { renderContinuationEnvelope } from "./protocol"
+import { FINALIZE_TODOS_MARKER, renderContinuationEnvelope } from "./protocol"
 
 describe("parseCommandEnvelope", () => {
   it("parses start-work template via typed envelope", () => {

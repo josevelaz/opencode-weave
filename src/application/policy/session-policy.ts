@@ -1,5 +1,4 @@
-import { clearTokenSession, getState as getTokenState, updateUsage } from "../../hooks"
-import { warn } from "../../shared/log"
+import { clearTokenSession } from "../../hooks"
 import { createPolicyResult, type PolicyResult } from "../../domain/policy/policy-result"
 import type { RuntimeEffect } from "../../runtime/opencode/effects"
 import { runIdleCycle } from "../orchestration/idle-cycle-service"
@@ -7,59 +6,69 @@ import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-l
 import { projectExecutionTransition } from "../../domain/session/execution-lease"
 import type {
   RuntimeAssistantMessageInput,
+  RuntimeBeforeCompactionInput,
   RuntimeCompactionInput,
   RuntimeSessionDeletedInput,
   RuntimeSessionIdleInput,
 } from "./runtime-policy"
+import { createCompactionSessionPolicy } from "./compaction-session-policy"
+import { createContextWindowSessionPolicy } from "./context-window-session-policy"
+import { createTodoSessionPolicy } from "./todo-session-policy"
+import { createVerificationSessionPolicy } from "./verification-session-policy"
 
 export interface SessionPolicy {
   onAssistantMessage(input: RuntimeAssistantMessageInput): PolicyResult<RuntimeEffect> | Promise<PolicyResult<RuntimeEffect>>
   onSessionIdle(input: RuntimeSessionIdleInput): PolicyResult<RuntimeEffect> | Promise<PolicyResult<RuntimeEffect>>
   onSessionDeleted(input: RuntimeSessionDeletedInput): PolicyResult<RuntimeEffect> | Promise<PolicyResult<RuntimeEffect>>
+  beforeCompaction?(input: RuntimeBeforeCompactionInput): void | Promise<void>
   onCompaction(input: RuntimeCompactionInput): PolicyResult<RuntimeEffect> | Promise<PolicyResult<RuntimeEffect>>
 }
 
-export function createHookBackedSessionPolicy(): SessionPolicy {
+export function createHookBackedSessionPolicy(args?: {
+  todoContinuationEnforcer?: {
+    checkAndFinalize: (sessionId: string) => Promise<void>
+    clearSession: (sessionId: string) => void
+  } | null
+  compactionPreserver?: {
+    capture: (sessionId: string) => Promise<void>
+    restore: (sessionId: string) => Promise<void>
+    clearSession: (sessionId: string) => void
+  } | null
+}): SessionPolicy {
   const executionLeaseRepository = createExecutionLeaseFsStore()
+  const contextWindowPolicy = createContextWindowSessionPolicy()
+  const todoPolicy = createTodoSessionPolicy(args?.todoContinuationEnforcer ?? null)
+  const verificationPolicy = createVerificationSessionPolicy()
+  const compactionPolicy = createCompactionSessionPolicy(args?.compactionPreserver ?? null)
 
   return {
     onAssistantMessage(input) {
-      if (input.hooks.checkContextWindow && input.inputTokens > 0) {
-        updateUsage(input.sessionId, input.inputTokens)
-        const tokenState = getTokenState(input.sessionId)
-        if (tokenState && tokenState.maxTokens > 0) {
-          const result = input.hooks.checkContextWindow({
-            usedTokens: tokenState.usedTokens,
-            maxTokens: tokenState.maxTokens,
-            sessionId: input.sessionId,
-          })
-          if (result.action !== "none") {
-            warn("[context-window] Threshold crossed", {
-              sessionId: input.sessionId,
-              action: result.action,
-              usagePct: result.usagePct,
-            })
-          }
-        }
-      }
-
+      contextWindowPolicy.onAssistantMessage(input)
       return createPolicyResult<RuntimeEffect>()
     },
     async onSessionIdle(input) {
-      return createPolicyResult(
-        await runIdleCycle({
+      const idleEffects = await runIdleCycle({
           sessionId: input.sessionId,
           directory: input.directory,
           hooks: input.hooks,
           lastAssistantMessage: input.lastAssistantMessage,
           lastUserMessage: input.lastUserMessage,
-          todoContinuationEnforcer: input.todoContinuationEnforcer,
-        }),
-      )
+          todoContinuationEnforcer: args?.todoContinuationEnforcer ?? null,
+        })
+      const verificationResult = verificationPolicy.onSessionIdle(input)
+      const verificationEffects = verificationResult instanceof Promise
+        ? await verificationResult
+        : verificationResult
+
+      return createPolicyResult([
+        ...idleEffects,
+        ...verificationEffects.effects,
+      ])
     },
     onSessionDeleted(input) {
       clearTokenSession(input.sessionId)
-      input.todoContinuationEnforcer?.clearSession(input.sessionId)
+      todoPolicy.onSessionDeleted(input)
+      compactionPolicy.onSessionDeleted?.(input.sessionId)
 
       if (input.directory) {
         const projection = projectExecutionTransition({
@@ -79,31 +88,11 @@ export function createHookBackedSessionPolicy(): SessionPolicy {
 
       return createPolicyResult<RuntimeEffect>()
     },
+    async beforeCompaction(input) {
+      await compactionPolicy.beforeCompaction(input)
+    },
     onCompaction(input) {
-      if (input.hooks.continuation.recovery.compaction && input.hooks.compactionRecovery) {
-        const result = input.hooks.compactionRecovery(input.sessionId, input.enabledAgents)
-        const effects: RuntimeEffect[] = []
-        if (result.switchAgent) {
-          effects.push({
-            type: "restoreAgent",
-            sessionId: input.sessionId,
-            agent: result.switchAgent,
-          })
-        }
-        if (result.continuationPrompt) {
-          effects.push({
-            type: "injectPromptAsync",
-            sessionId: input.sessionId,
-            text: result.continuationPrompt,
-            agent: result.switchAgent,
-          })
-        }
-        if (effects.length > 0) {
-          return createPolicyResult<RuntimeEffect>(effects)
-        }
-      }
-
-      return createPolicyResult<RuntimeEffect>()
+      return compactionPolicy.onCompaction(input)
     },
   }
 }

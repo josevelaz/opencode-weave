@@ -12,3 +12,9 @@ export async function mergePolicyResults<TEffect>(
   const resolvedResults = await Promise.all(results)
   return resolvedResults.flatMap((result) => result.effects)
 }
+
+export async function runPolicySteps(
+  steps: Array<void | Promise<void>>,
+): Promise<void> {
+  await Promise.all(steps)
+}

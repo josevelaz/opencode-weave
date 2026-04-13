@@ -13,9 +13,7 @@
 import type { PluginContext } from "../plugin/types"
 import { debug, warn } from "../shared/log"
 import { resolveTodoWriter, type TodoItem, type TodoWriter } from "./todo-writer"
-import { renderContinuationEnvelope } from "../runtime/opencode/protocol"
-
-export const FINALIZE_TODOS_MARKER = "<!-- weave:finalize-todos -->"
+import { FINALIZE_TODOS_MARKER, renderContinuationEnvelope } from "../runtime/opencode/protocol"
 
 export function createTodoContinuationEnforcer(
   client: PluginContext["client"],

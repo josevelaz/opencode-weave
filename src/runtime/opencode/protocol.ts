@@ -1,6 +1,7 @@
 export const WEAVE_COMMAND_ENVELOPE_TAG = "weave-command-envelope"
 export const WEAVE_CONTINUATION_ENVELOPE_TAG = "weave-continuation-envelope"
 export const WEAVE_PROTOCOL_VERSION = "1"
+export const FINALIZE_TODOS_MARKER = "<!-- weave:finalize-todos -->"
 
 export type BuiltinCommandEnvelopeName =
   | "start-work"

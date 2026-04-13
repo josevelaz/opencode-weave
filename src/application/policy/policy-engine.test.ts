@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test"
 import { createPolicyEngine } from "./policy-engine"
-import { createAutoPauseChatPolicy, createCommandChatPolicy } from "./chat-policy"
+import { createAutoPauseChatPolicy, createCommandChatPolicy, createTodoFinalizationChatPolicy } from "./chat-policy"
 import { createHookBackedSessionPolicy } from "./session-policy"
+import { createTodoDescriptionToolDefinitionPolicy } from "./tool-definition-policy"
+import { TODOWRITE_DESCRIPTION } from "../../hooks/todo-description-override"
 import { createHookBackedToolPolicy } from "./tool-policy"
 import type { CreatedHooks } from "../../hooks/create-hooks"
 import { DEFAULT_CONTINUATION_CONFIG } from "../../config/continuation"
@@ -10,27 +12,26 @@ import { mkdtempSync, mkdirSync, rmSync } from "fs"
 import { join } from "path"
 import { tmpdir } from "os"
 import { renderBuiltinCommandEnvelope } from "../../runtime/opencode/protocol"
-import { setContextLimit } from "../../hooks"
+import { getState as getTokenState, setContextLimit } from "../../hooks"
 import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-lease-fs-store"
 import { createExecutionLeaseState, createSessionRuntimeState } from "../../domain/session/execution-lease"
 
 function makeHooks(overrides?: Partial<CreatedHooks>): CreatedHooks {
   return {
-    checkContextWindow: null,
+    contextWindowThresholds: null,
+    rulesInjectorEnabled: false,
     writeGuard: null,
-    shouldInjectRules: null,
-    getRulesForFile: null,
     firstMessageVariant: null,
     processMessageForKeywords: null,
-    patternMdOnly: null,
+    patternMdOnlyEnabled: false,
     startWork: null,
     workContinuation: null,
     workflowStart: null,
     workflowContinuation: null,
     workflowCommand: null,
-    verificationReminder: null,
+    verificationReminderEnabled: false,
     analyticsEnabled: false,
-    todoDescriptionOverride: null,
+    todoDescriptionOverrideEnabled: false,
     compactionTodoPreserverEnabled: false,
     todoContinuationEnforcerEnabled: false,
     compactionRecovery: null,
@@ -42,8 +43,9 @@ function makeHooks(overrides?: Partial<CreatedHooks>): CreatedHooks {
 describe("createPolicyEngine", () => {
   it("routes chat command handling through composed chat policies", async () => {
     const engine = createPolicyEngine({
-      chatPolicies: [createCommandChatPolicy(), createAutoPauseChatPolicy()],
+      chatPolicies: [createCommandChatPolicy(), createAutoPauseChatPolicy(), createTodoFinalizationChatPolicy()],
       toolPolicies: [createHookBackedToolPolicy()],
+      toolDefinitionPolicies: [createTodoDescriptionToolDefinitionPolicy()],
       sessionPolicies: [createHookBackedSessionPolicy()],
     })
 
@@ -87,8 +89,9 @@ describe("createPolicyEngine", () => {
 
     try {
       const engine = createPolicyEngine({
-        chatPolicies: [createCommandChatPolicy(), createAutoPauseChatPolicy()],
+        chatPolicies: [createCommandChatPolicy(), createAutoPauseChatPolicy(), createTodoFinalizationChatPolicy()],
         toolPolicies: [createHookBackedToolPolicy()],
+        toolDefinitionPolicies: [createTodoDescriptionToolDefinitionPolicy()],
         sessionPolicies: [createHookBackedSessionPolicy()],
       })
 
@@ -113,8 +116,9 @@ describe("createPolicyEngine", () => {
   it("routes tool guard hooks through the policy engine", async () => {
     const tracked: string[] = []
     const engine = createPolicyEngine({
-      chatPolicies: [createCommandChatPolicy(), createAutoPauseChatPolicy()],
+      chatPolicies: [createCommandChatPolicy(), createAutoPauseChatPolicy(), createTodoFinalizationChatPolicy()],
       toolPolicies: [createHookBackedToolPolicy()],
+      toolDefinitionPolicies: [createTodoDescriptionToolDefinitionPolicy()],
       sessionPolicies: [createHookBackedSessionPolicy()],
     })
 
@@ -138,26 +142,131 @@ describe("createPolicyEngine", () => {
   })
 
   it("routes assistant context-window checks through the policy engine", async () => {
-    let receivedUsedTokens = 0
     setContextLimit("sess-ctx", 100_000)
     const engine = createPolicyEngine({
-      chatPolicies: [createCommandChatPolicy(), createAutoPauseChatPolicy()],
+      chatPolicies: [createCommandChatPolicy(), createAutoPauseChatPolicy(), createTodoFinalizationChatPolicy()],
       toolPolicies: [createHookBackedToolPolicy()],
+      toolDefinitionPolicies: [createTodoDescriptionToolDefinitionPolicy()],
       sessionPolicies: [createHookBackedSessionPolicy()],
     })
 
-    await engine.onAssistantMessage({
+    const effects = await engine.onAssistantMessage({
       sessionId: "sess-ctx",
       hooks: makeHooks({
-        checkContextWindow: (state) => {
-          receivedUsedTokens = state.usedTokens
-          return { action: "none", usagePct: 0 }
-        },
+        contextWindowThresholds: { warningPct: 0.8, criticalPct: 0.95 },
       }),
       inputTokens: 50_000,
     })
 
-    expect(receivedUsedTokens).toBe(50_000)
+    expect(effects).toEqual([])
+    expect(getTokenState("sess-ctx")).toEqual({
+      usedTokens: 50_000,
+      maxTokens: 100_000,
+    })
+  })
+
+  it("routes todo finalization re-arm through the chat policy engine", async () => {
+    const cleared: string[] = []
+    const engine = createPolicyEngine({
+      chatPolicies: [createCommandChatPolicy(), createAutoPauseChatPolicy(), createTodoFinalizationChatPolicy({
+        clearFinalized: (sessionId: string) => {
+          cleared.push(sessionId)
+        },
+      })],
+      toolPolicies: [createHookBackedToolPolicy()],
+      toolDefinitionPolicies: [createTodoDescriptionToolDefinitionPolicy()],
+      sessionPolicies: [createHookBackedSessionPolicy()],
+    })
+
+    await engine.onChatMessage({
+      directory: "",
+      sessionId: "sess-rearm",
+      promptText: "regular user message",
+      parsedEnvelope: null,
+      hooks: makeHooks(),
+    })
+
+    expect(cleared).toEqual(["sess-rearm"])
+  })
+
+  it("routes tool definition handling through the policy engine", async () => {
+    const engine = createPolicyEngine({
+      chatPolicies: [createCommandChatPolicy(), createAutoPauseChatPolicy(), createTodoFinalizationChatPolicy()],
+      toolPolicies: [createHookBackedToolPolicy()],
+      toolDefinitionPolicies: [createTodoDescriptionToolDefinitionPolicy()],
+      sessionPolicies: [createHookBackedSessionPolicy()],
+    })
+
+    const output = { description: "original" }
+
+    await engine.onToolDefinition({
+      toolId: "todowrite",
+      hooks: makeHooks({
+        todoDescriptionOverrideEnabled: true,
+      }),
+      output,
+    })
+
+    expect(output.description).toBe(TODOWRITE_DESCRIPTION)
+  })
+
+  it("routes pre-compaction capture through the policy engine", async () => {
+    const captured: string[] = []
+    const engine = createPolicyEngine({
+      chatPolicies: [createCommandChatPolicy(), createAutoPauseChatPolicy(), createTodoFinalizationChatPolicy()],
+      toolPolicies: [createHookBackedToolPolicy()],
+      toolDefinitionPolicies: [createTodoDescriptionToolDefinitionPolicy()],
+      sessionPolicies: [createHookBackedSessionPolicy({
+        compactionPreserver: {
+          capture: async (sessionId: string) => {
+            captured.push(sessionId)
+          },
+          restore: async () => undefined,
+          clearSession: () => undefined,
+        },
+      })],
+    })
+
+    await engine.beforeCompaction({
+      directory: "",
+      sessionId: "sess-compact",
+      hooks: makeHooks(),
+    })
+
+    expect(captured).toEqual(["sess-compact"])
+  })
+
+  it("keeps idle sequencing stable when work continuation fires", async () => {
+    const engine = createPolicyEngine({
+      chatPolicies: [createCommandChatPolicy(), createAutoPauseChatPolicy(), createTodoFinalizationChatPolicy()],
+      toolPolicies: [createHookBackedToolPolicy()],
+      toolDefinitionPolicies: [createTodoDescriptionToolDefinitionPolicy()],
+      sessionPolicies: [createHookBackedSessionPolicy({
+        todoContinuationEnforcer: {
+          checkAndFinalize: async (sessionId: string) => {
+            finalized.push(sessionId)
+          },
+          clearSession: () => undefined,
+        },
+      })],
+    })
+
+    const finalized: string[] = []
+    const effects = await engine.onSessionIdle({
+      directory: "",
+      sessionId: "sess-idle",
+      hooks: makeHooks({
+        continuation: {
+          recovery: { compaction: true },
+          idle: { enabled: true, work: true, workflow: false, todo_prompt: false },
+        },
+        workContinuation: () => ({ continuationPrompt: "continue working", switchAgent: null }),
+        todoContinuationEnforcerEnabled: true,
+      }),
+    })
+
+    expect(effects).toEqual([{ type: "injectPromptAsync", sessionId: "sess-idle", text: "continue working", agent: null }])
+    expect(finalized).toEqual([])
   })
 
   it("clears per-session runtime state through session deletion policy", async () => {
@@ -180,8 +289,9 @@ describe("createPolicyEngine", () => {
 
     try {
       const engine = createPolicyEngine({
-        chatPolicies: [createCommandChatPolicy(), createAutoPauseChatPolicy()],
+        chatPolicies: [createCommandChatPolicy(), createAutoPauseChatPolicy(), createTodoFinalizationChatPolicy()],
         toolPolicies: [createHookBackedToolPolicy()],
+        toolDefinitionPolicies: [createTodoDescriptionToolDefinitionPolicy()],
         sessionPolicies: [createHookBackedSessionPolicy()],
       })
 
@@ -189,7 +299,6 @@ describe("createPolicyEngine", () => {
         directory,
         sessionId: "sess-delete",
         hooks: makeHooks(),
-        todoContinuationEnforcer: null,
       })
 
       expect(executionLease.readExecutionLease(directory)).toBeNull()
@@ -197,5 +306,46 @@ describe("createPolicyEngine", () => {
     } finally {
       rmSync(directory, { recursive: true, force: true })
     }
+  })
+
+  it("routes compaction restore and recovery through one session policy path", async () => {
+    const calls: string[] = []
+    const engine = createPolicyEngine({
+      chatPolicies: [createCommandChatPolicy(), createAutoPauseChatPolicy(), createTodoFinalizationChatPolicy()],
+      toolPolicies: [createHookBackedToolPolicy()],
+      toolDefinitionPolicies: [createTodoDescriptionToolDefinitionPolicy()],
+      sessionPolicies: [createHookBackedSessionPolicy({
+        compactionPreserver: {
+          capture: async () => undefined,
+          restore: async (sessionId: string) => {
+            calls.push(`restore:${sessionId}`)
+          },
+          clearSession: () => undefined,
+        },
+      })],
+    })
+
+    const effects = await engine.onCompaction({
+      directory: "",
+      sessionId: "sess-compact-route",
+      hooks: {
+        ...makeHooks({
+          continuation: {
+            recovery: { compaction: true },
+            idle: { enabled: true, work: true, workflow: true, todo_prompt: false },
+          },
+          compactionRecovery: () => {
+            calls.push("recover")
+            return { continuationPrompt: "resume after compaction", switchAgent: "loom" }
+          },
+        }),
+      },
+    })
+
+    expect(calls).toEqual(["restore:sess-compact-route", "recover"])
+    expect(effects).toEqual([
+      { type: "restoreAgent", sessionId: "sess-compact-route", agent: "loom" },
+      { type: "injectPromptAsync", sessionId: "sess-compact-route", text: "resume after compaction", agent: "loom" },
+    ])
   })
 })

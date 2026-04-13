@@ -65,7 +65,7 @@ describe("createCompactionTodoPreserver", () => {
     })
   })
 
-  describe("handleEvent() with session.compacted", () => {
+  describe("restore()", () => {
     it("with empty current todos triggers restore attempt", async () => {
       const todos: TodoSnapshot[] = [
         { content: "Task A", status: "in_progress", priority: "high" },
@@ -80,11 +80,7 @@ describe("createCompactionTodoPreserver", () => {
       // Simulate compaction wiping todos
       mockClient.clearTodos()
 
-      // Fire session.compacted event
-      await preserver.handleEvent({
-        type: "session.compacted",
-        properties: { sessionID: SESSION_ID },
-      })
+      await preserver.restore(SESSION_ID)
 
       // Snapshot should be cleared after restore attempt
       // (restore will fail since opencode/session/todo is unavailable in test env,
@@ -103,11 +99,7 @@ describe("createCompactionTodoPreserver", () => {
       await preserver.capture(SESSION_ID)
 
       // Do NOT clear todos — they survived compaction
-      // Fire session.compacted event
-      await preserver.handleEvent({
-        type: "session.compacted",
-        properties: { sessionID: SESSION_ID },
-      })
+      await preserver.restore(SESSION_ID)
 
       // Snapshot cleaned up (restore skipped since todos were present)
       expect(preserver.getSnapshot(SESSION_ID)).toBeUndefined()
@@ -123,15 +115,12 @@ describe("createCompactionTodoPreserver", () => {
       await preserver.capture(SESSION_ID)
       // No snapshot captured since client returns empty — just test event handling doesn't throw
       await expect(
-        preserver.handleEvent({
-          type: "session.compacted",
-          properties: { info: { id: SESSION_ID } },
-        })
+        preserver.restore(SESSION_ID)
       ).resolves.toBeUndefined()
     })
   })
 
-  describe("handleEvent() with session.deleted", () => {
+  describe("clearSession()", () => {
     it("cleans up snapshot on session delete", async () => {
       const todos: TodoSnapshot[] = [
         { content: "Task A", status: "in_progress", priority: "high" },
@@ -142,10 +131,7 @@ describe("createCompactionTodoPreserver", () => {
       await preserver.capture(SESSION_ID)
       expect(preserver.getSnapshot(SESSION_ID)).toBeDefined()
 
-      await preserver.handleEvent({
-        type: "session.deleted",
-        properties: { info: { id: SESSION_ID } },
-      })
+      preserver.clearSession(SESSION_ID)
 
       expect(preserver.getSnapshot(SESSION_ID)).toBeUndefined()
     })
@@ -157,17 +143,14 @@ describe("createCompactionTodoPreserver", () => {
 
       await preserver.capture(SESSION_ID)
 
-      await preserver.handleEvent({
-        type: "session.deleted",
-        properties: { sessionID: SESSION_ID },
-      })
+      preserver.clearSession(SESSION_ID)
 
       expect(preserver.getSnapshot(SESSION_ID)).toBeUndefined()
     })
   })
 
-  describe("handleEvent() with unrelated events", () => {
-    it("ignores unrelated events (no-op)", async () => {
+  describe("snapshot lifecycle", () => {
+    it("leaves snapshots untouched until explicitly cleared", async () => {
       const todos: TodoSnapshot[] = [
         { content: "Task A", status: "in_progress", priority: "high" },
       ]
@@ -176,18 +159,9 @@ describe("createCompactionTodoPreserver", () => {
 
       await preserver.capture(SESSION_ID)
 
-      // Fire an unrelated event
-      await preserver.handleEvent({
-        type: "message.updated",
-        properties: { sessionID: SESSION_ID },
-      })
-
-      // Snapshot should remain untouched
       expect(preserver.getSnapshot(SESSION_ID)).toBeDefined()
     })
-  })
 
-  describe("snapshot lifecycle", () => {
     it("multiple sessions are tracked independently", async () => {
       const client1Todos: TodoSnapshot[] = [{ content: "Session 1 Task", status: "pending", priority: "high" }]
       const client2Todos: TodoSnapshot[] = [{ content: "Session 2 Task", status: "in_progress", priority: "low" }]
@@ -214,10 +188,7 @@ describe("createCompactionTodoPreserver", () => {
       expect(preserver.getSnapshot("ses_2")).toBeDefined()
 
       // Delete session 1 only
-      await preserver.handleEvent({
-        type: "session.deleted",
-        properties: { sessionID: "ses_1" },
-      })
+      preserver.clearSession("ses_1")
 
       expect(preserver.getSnapshot("ses_1")).toBeUndefined()
       expect(preserver.getSnapshot("ses_2")).toBeDefined()

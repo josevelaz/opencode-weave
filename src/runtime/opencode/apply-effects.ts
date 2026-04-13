@@ -9,10 +9,11 @@ export async function applyRuntimeEffects(args: {
   output?: { message?: Record<string, unknown>; parts?: Array<{ type: string; text?: string }> }
   client?: PluginContext["client"]
   tracker?: SessionTracker
+  recordInjectedPrompt?: (sessionId: string, text: string) => void
   pausePlan?: () => void
   pauseWorkflow?: (reason: string) => void
 }): Promise<void> {
-  const { effects, output, client, tracker, pausePlan, pauseWorkflow } = args
+  const { effects, output, client, tracker, recordInjectedPrompt, pausePlan, pauseWorkflow } = args
   const sessionClient = client ? createSessionClient(client) : null
 
   for (const effect of effects) {
@@ -42,6 +43,7 @@ export async function applyRuntimeEffects(args: {
             parts: [{ type: "text", text: effect.text }],
             ...(effect.agent ? { agent: getAgentDisplayName(effect.agent) } : {}),
           })
+          recordInjectedPrompt?.(effect.sessionId, effect.text)
         }
         break
       }

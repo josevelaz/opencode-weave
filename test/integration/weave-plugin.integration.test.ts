@@ -1,12 +1,13 @@
 import { describe, it, expect, afterEach } from "bun:test"
 import type { PluginInput } from "@opencode-ai/plugin"
-import WeavePlugin from "./index"
-import { createBuiltinAgents } from "./agents/builtin-agents"
-import { ConfigHandler } from "./managers/config-handler"
-import { WeaveConfigSchema } from "./config/schema"
-import { getAgentDisplayName, getAgentConfigKey, resetDisplayNames } from "./shared/agent-display-names"
-import { createManagers } from "./create-managers"
-import { resetNameVariants } from "./agents/agent-builder"
+import WeavePlugin from "../../src/index"
+import { createBuiltinAgents } from "../../src/agents/builtin-agents"
+import { ConfigHandler } from "../../src/managers/config-handler"
+import { DEFAULT_CONTINUATION_CONFIG } from "../../src/config/continuation"
+import { WeaveConfigSchema } from "../../src/config/schema"
+import { getAgentDisplayName, getAgentConfigKey, resetDisplayNames } from "../../src/shared/agent-display-names"
+import { createManagers } from "../../src/create-managers"
+import { resetNameVariants } from "../../src/agents/agent-builder"
 
 const makeMockCtx = (directory: string): PluginInput =>
   ({
@@ -103,13 +104,15 @@ describe("WeavePlugin integration", () => {
 
   it("disabled hook not created — context-window-monitor disabled", async () => {
     const config = WeaveConfigSchema.parse({ disabled_hooks: ["context-window-monitor"] })
-    const { createHooks } = await import("./hooks/create-hooks")
+    const { createHooks } = await import("../../src/hooks/create-hooks")
     const hooks = createHooks({
       pluginConfig: config,
+      continuation: DEFAULT_CONTINUATION_CONFIG,
       isHookEnabled: (name) => !["context-window-monitor"].includes(name),
+      directory: process.cwd(),
     })
 
-    expect(hooks.checkContextWindow).toBeNull()
+    expect(hooks.contextWindowThresholds).toBeNull()
     // Other hooks should still be enabled
     expect(hooks.writeGuard).not.toBeNull()
   })
@@ -132,7 +135,7 @@ describe("createManagers — builtin display_name override", () => {
     const config = WeaveConfigSchema.parse({
       agents: { loom: { display_name: "My Loom" } },
     })
-    const { agents, configHandler } = createManagers({ ctx: mockCtx, pluginConfig: config })
+    const { agents, configHandler } = createManagers({ ctx: mockCtx, pluginConfig: config, continuation: DEFAULT_CONTINUATION_CONFIG })
     const result = await configHandler.handle({ pluginConfig: config, agents })
 
     expect(Object.keys(result.agents)).toContain("My Loom")
@@ -143,7 +146,7 @@ describe("createManagers — builtin display_name override", () => {
     const config = WeaveConfigSchema.parse({
       agents: { loom: { display_name: "My Loom" } },
     })
-    const { agents, configHandler } = createManagers({ ctx: mockCtx, pluginConfig: config })
+    const { agents, configHandler } = createManagers({ ctx: mockCtx, pluginConfig: config, continuation: DEFAULT_CONTINUATION_CONFIG })
     const result = await configHandler.handle({ pluginConfig: config, agents })
 
     // Other agents are unchanged
@@ -156,7 +159,7 @@ describe("createManagers — builtin display_name override", () => {
     const config = WeaveConfigSchema.parse({
       agents: { loom: { display_name: "My Loom" } },
     })
-    createManagers({ ctx: mockCtx, pluginConfig: config })
+    createManagers({ ctx: mockCtx, pluginConfig: config, continuation: DEFAULT_CONTINUATION_CONFIG })
     expect(getAgentConfigKey("My Loom")).toBe("loom")
   })
 
@@ -164,7 +167,7 @@ describe("createManagers — builtin display_name override", () => {
     const config = WeaveConfigSchema.parse({
       agents: { loom: { display_name: "My Loom" } },
     })
-    const { agents, configHandler } = createManagers({ ctx: mockCtx, pluginConfig: config })
+    const { agents, configHandler } = createManagers({ ctx: mockCtx, pluginConfig: config, continuation: DEFAULT_CONTINUATION_CONFIG })
     const result = await configHandler.handle({ pluginConfig: config, agents })
 
     expect(result.defaultAgent).toBe("My Loom")
@@ -174,7 +177,7 @@ describe("createManagers — builtin display_name override", () => {
     const config = WeaveConfigSchema.parse({
       agents: { weft: { display_name: "My Reviewer" } },
     })
-    const { agents } = createManagers({ ctx: mockCtx, pluginConfig: config })
+    const { agents } = createManagers({ ctx: mockCtx, pluginConfig: config, continuation: DEFAULT_CONTINUATION_CONFIG })
 
     expect(agents["weft"]?.description).toBe("My Reviewer")
   })
@@ -185,7 +188,7 @@ describe("createManagers — builtin display_name override", () => {
       agents: { weft: { display_name: "My Reviewer" } },
     })
     // Should not throw
-    const { agents, configHandler } = createManagers({ ctx: mockCtx, pluginConfig: config })
+    const { agents, configHandler } = createManagers({ ctx: mockCtx, pluginConfig: config, continuation: DEFAULT_CONTINUATION_CONFIG })
     const result = await configHandler.handle({ pluginConfig: config, agents })
 
     // Disabled agent should not appear in output regardless of display_name
@@ -197,7 +200,7 @@ describe("createManagers — builtin display_name override", () => {
     const config = WeaveConfigSchema.parse({
       agents: { loom: { display_name: "織機 (メインオーケストレーター)" } },
     })
-    const { agents, configHandler } = createManagers({ ctx: mockCtx, pluginConfig: config })
+    const { agents, configHandler } = createManagers({ ctx: mockCtx, pluginConfig: config, continuation: DEFAULT_CONTINUATION_CONFIG })
     const result = await configHandler.handle({ pluginConfig: config, agents })
 
     expect(Object.keys(result.agents)).toContain("織機 (メインオーケストレーター)")

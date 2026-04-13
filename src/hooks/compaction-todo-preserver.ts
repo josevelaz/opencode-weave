@@ -79,36 +79,14 @@ export function createCompactionTodoPreserver(client: PluginContext["client"]) {
     }
   }
 
-  async function handleEvent(event: { type: string; properties?: unknown }): Promise<void> {
-    const props = event.properties as Record<string, unknown> | undefined
-
-    if (event.type === "session.compacted") {
-      const sessionID =
-        (props?.sessionID as string | undefined) ??
-        ((props?.info as Record<string, unknown> | undefined)?.id as string | undefined) ??
-        ""
-      if (sessionID) {
-        await restore(sessionID)
-      }
-      return
-    }
-
-    if (event.type === "session.deleted") {
-      const sessionID =
-        (props?.sessionID as string | undefined) ??
-        ((props?.info as Record<string, unknown> | undefined)?.id as string | undefined) ??
-        ""
-      if (sessionID) {
-        snapshots.delete(sessionID)
-        debug("[compaction-todo-preserver] Cleaned up snapshot on session delete", { sessionID })
-      }
-      return
-    }
+  function clearSession(sessionID: string): void {
+    snapshots.delete(sessionID)
+    debug("[compaction-todo-preserver] Cleaned up snapshot on session delete", { sessionID })
   }
 
   function getSnapshot(sessionID: string): TodoSnapshot[] | undefined {
     return snapshots.get(sessionID)
   }
 
-  return { capture, handleEvent, getSnapshot }
+  return { capture, restore, clearSession, getSnapshot }
 }

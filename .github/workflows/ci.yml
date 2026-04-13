@@ -76,4 +76,4 @@ jobs:
       - name: Run CLI e2e tests
         run: |
           export PATH="$HOME/.opencode/bin:$PATH"
-          bun test src/e2e-cli.test.ts
+          bun test ./test/e2e/plugin-loading.e2e.test.ts

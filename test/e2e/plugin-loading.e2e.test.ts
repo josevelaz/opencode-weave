@@ -19,7 +19,7 @@
 import { describe, it, expect, beforeAll } from "bun:test"
 import { existsSync } from "fs"
 import { join } from "path"
-import { getAgentDisplayName } from "./shared/agent-display-names"
+import { getAgentDisplayName } from "../../src/shared/agent-display-names"
 
 // ── Helpers ────────────────────────────────────────────────────────
 

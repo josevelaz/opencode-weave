@@ -10,6 +10,7 @@ describe("agent restore command effects", () => {
       } as never,
       promptText: "/start-work",
       sessionId: "sess-start",
+      parsedEnvelope: { kind: "builtin-command", command: "start-work" } as never,
       isWorkflowCommand: false,
     })
 
@@ -27,6 +28,7 @@ describe("agent restore command effects", () => {
       } as never,
       promptText: "/run-workflow",
       sessionId: "sess-wf",
+      parsedEnvelope: { kind: "builtin-command", command: "run-workflow" } as never,
       isRunWorkflowCommand: true,
     })
 

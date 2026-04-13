@@ -1,5 +1,5 @@
 import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-lease-fs-store"
-import type { CreatedHooks } from "../../hooks/create-hooks"
+import type { RuntimeChatMessageInput, RuntimeSessionIdleInput } from "../policy/runtime-policy"
 import {
   isExecutionOwnerActive,
   isExecutionOwnerPaused,
@@ -38,7 +38,7 @@ export function shouldHandleWorkflowCommand(directory: string, sessionId: string
   return snapshot.owner === "workflow" && snapshot.sessionId === sessionId && (snapshot.status === "running" || snapshot.status === "paused")
 }
 
-export function shouldCheckWorkflowContinuation(hooks: CreatedHooks, directory: string): boolean {
+export function shouldCheckWorkflowContinuation(hooks: RuntimeSessionIdleInput["hooks"], directory: string): boolean {
   if (!hooks.workflowContinuation || !hooks.continuation.idle.workflow) {
     return false
   }
@@ -48,7 +48,7 @@ export function shouldCheckWorkflowContinuation(hooks: CreatedHooks, directory: 
   return isExecutionOwnerActive(getExecutionSnapshot(directory), "workflow")
 }
 
-export function shouldCheckWorkContinuation(hooks: CreatedHooks, directory: string): boolean {
+export function shouldCheckWorkContinuation(hooks: RuntimeSessionIdleInput["hooks"], directory: string): boolean {
   if (!hooks.workContinuation || !hooks.continuation.idle.work) {
     return false
   }
@@ -72,7 +72,7 @@ export function doesSessionOwnExecution(directory: string, sessionId: string, ow
   return snapshot.sessionId === sessionId
 }
 
-export function shouldFinalizeTodos(hooks: CreatedHooks, directory: string, continuationFired: boolean): boolean {
+export function shouldFinalizeTodos(hooks: RuntimeSessionIdleInput["hooks"], directory: string, continuationFired: boolean): boolean {
   if (continuationFired) {
     return false
   }

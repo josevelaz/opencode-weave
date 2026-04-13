@@ -11,11 +11,11 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test"
 import { mkdirSync, writeFileSync, rmSync } from "fs"
 import { join } from "path"
 import type { PluginInput } from "@opencode-ai/plugin"
-import { createManagers } from "./create-managers"
-import { WeaveConfigSchema } from "./config/schema"
-import { getAgentDisplayName, AGENT_DISPLAY_NAMES } from "./shared/agent-display-names"
-import { generateFingerprint } from "./features/analytics/fingerprint"
-import { createSessionTracker } from "./features/analytics/session-tracker"
+import { createManagers } from "../../src/create-managers"
+import { WeaveConfigSchema } from "../../src/config/schema"
+import { getAgentDisplayName, AGENT_DISPLAY_NAMES } from "../../src/shared/agent-display-names"
+import { generateFingerprint } from "../../src/features/analytics/fingerprint"
+import { createSessionTracker } from "../../src/features/analytics/session-tracker"
 
 const TEST_DIR = join(process.cwd(), ".test-e2e-integration")
 

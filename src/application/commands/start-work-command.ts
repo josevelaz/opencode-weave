@@ -1,13 +1,19 @@
-import type { CreatedHooks } from "../../hooks/create-hooks"
 import type { RuntimeEffect } from "../../runtime/opencode/effects"
+import type { RuntimeChatMessageInput } from "../policy/runtime-policy"
 
 export function executeStartWorkCommand(input: {
-  hooks: CreatedHooks
+  hooks: RuntimeChatMessageInput["hooks"]
   promptText: string
   sessionId: string
+  parsedEnvelope: RuntimeChatMessageInput["parsedEnvelope"]
   isWorkflowCommand: boolean
 }): RuntimeEffect[] {
-  if (!input.hooks.startWork || input.isWorkflowCommand) {
+  if (
+    !input.hooks.startWork
+    || input.isWorkflowCommand
+    || input.parsedEnvelope?.kind !== "builtin-command"
+    || input.parsedEnvelope.command !== "start-work"
+  ) {
     return []
   }
 

@@ -54,6 +54,8 @@ export interface WorkState {
   continuation_completed_snapshot?: number
   /** How many consecutive continuations have fired without progress changing */
   stale_continuation_count?: number
+  /** Whether the completion verification reminder was already sent */
+  verification_reminder_sent?: boolean
 }
 
 /**

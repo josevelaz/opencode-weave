@@ -8,11 +8,11 @@ import {
   shouldHandleWorkflowCommand,
 } from "../orchestration/execution-coordinator"
 import { createPolicyResult, type PolicyResult } from "../../domain/policy/policy-result"
-import type { CreatedHooks } from "../../hooks/create-hooks"
+import type { RuntimeChatMessageInput } from "./runtime-policy"
 
 export interface ChatPolicyInput {
   directory: string
-  hooks: CreatedHooks
+  hooks: RuntimeChatMessageInput["hooks"]
   parsedEnvelope: ParsedCommandEnvelope | null
   promptText: string
   sessionId: string
@@ -20,6 +20,14 @@ export interface ChatPolicyInput {
 
 export interface ChatPolicy {
   onChatMessage(input: ChatPolicyInput): PolicyResult<RuntimeEffect> | Promise<PolicyResult<RuntimeEffect>>
+}
+
+function shouldRearmTodoFinalization(input: ChatPolicyInput): boolean {
+  if (!input.promptText || !input.sessionId) {
+    return false
+  }
+
+  return input.parsedEnvelope === null
 }
 
 export function createCommandChatPolicy(): ChatPolicy {
@@ -33,12 +41,14 @@ export function createCommandChatPolicy(): ChatPolicy {
           hooks: input.hooks,
           promptText: input.promptText,
           sessionId: input.sessionId,
+          parsedEnvelope: input.parsedEnvelope,
           isWorkflowCommand: isRunWorkflowCommand,
         }),
         ...executeRunWorkflowCommand({
           hooks: input.hooks,
           promptText: input.promptText,
           sessionId: input.sessionId,
+          parsedEnvelope: input.parsedEnvelope,
           isRunWorkflowCommand,
         }),
       ]
@@ -91,6 +101,18 @@ export function createAutoPauseChatPolicy(): ChatPolicy {
           reason: "Auto-paused: user message received during active plan",
         },
       ])
+    },
+  }
+}
+
+export function createTodoFinalizationChatPolicy(todoContinuationEnforcer?: { clearFinalized: (sessionId: string) => void } | null): ChatPolicy {
+  return {
+    onChatMessage(input) {
+      if (shouldRearmTodoFinalization(input)) {
+        todoContinuationEnforcer?.clearFinalized(input.sessionId)
+      }
+
+      return createPolicyResult<RuntimeEffect>()
     },
   }
 }
