@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.6] - 2026-04-14
+
+### Changed
+
+- Tighten Tapestry in-progress execution updates so they stay focused on the immediate next action instead of mentioning later review or completion steps
+- Clarify terminal-state review behavior so post-execution review only triggers once all plan tasks are complete
+- Refresh evaluation baselines and test assertions to match the refined Tapestry execution contract
+
 ## [0.7.5] - 2026-04-05
 
 ### Fixed
@@ -155,6 +163,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clear `state.json` on plan completion so `session.idle` takes fast exit path ([13df42e](https://github.com/pgermishuys/weave/commit/13df42e))
 
 [0.7.4]: https://github.com/pgermishuys/opencode-weave/compare/v0.7.3...v0.7.4
+[0.7.6]: https://github.com/pgermishuys/opencode-weave/compare/v0.7.5...v0.7.6
+[0.7.5]: https://github.com/pgermishuys/opencode-weave/compare/v0.7.4...v0.7.5
 [0.7.3]: https://github.com/pgermishuys/opencode-weave/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/pgermishuys/opencode-weave/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/pgermishuys/opencode-weave/compare/v0.7.0...v0.7.1
