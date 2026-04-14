@@ -9,6 +9,10 @@ import { registerAgentDisplayName } from "../shared/agent-display-names"
 import { registerAgentNameVariants } from "./agent-builder"
 import { debug } from "../shared/log"
 
+type AgentConfigWithOptions = AgentConfig & {
+  options?: Record<string, unknown>
+}
+
 /** Known tool names that can be granted/denied via config */
 const KNOWN_TOOL_NAMES = new Set([
   "write",
@@ -123,7 +127,7 @@ export function buildCustomAgent(
   })
 
   // Build the agent config
-  const agentConfig: AgentConfig = {
+  const agentConfig: AgentConfigWithOptions = {
     model,
     prompt: prompt || undefined,
     description: config.description ?? displayName,
@@ -133,6 +137,7 @@ export function buildCustomAgent(
   if (config.temperature !== undefined) agentConfig.temperature = config.temperature
   if (config.top_p !== undefined) agentConfig.top_p = config.top_p
   if (config.maxTokens !== undefined) agentConfig.maxTokens = config.maxTokens
+  if (config.modelOptions !== undefined) agentConfig.options = config.modelOptions
   if (config.tools) {
     // Validate tool names against known allowlist
     const unknownTools = Object.keys(config.tools).filter((t) => !KNOWN_TOOL_NAMES.has(t))

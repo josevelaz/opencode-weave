@@ -17,6 +17,26 @@ describe("WeaveConfigSchema", () => {
     }
   })
 
+  it("parses agent override modelOptions passthrough", () => {
+    const result = WeaveConfigSchema.safeParse({
+      agents: {
+        loom: {
+          modelOptions: {
+            reasoningEffort: "medium",
+            reasoning: { effort: "high" },
+          },
+        },
+      },
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.agents?.loom?.modelOptions).toEqual({
+        reasoningEffort: "medium",
+        reasoning: { effort: "high" },
+      })
+    }
+  })
+
   it("rejects invalid temperature value (>2)", () => {
     const result = WeaveConfigSchema.safeParse({
       agents: { loom: { temperature: 5.0 } },
@@ -46,6 +66,28 @@ describe("WeaveConfigSchema", () => {
       categories: { deep: { model: "claude-opus-4", temperature: 0.5 } },
     })
     expect(result.success).toBe(true)
+  })
+
+  it("parses custom agent modelOptions passthrough", () => {
+    const result = WeaveConfigSchema.safeParse({
+      custom_agents: {
+        reviewer: {
+          prompt: "Review code.",
+          model: "claude-opus-4",
+          modelOptions: {
+            reasoningEffort: "low",
+            reasoning: { budgetTokens: 2048 },
+          },
+        },
+      },
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.custom_agents?.reviewer?.modelOptions).toEqual({
+        reasoningEffort: "low",
+        reasoning: { budgetTokens: 2048 },
+      })
+    }
   })
 
   it("parses background config with concurrency limits", () => {

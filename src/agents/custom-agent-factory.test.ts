@@ -95,6 +95,24 @@ describe("buildCustomAgent", () => {
     expect(agent.top_p).toBe(0.9)
   })
 
+  it("passes through modelOptions", () => {
+    const config: CustomAgentConfig = {
+      prompt: "Test.",
+      model: "test-model/v1",
+      modelOptions: {
+        reasoningEffort: "medium",
+        reasoning: { effort: "high" },
+      },
+    }
+    const agent = buildCustomAgent("test-agent", config) as {
+      options?: Record<string, unknown>
+    }
+    expect(agent.options).toEqual({
+      reasoningEffort: "medium",
+      reasoning: { effort: "high" },
+    })
+  })
+
   it("applies tool permissions", () => {
     const config: CustomAgentConfig = {
       prompt: "Test.",
