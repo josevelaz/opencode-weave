@@ -15,11 +15,19 @@
   // NOTE: skill_directories are relative to project root.
   //       Absolute paths and ".." traversal are rejected.
   //
+  // JSON Schema support:
+  //   Use the raw GitHub URL while referencing Weave directly.
+  //   If you vendor `schema/weave-config.schema.json` into your own repo,
+  //   replace this with a local relative path such as:
+  //   "$schema": "./schema/weave-config.schema.json"
+  //
   // That's it. No agent overrides needed. Agents load SDD skills on demand
   // via the skill tool when the task calls for it. The sdd-orchestration
   // skill tells the orchestrator which skills to load for each phase and
   // which skills to tell delegates to load.
   // ─────────────────────────────────────────────────────────────────────────
+
+  "$schema": "https://raw.githubusercontent.com/pgermishuys/weave/main/schema/weave-config.schema.json",
 
   // Skills directory — 6 SDD skills become available to all agents via the skill tool.
   // Agents see them in their skill index and load them when needed.

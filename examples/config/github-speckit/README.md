@@ -12,12 +12,14 @@ A [Weave](https://github.com/your-org/weave) configuration package that brings [
 
 ## Quick Start
 
-### Step 1: Add one line to your config
+### Step 1: Add `$schema` and `skill_directories`
 
 Add to your project's `.opencode/weave-opencode.jsonc`:
 
 ```jsonc
 {
+  "$schema": "https://raw.githubusercontent.com/pgermishuys/weave/main/schema/weave-config.schema.json",
+
   // OPTION A — development (running from the Weave repo):
   "skill_directories": ["examples/config/github-speckit/skills"],
 
@@ -25,6 +27,8 @@ Add to your project's `.opencode/weave-opencode.jsonc`:
   // "skill_directories": ["github-speckit/skills"]
 }
 ```
+
+Use the raw GitHub URL when you want editor completions against the schema published by the Weave repository. If you copy `schema/weave-config.schema.json` into your own repository, switch `$schema` to a local relative path instead so validation keeps working offline.
 
 ### Step 2: Talk to Loom
 
@@ -55,6 +59,7 @@ When it's time to delegate, Loom tells Pattern to load `sdd-planning` and Thread
 
 | Config field | Purpose |
 |---|---|
+| `$schema` | Points your editor at Weave's generated JSON Schema for completion and validation. |
 | `skill_directories` | Points Weave at this package's `skills/` directory. That's it. |
 
 **Path options**:

@@ -1,4 +1,5 @@
 export * from "./schema"
+export * from "./json-schema"
 export { loadWeaveConfig } from "./loader"
 export { mergeConfigs } from "./merge"
 export * from "./continuation"

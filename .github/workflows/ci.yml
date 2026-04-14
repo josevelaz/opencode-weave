@@ -21,6 +21,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Check generated config schema
+        run: bun run schema:config:check
+
       - name: Typecheck
         run: bun run typecheck
 

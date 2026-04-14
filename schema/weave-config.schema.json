@@ -1,0 +1,450 @@
+{
+  "$ref": "#/$defs/WeaveConfig",
+  "$defs": {
+    "WeaveConfig": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "agents": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "model": {
+                "type": "string"
+              },
+              "fallback_models": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "variant": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string"
+              },
+              "skills": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "temperature": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 2
+              },
+              "top_p": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "prompt": {
+                "type": "string"
+              },
+              "prompt_append": {
+                "type": "string"
+              },
+              "tools": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "boolean"
+                }
+              },
+              "modelOptions": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "subagent",
+                  "primary",
+                  "all"
+                ]
+              },
+              "maxTokens": {
+                "type": "number"
+              },
+              "display_name": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "custom_agents": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "prompt": {
+                "type": "string"
+              },
+              "prompt_file": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "display_name": {
+                "type": "string"
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "subagent",
+                  "primary",
+                  "all"
+                ]
+              },
+              "fallback_models": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "exploration",
+                  "specialist",
+                  "advisor",
+                  "utility"
+                ]
+              },
+              "cost": {
+                "type": "string",
+                "enum": [
+                  "FREE",
+                  "CHEAP",
+                  "EXPENSIVE"
+                ]
+              },
+              "temperature": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 2
+              },
+              "top_p": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "maxTokens": {
+                "type": "number"
+              },
+              "modelOptions": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              },
+              "tools": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "boolean"
+                }
+              },
+              "skills": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "triggers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "domain": {
+                      "type": "string"
+                    },
+                    "trigger": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "domain",
+                    "trigger"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "description": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "categories": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "fallback_models": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "variant": {
+                "type": "string"
+              },
+              "temperature": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 2
+              },
+              "top_p": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "maxTokens": {
+                "type": "number"
+              },
+              "tools": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "boolean"
+                }
+              },
+              "prompt_append": {
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "disabled_hooks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "disabled_tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "disabled_agents": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "disabled_skills": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "skill_directories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)).+",
+            "description": "Relative directory path only. Absolute paths and '..' traversal segments are rejected at runtime."
+          }
+        },
+        "background": {
+          "type": "object",
+          "properties": {
+            "defaultConcurrency": {
+              "type": "number",
+              "minimum": 1
+            },
+            "providerConcurrency": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "modelConcurrency": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "staleTimeoutMs": {
+              "type": "number",
+              "minimum": 60000
+            }
+          },
+          "additionalProperties": false
+        },
+        "analytics": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "use_fingerprint": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "continuation": {
+          "type": "object",
+          "properties": {
+            "recovery": {
+              "type": "object",
+              "properties": {
+                "compaction": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "idle": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "work": {
+                  "type": "boolean"
+                },
+                "workflow": {
+                  "type": "boolean"
+                },
+                "todo_prompt": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "tmux": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "layout": {
+              "type": "string",
+              "enum": [
+                "main-horizontal",
+                "main-vertical",
+                "tiled",
+                "even-horizontal",
+                "even-vertical"
+              ]
+            },
+            "main_pane_size": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "experimental": {
+          "type": "object",
+          "properties": {
+            "plugin_load_timeout_ms": {
+              "type": "number",
+              "minimum": 1000
+            },
+            "context_window_warning_threshold": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "context_window_critical_threshold": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "workflows": {
+          "type": "object",
+          "properties": {
+            "disabled_workflows": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "directories": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^(?!/)(?![A-Za-z]:[\\\\/])(?!.*(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)).+",
+                "description": "Relative directory path only. Absolute paths and '..' traversal segments are rejected at runtime."
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "log_level": {
+          "type": "string",
+          "enum": [
+            "DEBUG",
+            "INFO",
+            "WARN",
+            "ERROR"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/pgermishuys/weave/main/schema/weave-config.schema.json",
+  "title": "Weave Config",
+  "description": "Configuration for the @opencode_weave/weave OpenCode plugin. Runtime loading accepts JSONC, while the generated schema artifact is plain JSON Schema.",
+  "x-weave-version": "0.7.6"
+}

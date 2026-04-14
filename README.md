@@ -22,6 +22,16 @@ For detailed guides on configuration, workflows, agents, features, and more, vis
 
 For agent routing eval trends and dashboards, see the **[Eval Dashboard](https://tryweave.io/evals/)**.
 
+### Config schema
+
+Weave ships a generated config schema at `schema/weave-config.schema.json`.
+
+- Regenerate it: `bun run schema:config`
+- Verify it is current: `bun run schema:config:check`
+- Use it in config files via `$schema`, typically with `https://raw.githubusercontent.com/pgermishuys/weave/main/schema/weave-config.schema.json`
+
+Runtime config still supports JSONC comments and trailing commas even though the published schema artifact is plain JSON.
+
 ## Agents
 
 | Agent | Role | Mode | Description |

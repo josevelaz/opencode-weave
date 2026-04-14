@@ -18,10 +18,13 @@ function runCheck(name: string, cmd: string[]): CheckResult {
 
 const checks: CheckResult[] = []
 
-// 1. typecheck
+// 1. generated config schema freshness
+checks.push(runCheck("schema:config:check", ["bun", "run", "schema:config:check"]))
+
+// 2. typecheck
 checks.push(runCheck("typecheck", ["bun", "run", "typecheck"]))
 
-// 2. test
+// 3. test
 const testResult = runCheck("test", ["bun", "test"])
 // Try to extract test count from output
 const testOutput = testResult.output ?? ""
@@ -29,11 +32,11 @@ const testCountMatch = testOutput.match(/(\d+)\s+pass/)
 const testCount = testCountMatch ? ` (${testCountMatch[1]} passed)` : ""
 checks.push({ ...testResult, name: `test${testCount}` })
 
-// 3. build
+// 4. build
 const buildResult = runCheck("build", ["bun", "run", "build"])
 checks.push(buildResult)
 
-// 4. plugin-export — depends on dist/index.js from build above
+// 5. plugin-export — depends on dist/index.js from build above
 checks.push(
   runCheck("plugin-export", [
     "bun",
@@ -42,7 +45,7 @@ checks.push(
   ])
 )
 
-// 5. no-function-exports — depends on dist/index.js
+// 6. no-function-exports — depends on dist/index.js
 checks.push(
   runCheck("no-function-exports", [
     "bun",
@@ -51,7 +54,7 @@ checks.push(
   ])
 )
 
-// 6. 6-agents
+// 7. 7-agents
 checks.push(
   runCheck("7-agents", [
     "bun",
@@ -60,7 +63,7 @@ checks.push(
   ])
 )
 
-// 7. config-schema
+// 8. config-schema
 checks.push(
   runCheck("config-schema", [
     "bun",

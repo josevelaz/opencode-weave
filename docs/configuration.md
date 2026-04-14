@@ -2,6 +2,24 @@
 
 Weave supports layered configuration through JSONC or JSON files at two levels.
 
+## Generated JSON Schema
+
+The canonical machine-readable schema for Weave config lives at:
+
+- Repository artifact: `schema/weave-config.schema.json`
+- Raw GitHub URL: `https://raw.githubusercontent.com/pgermishuys/weave/main/schema/weave-config.schema.json`
+
+Regenerate or verify it with:
+
+```bash
+bun run schema:config
+bun run schema:config:check
+```
+
+Use the raw URL in a checked-in config, or point `$schema` at a local copy if you vendor the file into another repository.
+
+> **Note**: Weave loads `.jsonc` and `.json` config files at runtime, so comments and trailing commas are still accepted by the loader. The generated artifact itself is plain JSON Schema because editors and validators expect standard JSON.
+
 ## Config File Locations
 
 | Level | Path | Priority |
@@ -24,6 +42,15 @@ flowchart LR
 - **Scalars**: project value wins over user value
 
 ## Full Schema
+
+The generated JSON Schema above is the authoritative contract for editor tooling and validation. The example below is a human-readable overview of the main sections.
+
+### Schema fidelity and runtime caveats
+
+- Record-like sections such as `agents`, `custom_agents`, and `categories` intentionally use `additionalProperties` so arbitrary named entries remain valid.
+- Top-level config sections stay optional in the generated schema, matching the runtime loader's merge-friendly config model.
+- Enum-backed fields such as `log_level` and `tmux.layout` remain explicit enums in the generated artifact for editor completion.
+- `skill_directories` and `workflows.directories` use a JSON Schema regex approximation for safe relative paths, but the runtime loader remains authoritative and still enforces the underlying `refine()` checks that reject absolute paths and `..` traversal.
 
 ```jsonc
 {
@@ -86,14 +113,11 @@ flowchart LR
   // Terminal multiplexing (stub)
   "tmux": {
     "enabled": false,
-    "layout": "default"
+    "layout": "tiled"
   },
 
   // Skill discovery paths
-  "skills": {
-    "paths": ["./.custom-skills"],
-    "recursive": true
-  },
+  "skill_directories": [".custom-skills"],
 
   // Experimental features
   "experimental": {
@@ -265,10 +289,7 @@ flowchart TD
 
 ```jsonc
 {
-  "skills": {
-    "paths": ["./.custom-skills", "../shared-skills"],
-    "recursive": true
-  },
+  "skill_directories": [".custom-skills"],
   "agents": {
     "pattern": {
       "skills": ["planning-guidelines"]
