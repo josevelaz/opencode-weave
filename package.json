@@ -4,10 +4,10 @@
   "description": "Weave — lean OpenCode plugin with multi-agent orchestration",
   "author": "Weave",
   "license": "MIT",
-  "homepage": "https://github.com/pgermishuys/weave#readme",
+  "homepage": "https://github.com/pgermishuys/opencode-weave#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/pgermishuys/weave.git"
+    "url": "https://github.com/pgermishuys/opencode-weave.git"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

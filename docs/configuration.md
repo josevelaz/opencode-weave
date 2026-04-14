@@ -7,7 +7,7 @@ Weave supports layered configuration through JSONC or JSON files at two levels.
 The canonical machine-readable schema for Weave config lives at:
 
 - Repository artifact: `schema/weave-config.schema.json`
-- Raw GitHub URL: `https://raw.githubusercontent.com/pgermishuys/weave/main/schema/weave-config.schema.json`
+- Raw GitHub URL: `https://raw.githubusercontent.com/pgermishuys/opencode-weave/main/schema/weave-config.schema.json`
 
 Regenerate or verify it with:
 

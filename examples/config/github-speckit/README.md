@@ -1,6 +1,6 @@
 # GitHub Spec Kit — Weave Configuration
 
-A [Weave](https://github.com/your-org/weave) configuration package that brings [GitHub Spec Kit](https://github.com/github/spec-kit)'s Spec-Driven Development (SDD) methodology into Weave through **6 on-demand skills** — no custom agents, no prompt injection, no workflow engine.
+A [Weave](https://github.com/pgermishuys/opencode-weave) configuration package that brings [GitHub Spec Kit](https://github.com/github/spec-kit)'s Spec-Driven Development (SDD) methodology into Weave through **6 on-demand skills** — no custom agents, no prompt injection, no workflow engine.
 
 ## What This Provides
 
@@ -18,7 +18,7 @@ Add to your project's `.opencode/weave-opencode.jsonc`:
 
 ```jsonc
 {
-  "$schema": "https://raw.githubusercontent.com/pgermishuys/weave/main/schema/weave-config.schema.json",
+  "$schema": "https://raw.githubusercontent.com/pgermishuys/opencode-weave/main/schema/weave-config.schema.json",
 
   // OPTION A — development (running from the Weave repo):
   "skill_directories": ["examples/config/github-speckit/skills"],

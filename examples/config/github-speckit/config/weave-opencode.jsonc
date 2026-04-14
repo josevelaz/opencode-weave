@@ -27,7 +27,7 @@
   // which skills to tell delegates to load.
   // ─────────────────────────────────────────────────────────────────────────
 
-  "$schema": "https://raw.githubusercontent.com/pgermishuys/weave/main/schema/weave-config.schema.json",
+  "$schema": "https://raw.githubusercontent.com/pgermishuys/opencode-weave/main/schema/weave-config.schema.json",
 
   // Skills directory — 6 SDD skills become available to all agents via the skill tool.
   // Agents see them in their skill index and load them when needed.

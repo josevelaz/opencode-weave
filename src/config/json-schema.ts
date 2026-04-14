@@ -8,7 +8,7 @@ export type JsonSchemaObject = Record<string, unknown>
 
 export const WEAVE_CONFIG_JSON_SCHEMA_RELATIVE_PATH = "schema/weave-config.schema.json"
 export const WEAVE_CONFIG_JSON_SCHEMA_ID =
-  "https://raw.githubusercontent.com/pgermishuys/weave/main/schema/weave-config.schema.json"
+  "https://raw.githubusercontent.com/pgermishuys/opencode-weave/main/schema/weave-config.schema.json"
 export const WEAVE_CONFIG_JSON_SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 export const WEAVE_CONFIG_JSON_SCHEMA_TITLE = "Weave Config"
 export const WEAVE_CONFIG_JSON_SCHEMA_DESCRIPTION =

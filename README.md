@@ -28,7 +28,7 @@ Weave ships a generated config schema at `schema/weave-config.schema.json`.
 
 - Regenerate it: `bun run schema:config`
 - Verify it is current: `bun run schema:config:check`
-- Use it in config files via `$schema`, typically with `https://raw.githubusercontent.com/pgermishuys/weave/main/schema/weave-config.schema.json`
+- Use it in config files via `$schema`, typically with `https://raw.githubusercontent.com/pgermishuys/opencode-weave/main/schema/weave-config.schema.json`
 
 Runtime config still supports JSONC comments and trailing commas even though the published schema artifact is plain JSON.
 

@@ -61,13 +61,6 @@
                   "type": "boolean"
                 }
               },
-              "modelOptions": {
-                "type": "object",
-                "propertyNames": {
-                  "type": "string"
-                },
-                "additionalProperties": {}
-              },
               "disable": {
                 "type": "boolean"
               },
@@ -152,13 +145,6 @@
               },
               "maxTokens": {
                 "type": "number"
-              },
-              "modelOptions": {
-                "type": "object",
-                "propertyNames": {
-                  "type": "string"
-                },
-                "additionalProperties": {}
               },
               "tools": {
                 "type": "object",
@@ -443,7 +429,7 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/pgermishuys/weave/main/schema/weave-config.schema.json",
+  "$id": "https://raw.githubusercontent.com/pgermishuys/opencode-weave/main/schema/weave-config.schema.json",
   "title": "Weave Config",
   "description": "Configuration for the @opencode_weave/weave OpenCode plugin. Runtime loading accepts JSONC, while the generated schema artifact is plain JSON Schema.",
   "x-weave-version": "0.7.6"
