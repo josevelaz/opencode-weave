@@ -43,8 +43,22 @@ describe("generateWeaveConfigJsonSchema", () => {
   it("applies the root metadata contract", () => {
     const schema = getGeneratedSchema()
 
+import {
+  generateWeaveConfigJsonSchema,
+  getWeaveConfigJsonSchemaArtifactPath,
+  SAFE_RELATIVE_PATH_DESCRIPTION,
+  SAFE_RELATIVE_PATH_PATTERN,
+  stringifyWeaveConfigJsonSchema,
+  WEAVE_CONFIG_JSON_SCHEMA_DESCRIPTION,
+  WEAVE_CONFIG_JSON_SCHEMA_DRAFT,
+  WEAVE_CONFIG_JSON_SCHEMA_ROOT_NAME,
+  WEAVE_CONFIG_JSON_SCHEMA_TITLE,
+} from "./json-schema"
+
     expect(schema.$schema).toBe(WEAVE_CONFIG_JSON_SCHEMA_DRAFT)
-    expect(schema.$id).toBe(WEAVE_CONFIG_JSON_SCHEMA_ID)
+    expect(schema.$id).toBe(
+      "https://raw.githubusercontent.com/pgermishuys/opencode-weave/main/schema/weave-config.schema.json",
+    )
     expect(schema.title).toBe(WEAVE_CONFIG_JSON_SCHEMA_TITLE)
     expect(schema.description).toBe(WEAVE_CONFIG_JSON_SCHEMA_DESCRIPTION)
     expect(schema["x-weave-version"]).toBe(getWeaveVersion())
