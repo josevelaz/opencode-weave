@@ -17,6 +17,10 @@ import type { ProjectFingerprint } from "../features/analytics/types"
 import type { AvailableAgent } from "./dynamic-prompt-builder"
 import { debug } from "../shared/log"
 
+type AgentConfigWithOptions = AgentConfig & {
+  options?: Record<string, unknown>
+}
+
 export interface CreateBuiltinAgentsOptions {
   disabledAgents?: string[]
   agentOverrides?: Record<string, AgentOverrideConfig>
@@ -215,7 +219,7 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
 
     // Use prompt-composer-aware constructors for loom and tapestry
     // so their prompts conditionally omit references to disabled agents
-    let built: AgentConfig
+    let built: AgentConfigWithOptions
     if (name === "loom") {
       built = createLoomAgentWithOptions(resolvedModel, disabledSet, fingerprint, customAgentMetadata)
     } else if (name === "tapestry") {
@@ -241,6 +245,9 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
       }
       if (override.temperature !== undefined) {
         built.temperature = override.temperature
+      }
+      if (override.modelOptions !== undefined) {
+        built.options = override.modelOptions
       }
     }
 

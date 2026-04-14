@@ -11,6 +11,8 @@ const SafeRelativePathSchema = z.string().refine(
   { message: "Directory paths must be relative and must not contain '..' segments" },
 )
 
+const ModelOptionsSchema = z.record(z.string(), z.unknown())
+
 export const AgentOverrideConfigSchema = z.object({
   model: z.string().optional(),
   fallback_models: z.array(z.string()).optional(),
@@ -22,6 +24,7 @@ export const AgentOverrideConfigSchema = z.object({
   prompt: z.string().optional(),
   prompt_append: z.string().optional(),
   tools: z.record(z.string(), z.boolean()).optional(),
+  modelOptions: ModelOptionsSchema.optional(),
   disable: z.boolean().optional(),
   mode: z.enum(["subagent", "primary", "all"]).optional(),
   maxTokens: z.number().optional(),
@@ -95,6 +98,8 @@ export const CustomAgentConfigSchema = z.object({
   top_p: z.number().min(0).max(1).optional(),
   /** Max tokens */
   maxTokens: z.number().optional(),
+  /** Provider/model-specific passthrough options (e.g. reasoningEffort, reasoning) */
+  modelOptions: ModelOptionsSchema.optional(),
   /** Tool permissions (true = enabled, false = denied) */
   tools: z.record(z.string(), z.boolean()).optional(),
   /** Skills to load for this agent */
