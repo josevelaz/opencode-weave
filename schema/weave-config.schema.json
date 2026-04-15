@@ -61,6 +61,13 @@
                   "type": "boolean"
                 }
               },
+              "modelOptions": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              },
               "disable": {
                 "type": "boolean"
               },
@@ -145,6 +152,13 @@
               },
               "maxTokens": {
                 "type": "number"
+              },
+              "modelOptions": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
               },
               "tools": {
                 "type": "object",
