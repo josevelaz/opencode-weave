@@ -119,6 +119,10 @@ function annotateSafeRelativePathArray(root: JsonSchemaObject, value: unknown) {
   const items = asObject(schema?.items)
   if (!items) return
 
+  // Intentional in-place post-processing: createBaseWeaveConfigJsonSchema()
+  // returns a fresh schema object, resolveJsonSchemaRef(root, value) resolves the
+  // referenced array node for us, and mutating items directly keeps pattern and
+  // appendDescription(items, ...) attached to that final resolved schema branch.
   items.pattern = SAFE_RELATIVE_PATH_PATTERN
   appendDescription(items, SAFE_RELATIVE_PATH_DESCRIPTION)
 }

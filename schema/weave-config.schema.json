@@ -270,7 +270,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "pattern": "^(?!/)(?!\\\\)(?![A-Za-z]:[\\\\/])(?!.*(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)).+",
+            "pattern": "^(?![\\\\/])(?![A-Za-z]:[\\\\/])(?!.*(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)).+$",
             "description": "Relative directory path only. Absolute paths, leading backslashes/UNC paths, and '..' traversal segments are rejected at runtime."
           }
         },
@@ -408,7 +408,7 @@
               "type": "array",
               "items": {
                 "type": "string",
-                "pattern": "^(?!/)(?!\\\\)(?![A-Za-z]:[\\\\/])(?!.*(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)).+",
+                "pattern": "^(?![\\\\/])(?![A-Za-z]:[\\\\/])(?!.*(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)).+$",
                 "description": "Relative directory path only. Absolute paths, leading backslashes/UNC paths, and '..' traversal segments are rejected at runtime."
               }
             }

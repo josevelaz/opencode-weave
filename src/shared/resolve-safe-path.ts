@@ -1,13 +1,6 @@
 import { resolve, isAbsolute, normalize, sep } from "path"
 import { log } from "./log"
-
-function hasWindowsDrivePrefix(path: string) {
-  return /^[A-Za-z]:[\\/]/.test(path)
-}
-
-function hasLeadingBackslash(path: string) {
-  return path.startsWith("\\")
-}
+import { hasLeadingBackslash, hasWindowsDrivePrefix } from "./path-helpers"
 
 /**
  * Safely resolve a user-supplied directory path, ensuring it stays within the

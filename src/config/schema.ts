@@ -1,13 +1,6 @@
 import { z } from "zod"
 import { isAbsolute } from "path"
-
-function hasWindowsDrivePrefix(path: string) {
-  return /^[A-Za-z]:[\\/]/.test(path)
-}
-
-function hasLeadingBackslash(path: string) {
-  return path.startsWith("\\")
-}
+import { hasLeadingBackslash, hasWindowsDrivePrefix } from "../shared/path-helpers"
 
 /**
  * Zod schema for a safe relative directory path.
