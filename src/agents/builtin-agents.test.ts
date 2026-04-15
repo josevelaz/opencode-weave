@@ -52,6 +52,24 @@ describe("createBuiltinAgents", () => {
     expect(agents["loom"]?.temperature).toBe(0.3)
   })
 
+  it("applies modelOptions override to builtin subagents", () => {
+    const agents = createBuiltinAgents({
+      agentOverrides: {
+        pattern: {
+          modelOptions: {
+            reasoningEffort: "high",
+            reasoning: { effort: "medium" },
+          },
+        },
+      },
+    })
+    const pattern = agents["pattern"] as { options?: Record<string, unknown> } | undefined
+    expect(pattern?.options).toEqual({
+      reasoningEffort: "high",
+      reasoning: { effort: "medium" },
+    })
+  })
+
   it("resolves override skills and prepends them to the agent prompt", () => {
     const agents = createBuiltinAgents({
       agentOverrides: { pattern: { skills: ["test-skill"] } },
