@@ -11,10 +11,12 @@ import {
   stringifyWeaveConfigJsonSchema,
   WEAVE_CONFIG_JSON_SCHEMA_DESCRIPTION,
   WEAVE_CONFIG_JSON_SCHEMA_DRAFT,
-  WEAVE_CONFIG_JSON_SCHEMA_ID,
   WEAVE_CONFIG_JSON_SCHEMA_ROOT_NAME,
   WEAVE_CONFIG_JSON_SCHEMA_TITLE,
 } from "./json-schema"
+
+const EXPECTED_PUBLIC_SCHEMA_ID =
+  "https://raw.githubusercontent.com/pgermishuys/opencode-weave/main/schema/weave-config.schema.json"
 
 type JsonSchemaObject = Record<string, unknown>
 
@@ -43,22 +45,8 @@ describe("generateWeaveConfigJsonSchema", () => {
   it("applies the root metadata contract", () => {
     const schema = getGeneratedSchema()
 
-import {
-  generateWeaveConfigJsonSchema,
-  getWeaveConfigJsonSchemaArtifactPath,
-  SAFE_RELATIVE_PATH_DESCRIPTION,
-  SAFE_RELATIVE_PATH_PATTERN,
-  stringifyWeaveConfigJsonSchema,
-  WEAVE_CONFIG_JSON_SCHEMA_DESCRIPTION,
-  WEAVE_CONFIG_JSON_SCHEMA_DRAFT,
-  WEAVE_CONFIG_JSON_SCHEMA_ROOT_NAME,
-  WEAVE_CONFIG_JSON_SCHEMA_TITLE,
-} from "./json-schema"
-
     expect(schema.$schema).toBe(WEAVE_CONFIG_JSON_SCHEMA_DRAFT)
-    expect(schema.$id).toBe(
-      "https://raw.githubusercontent.com/pgermishuys/opencode-weave/main/schema/weave-config.schema.json",
-    )
+    expect(schema.$id).toBe(EXPECTED_PUBLIC_SCHEMA_ID)
     expect(schema.title).toBe(WEAVE_CONFIG_JSON_SCHEMA_TITLE)
     expect(schema.description).toBe(WEAVE_CONFIG_JSON_SCHEMA_DESCRIPTION)
     expect(schema["x-weave-version"]).toBe(getWeaveVersion())
@@ -116,12 +104,13 @@ import {
     const customAgents = getProperty(root, "custom_agents")
     const continuation = getProperty(root, "continuation")
     const tmux = getProperty(root, "tmux")
+    const agentOverride = agents?.additionalProperties as JsonSchemaObject
 
     expect(agents?.type).toBe("object")
-    expect((agents?.additionalProperties as JsonSchemaObject)?.type).toBe("object")
-    expect(
-      getProperty(agents?.additionalProperties as JsonSchemaObject, "modelOptions")?.additionalProperties,
-    ).toEqual({})
+    expect(agentOverride?.type).toBe("object")
+    expect(getProperty(agentOverride, "model")?.type).toBe("string")
+    expect(getProperty(agentOverride, "tools")?.type).toBe("object")
+    expect(getProperty(agentOverride, "temperature")?.type).toBe("number")
 
     expect(customAgents?.type).toBe("object")
     expect((customAgents?.additionalProperties as JsonSchemaObject)?.type).toBe("object")

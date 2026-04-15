@@ -6,7 +6,7 @@ Weave supports layered configuration through JSONC or JSON files at two levels.
 
 The canonical machine-readable schema for Weave config lives at:
 
-- Repository artifact: `schema/weave-config.schema.json`
+- Repository artifact: `schema/weave-config.schema.json` (committed in this repo, not shipped in the npm package)
 - Raw GitHub URL: `https://raw.githubusercontent.com/pgermishuys/opencode-weave/main/schema/weave-config.schema.json`
 
 Regenerate or verify it with:
@@ -16,7 +16,7 @@ bun run schema:config
 bun run schema:config:check
 ```
 
-Use the raw URL in a checked-in config, or point `$schema` at a local copy if you vendor the file into another repository.
+Use the raw URL in a checked-in config, preferably pinned to a release tag such as `https://raw.githubusercontent.com/pgermishuys/opencode-weave/v0.7.6/schema/weave-config.schema.json`, or point `$schema` at a local copy if you vendor the file into another repository. The npm package currently publishes `dist/` only, so local schema references require vendoring the artifact yourself.
 
 > **Note**: Weave loads `.jsonc` and `.json` config files at runtime, so comments and trailing commas are still accepted by the loader. The generated artifact itself is plain JSON Schema because editors and validators expect standard JSON.
 

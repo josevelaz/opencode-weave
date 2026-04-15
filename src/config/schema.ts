@@ -1,14 +1,30 @@
 import { z } from "zod"
 import { isAbsolute } from "path"
 
+function hasWindowsDrivePrefix(path: string) {
+  return /^[A-Za-z]:[\\/]/.test(path)
+}
+
+function hasLeadingBackslash(path: string) {
+  return path.startsWith("\\")
+}
+
 /**
  * Zod schema for a safe relative directory path.
- * Rejects absolute paths and paths containing `..` traversal segments.
+ * Rejects absolute paths, Windows drive roots / UNC-style paths, and paths
+ * containing `..` traversal segments.
  * This is defense-in-depth — runtime resolution in resolveSafePath also sandboxes.
  */
 const SafeRelativePathSchema = z.string().refine(
-  (p) => !isAbsolute(p) && !p.split(/[/\\]/).includes(".."),
-  { message: "Directory paths must be relative and must not contain '..' segments" },
+  (p) =>
+    !isAbsolute(p) &&
+    !hasWindowsDrivePrefix(p) &&
+    !hasLeadingBackslash(p) &&
+    !p.split(/[/\\]/).includes(".."),
+  {
+    message:
+      "Directory paths must be relative, must not start with a drive root or backslash, and must not contain '..' segments",
+  },
 )
 
 export const AgentOverrideConfigSchema = z.object({

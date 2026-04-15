@@ -1,6 +1,14 @@
 import { resolve, isAbsolute, normalize, sep } from "path"
 import { log } from "./log"
 
+function hasWindowsDrivePrefix(path: string) {
+  return /^[A-Za-z]:[\\/]/.test(path)
+}
+
+function hasLeadingBackslash(path: string) {
+  return path.startsWith("\\")
+}
+
 /**
  * Safely resolve a user-supplied directory path, ensuring it stays within the
  * project root (sandbox). Returns the resolved absolute path, or null if the
@@ -8,6 +16,7 @@ import { log } from "./log"
  *
  * Security rules:
  * - Absolute paths are rejected (must be relative to projectRoot)
+ * - Leading backslashes and Windows drive roots are rejected cross-platform
  * - Resolved path must start with projectRoot (prevents `../../` traversal)
  *
  * @param dir - User-supplied directory path (from config)
@@ -16,7 +25,7 @@ import { log } from "./log"
  */
 export function resolveSafePath(dir: string, projectRoot: string): string | null {
   // Reject absolute paths — custom dirs must be relative to project root
-  if (isAbsolute(dir)) {
+  if (isAbsolute(dir) || hasWindowsDrivePrefix(dir) || hasLeadingBackslash(dir)) {
     log("Rejected absolute custom directory path", { dir })
     return null
   }

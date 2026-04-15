@@ -22,7 +22,7 @@ export const WEAVE_CONFIG_JSON_SCHEMA_FALLBACK_TARGET = "draft-2020-12"
 export const SAFE_RELATIVE_PATH_PATTERN =
   "^(?![\\\\/])(?![A-Za-z]:[\\\\/])(?!.*(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)).+$"
 export const SAFE_RELATIVE_PATH_DESCRIPTION =
-  "Relative directory path only. Absolute paths and '..' traversal segments are rejected at runtime."
+  "Relative directory path only. Absolute paths, leading backslashes/UNC paths, and '..' traversal segments are rejected at runtime."
 
 /**
  * Root-level metadata contract shared by the config schema generator, tests,

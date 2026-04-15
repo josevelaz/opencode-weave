@@ -18,7 +18,7 @@ Add to your project's `.opencode/weave-opencode.jsonc`:
 
 ```jsonc
 {
-  "$schema": "https://raw.githubusercontent.com/pgermishuys/opencode-weave/main/schema/weave-config.schema.json",
+  "$schema": "https://raw.githubusercontent.com/pgermishuys/opencode-weave/v0.7.6/schema/weave-config.schema.json",
 
   // OPTION A — development (running from the Weave repo):
   "skill_directories": ["examples/config/github-speckit/skills"],
@@ -28,7 +28,7 @@ Add to your project's `.opencode/weave-opencode.jsonc`:
 }
 ```
 
-Use the raw GitHub URL when you want editor completions against the schema published by the Weave repository. If you copy `schema/weave-config.schema.json` into your own repository, switch `$schema` to a local relative path instead so validation keeps working offline.
+Use a release-tagged raw GitHub URL when you want editor completions against the schema published by the Weave repository without schema drift. If you copy `schema/weave-config.schema.json` into your own repository, switch `$schema` to a local relative path instead so validation keeps working offline.
 
 ### Step 2: Talk to Loom
 

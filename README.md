@@ -24,13 +24,13 @@ For agent routing eval trends and dashboards, see the **[Eval Dashboard](https:/
 
 ### Config schema
 
-Weave ships a generated config schema at `schema/weave-config.schema.json`.
+Weave ships a generated config schema at `schema/weave-config.schema.json` in this repository.
 
 - Regenerate it: `bun run schema:config`
 - Verify it is current: `bun run schema:config:check`
-- Use it in config files via `$schema`, typically with `https://raw.githubusercontent.com/pgermishuys/opencode-weave/main/schema/weave-config.schema.json`
+- Use it in config files via `$schema`, preferably pinned to a release tag such as `https://raw.githubusercontent.com/pgermishuys/opencode-weave/v0.7.6/schema/weave-config.schema.json`
 
-Runtime config still supports JSONC comments and trailing commas even though the published schema artifact is plain JSON.
+The npm package currently publishes `dist/` only, so if you want a local `$schema` path you should vendor `schema/weave-config.schema.json` into your own repository. Runtime config still supports JSONC comments and trailing commas even though the published schema artifact is plain JSON.
 
 ## Agents
 

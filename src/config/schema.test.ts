@@ -221,6 +221,20 @@ describe("WeaveConfigSchema", () => {
     expect(result.success).toBe(false)
   })
 
+  it("rejects leading backslash paths in skill_directories", () => {
+    const result = WeaveConfigSchema.safeParse({
+      skill_directories: ["\\\\server\\share"],
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it("rejects drive-rooted paths in skill_directories on every platform", () => {
+    const result = WeaveConfigSchema.safeParse({
+      skill_directories: ["C:\\Windows\\System32"],
+    })
+    expect(result.success).toBe(false)
+  })
+
   it("rejects paths with .. traversal in skill_directories", () => {
     const result = WeaveConfigSchema.safeParse({
       skill_directories: ["subdir/../../outside"],
