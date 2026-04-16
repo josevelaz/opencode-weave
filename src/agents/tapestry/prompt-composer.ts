@@ -14,14 +14,25 @@ export interface TapestryPromptOptions {
   disabledAgents?: Set<string>
   /** Resolved continuation settings shared with runtime hooks */
   continuation?: ResolvedContinuationConfig
+  /** Experimental prompt branch for bounded execution-time subagent orchestration */
+  experimentalSubagentOrchestration?: boolean
 }
 
-export function buildTapestryRoleSection(): string {
-  return `<Role>
+export function buildTapestryRoleSection(experimentalSubagentOrchestration = false): string {
+  if (!experimentalSubagentOrchestration) {
+    return `<Role>
 Tapestry — execution orchestrator for Weave.
 You execute multi-step plans until every plan checkbox is checked.
 Break work into atomic tasks, track progress rigorously, and execute sequentially.
 During task execution, you work directly — no subagent delegation.
+</Role>`
+  }
+
+  return `<Role>
+Tapestry — execution orchestrator for Weave.
+You execute multi-step plans until every plan checkbox is checked.
+Break work into atomic tasks, track progress rigorously, and execute sequentially.
+During task execution, you remain responsible for the plan and may orchestrate bounded helper subagents only when the experimental prompt path enables it.
 </Role>`
 }
 
@@ -109,10 +120,26 @@ BEFORE FINISHING (MANDATORY):
 </SidebarTodos>`
 }
 
-export function buildTapestryPlanExecutionSection(disabled: Set<string> = new Set()): string {
+export function buildTapestryPlanExecutionSection(
+  disabled: Set<string> = new Set(),
+  experimentalSubagentOrchestration = false,
+): string {
   const hasWeft = isAgentEnabled("weft", disabled)
   const verifySuffix = hasWeft
     ? " If uncertain about quality, note that Loom should invoke Weft for formal review."
+    : ""
+
+  const experimentalDelegationBlock = experimentalSubagentOrchestration
+    ? `
+
+EXPERIMENTAL EXECUTION-TIME SUBAGENT ORCHESTRATION:
+- You may use the Task tool only for bounded helper subproblems while you remain the plan owner.
+- Delegate one focused helper task at a time, then resume direct execution yourself.
+- You keep ownership of todos, acceptance checks, plan checkbox updates, and user-facing progress.
+- MUST NOT delegate to \`tapestry\`
+- MUST NOT ask a delegated subagent to spawn or orchestrate more subagents
+- MUST NOT hand off the entire remaining plan or overall plan ownership
+- This behavior is prompt-gated guidance only unless runtime enforcement is added later.`
     : ""
 
   return `<PlanExecution>
@@ -127,6 +154,7 @@ When activated by /start-work with a plan file:
    d. Mark complete: use Edit tool to change \`- [ ]\` to \`- [x]\` in the plan file
    e. Report: "Completed task N/M: [title]"
    f. Immediately locate the next unchecked task and begin it without waiting for user acknowledgment
+${experimentalDelegationBlock}
 4. CONTINUE until no unchecked tasks remain
 5. When no unchecked tasks remain, switch to terminal-state behavior.
 
@@ -278,13 +306,14 @@ export function buildTapestryStyleSection(): string {
 export function composeTapestryPrompt(options: TapestryPromptOptions = {}): string {
   const disabled = options.disabledAgents ?? new Set()
   const continuationHint = buildTapestryContinuationHintSection(options.continuation)
+  const experimentalSubagentOrchestration = options.experimentalSubagentOrchestration ?? false
 
   const sections = [
-    buildTapestryRoleSection(),
+    buildTapestryRoleSection(experimentalSubagentOrchestration),
     buildTapestryInvariantSection(),
     buildTapestryDisciplineSection(),
     buildTapestrySidebarTodosSection(),
-    buildTapestryPlanExecutionSection(disabled),
+    buildTapestryPlanExecutionSection(disabled, experimentalSubagentOrchestration),
     continuationHint,
     buildTapestryVerificationSection(),
     buildTapestryPostExecutionReviewSection(disabled),

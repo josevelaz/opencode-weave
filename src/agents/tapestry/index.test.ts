@@ -110,6 +110,18 @@ describe("createTapestryAgent", () => {
     expect(config.prompt).toContain("<Continuation>")
   })
 
+  it("createTapestryAgentWithOptions keeps the default no-delegation prompt when experimental mode is off", () => {
+    const config = createTapestryAgentWithOptions("claude-sonnet-4", new Set(), undefined, false)
+    expect(config.prompt).toContain("During task execution, you work directly — no subagent delegation.")
+    expect(config.prompt).not.toContain("EXPERIMENTAL EXECUTION-TIME SUBAGENT ORCHESTRATION")
+  })
+
+  it("createTapestryAgentWithOptions adds guarded orchestration text when experimental mode is on", () => {
+    const config = createTapestryAgentWithOptions("claude-sonnet-4", new Set(), undefined, true)
+    expect(config.prompt).toContain("bounded helper subagents")
+    expect(config.prompt).toContain("MUST NOT delegate to `tapestry`")
+  })
+
   it("verification protocol does NOT mention security-sensitive flagging (removed)", () => {
     const config = createTapestryAgent("claude-sonnet-4")
     const prompt = config.prompt as string

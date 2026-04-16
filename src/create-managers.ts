@@ -54,6 +54,8 @@ export function createManagers(options: {
     fingerprint,
     customAgentMetadata,
     continuation,
+    tapestryExperimentalSubagentOrchestration:
+      pluginConfig.experimental?.tapestry_subagent_orchestration,
   })
 
   // Step 2.5: Apply builtin display name overrides from config.

@@ -24,6 +24,7 @@ export const EvalSuiteMetadataSchema = z.object({
 
 export const BuiltinAgentPromptVariantSchema = z.object({
   disabledAgents: z.array(NonEmptyString).optional(),
+  experimentalTapestrySubagentOrchestration: z.boolean().optional(),
 })
 
 export const BuiltinAgentPromptTargetSchema = z.object({

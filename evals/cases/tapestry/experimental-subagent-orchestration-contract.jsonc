@@ -1,0 +1,33 @@
+{
+  "id": "tapestry-experimental-subagent-orchestration-contract",
+  "title": "Tapestry experimental prompt allows bounded helper delegation with guardrails",
+  "phase": "prompt",
+  "tags": ["prompt", "composer", "tapestry", "variants", "experimental"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry",
+    "variant": {
+      "experimentalTapestrySubagentOrchestration": true
+    }
+  },
+  "executor": {
+    "kind": "prompt-render"
+  },
+  "evaluators": [
+    { "kind": "xml-sections-present", "sections": ["Role", "PlanExecution", "Verification"] },
+    { "kind": "section-contains-all", "section": "Role", "patterns": ["bounded helper subagents"] },
+    {
+      "kind": "section-contains-all",
+      "section": "PlanExecution",
+      "patterns": [
+        "EXPERIMENTAL EXECUTION-TIME SUBAGENT ORCHESTRATION",
+        "MUST NOT delegate to `tapestry`",
+        "MUST NOT ask a delegated subagent to spawn or orchestrate more subagents",
+        "MUST NOT hand off the entire remaining plan or overall plan ownership",
+        "prompt-gated guidance only unless runtime enforcement is added later"
+      ]
+    },
+    { "kind": "excludes-all", "patterns": ["During task execution, you work directly — no subagent delegation."] },
+    { "kind": "tool-policy", "expectations": { "call_weave_agent": false } }
+  ]
+}

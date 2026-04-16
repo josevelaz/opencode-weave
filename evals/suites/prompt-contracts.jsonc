@@ -8,6 +8,7 @@
     "evals/cases/loom/disabled-agents.jsonc",
     "evals/cases/loom/review-workflow-contract.jsonc",
     "evals/cases/tapestry/default-contract.jsonc",
+    "evals/cases/tapestry/experimental-subagent-orchestration-contract.jsonc",
     "evals/cases/tapestry/disabled-reviewers-contract.jsonc",
     "evals/cases/pattern/plan-output-contract.jsonc",
     "evals/cases/thread/read-only-contract.jsonc",

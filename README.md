@@ -32,12 +32,26 @@ Weave ships a generated config schema at `schema/weave-config.schema.json` in th
 
 The npm package currently publishes `dist/` only, so if you want a local `$schema` path you should vendor `schema/weave-config.schema.json` into your own repository. Runtime config still supports JSONC comments and trailing commas even though the published schema artifact is plain JSON.
 
+### Experimental Tapestry helper orchestration
+
+Tapestry still defaults to direct, sequential plan execution. If you explicitly opt in with:
+
+```jsonc
+{
+  "experimental": {
+    "tapestry_subagent_orchestration": true
+  }
+}
+```
+
+Weave switches Tapestry onto an alternate prompt contract that allows **bounded helper subagent work during execution**. This first version is **prompt-gated only** — it does not add runtime interception or broaden tool permissions. `call_weave_agent` stays disabled, and the prompt explicitly forbids self-delegation, recursive delegation, and handing off the rest of the plan.
+
 ## Agents
 
 | Agent | Role | Mode | Description |
 | :--- | :--- | :--- | :--- |
 | **Loom** | main orchestrator | primary | The central team lead that plans tasks, coordinates work, and delegates to specialized agents. |
-| **Tapestry** | execution orchestrator | primary | Manages todo-list driven execution of multi-step plans, focusing on sequential implementation without subagent spawning. |
+| **Tapestry** | execution orchestrator | primary | Manages todo-list driven execution of multi-step plans. By default it executes directly; an experimental config flag can opt it into bounded helper subagent orchestration while Tapestry keeps plan ownership. |
 | **Shuttle** | category worker | all | Domain-specific specialist worker with full tool access, dispatched dynamically via the category system. |
 | **Pattern** | strategic planner | subagent | Analyzes requirements and produces detailed implementation plans with research and dependency mapping. |
 | **Thread** | codebase explorer | subagent | Fast, read-only codebase navigation and analysis using grep, glob, and read tools. |

@@ -48,12 +48,14 @@ graph TD
 | Loom | Warp | Security-relevant changes need auditing |
 | Loom | Shuttle | Domain-specific task with category config |
 | Loom | Tapestry | *(indirect)* User runs `/start-work` to begin plan execution |
-| Tapestry | *(none)* | Tapestry never delegates — executes directly |
+| Tapestry | *(none by default)* | Default: executes directly. Experimental opt-in: may use the Task tool for bounded helper work only, while keeping plan ownership |
 | Pattern | *(none)* | Pattern only writes `.md` plans, never delegates |
 | Thread | *(none)* | Read-only exploration, no delegation |
 | Spindle | *(none)* | Read-only research, no delegation |
 | Weft | *(none)* | Read-only review, no delegation |
 | Warp | *(none)* | Read-only security audit, no delegation |
+
+> **Experimental note**: `experimental.tapestry_subagent_orchestration: true` enables a prompt-only Tapestry variant that can delegate narrowly scoped helper tasks during execution. It does **not** enable `call_weave_agent`, and it explicitly forbids self-delegation, recursive delegation, and handing off the remaining plan.
 
 ## Workflow A: Plan-Based Execution (Primary Flow)
 
@@ -100,6 +102,8 @@ sequenceDiagram
         Tapestry->>Tapestry: Mark checkbox: - [ ] → - [x]
         Tapestry-->>User: Progress: 3/5 tasks complete
     end
+
+    Note over Tapestry: Default path stays fully direct.<br/>Experimental helper orchestration, when enabled,<br/>must stay bounded and cannot transfer plan ownership.
 
     Tapestry-->>User: ✓ All 5/5 tasks complete
 ```

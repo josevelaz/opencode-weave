@@ -16,6 +16,8 @@ function cloneTools(tools: Record<string, boolean> | undefined): Record<string, 
 
 export function resolveBuiltinAgentTarget(target: BuiltinAgentPromptTarget): ResolvedTarget {
   const disabledAgents = new Set(target.variant?.disabledAgents ?? [])
+  const experimentalTapestrySubagentOrchestration =
+    target.variant?.experimentalTapestrySubagentOrchestration === true
 
   switch (target.agent) {
     case "loom": {
@@ -35,7 +37,10 @@ export function resolveBuiltinAgentTarget(target: BuiltinAgentPromptTarget): Res
       }
     }
     case "tapestry": {
-      const renderedPrompt = composeTapestryPrompt({ disabledAgents })
+      const renderedPrompt = composeTapestryPrompt({
+        disabledAgents,
+        experimentalSubagentOrchestration: experimentalTapestrySubagentOrchestration,
+      })
       return {
         target,
         artifacts: {

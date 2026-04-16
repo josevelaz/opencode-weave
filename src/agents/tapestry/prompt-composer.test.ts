@@ -106,6 +106,16 @@ describe("individual tapestry section builders", () => {
     expect(buildTapestryRoleSection()).toContain("execution orchestrator")
   })
 
+  it("buildTapestryRoleSection keeps direct execution by default", () => {
+    expect(buildTapestryRoleSection()).toContain("no subagent delegation")
+  })
+
+  it("buildTapestryRoleSection enables bounded orchestration in experimental mode", () => {
+    const section = buildTapestryRoleSection(true)
+    expect(section).toContain("bounded helper subagents")
+    expect(section).not.toContain("no subagent delegation")
+  })
+
   it("buildTapestryDisciplineSection contains TODO OBSESSION", () => {
     expect(buildTapestryDisciplineSection()).toContain("TODO OBSESSION")
   })
@@ -136,6 +146,22 @@ describe("individual tapestry section builders", () => {
     const section = buildTapestryPlanExecutionSection(new Set(["weft"]))
     expect(section).not.toContain("Weft")
     expect(section).toContain("Verification")
+  })
+
+  it("buildTapestryPlanExecutionSection omits orchestration guidance by default", () => {
+    const section = buildTapestryPlanExecutionSection()
+    expect(section).not.toContain("EXPERIMENTAL EXECUTION-TIME SUBAGENT ORCHESTRATION")
+    expect(section).not.toContain("bounded helper subproblems")
+  })
+
+  it("buildTapestryPlanExecutionSection adds orchestration guardrails when enabled", () => {
+    const section = buildTapestryPlanExecutionSection(new Set(), true)
+    expect(section).toContain("EXPERIMENTAL EXECUTION-TIME SUBAGENT ORCHESTRATION")
+    expect(section).toContain("bounded helper subproblems")
+    expect(section).toContain("MUST NOT delegate to `tapestry`")
+    expect(section).toContain("MUST NOT ask a delegated subagent to spawn or orchestrate more subagents")
+    expect(section).toContain("MUST NOT hand off the entire remaining plan or overall plan ownership")
+    expect(section).toContain("prompt-gated guidance only unless runtime enforcement is added later")
   })
 
   it("buildTapestryContinuationHintSection returns null when no resume paths are enabled", () => {
@@ -169,5 +195,18 @@ describe("individual tapestry section builders", () => {
 
   it("buildTapestryStyleSection contains Dense > verbose", () => {
     expect(buildTapestryStyleSection()).toContain("Dense > verbose")
+  })
+
+  it("composeTapestryPrompt keeps the default no-delegation contract when experimental mode is off", () => {
+    const prompt = composeTapestryPrompt()
+    expect(prompt).toContain("During task execution, you work directly — no subagent delegation.")
+    expect(prompt).not.toContain("EXPERIMENTAL EXECUTION-TIME SUBAGENT ORCHESTRATION")
+  })
+
+  it("composeTapestryPrompt adds guarded orchestration instructions when experimental mode is on", () => {
+    const prompt = composeTapestryPrompt({ experimentalSubagentOrchestration: true })
+    expect(prompt).toContain("bounded helper subagents")
+    expect(prompt).toContain("MUST NOT delegate to `tapestry`")
+    expect(prompt).toContain("prompt-gated guidance only unless runtime enforcement is added later")
   })
 })

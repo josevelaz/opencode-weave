@@ -36,6 +36,7 @@ export type BuiltinEvalAgentName = WeaveAgentName
 
 export interface BuiltinAgentPromptVariant {
   disabledAgents?: string[]
+  experimentalTapestrySubagentOrchestration?: boolean
 }
 
 export interface BuiltinAgentPromptTarget {

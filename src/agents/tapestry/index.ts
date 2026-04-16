@@ -14,15 +14,16 @@ export function createTapestryAgentWithOptions(
   model: string,
   disabledAgents?: Set<string>,
   continuation?: ResolvedContinuationConfig,
+  experimentalSubagentOrchestration = false,
 ): AgentConfig {
   if (!disabledAgents || disabledAgents.size === 0) {
-    if (!continuation) {
+    if (!continuation && !experimentalSubagentOrchestration) {
       return { ...TAPESTRY_DEFAULTS, tools: { ...TAPESTRY_DEFAULTS.tools }, model, mode: "primary" }
     }
     return {
       ...TAPESTRY_DEFAULTS,
       tools: { ...TAPESTRY_DEFAULTS.tools },
-      prompt: composeTapestryPrompt({ continuation }),
+      prompt: composeTapestryPrompt({ continuation, experimentalSubagentOrchestration }),
       model,
       mode: "primary",
     }
@@ -30,7 +31,11 @@ export function createTapestryAgentWithOptions(
   return {
     ...TAPESTRY_DEFAULTS,
     tools: { ...TAPESTRY_DEFAULTS.tools },
-    prompt: composeTapestryPrompt({ disabledAgents, continuation }),
+    prompt: composeTapestryPrompt({
+      disabledAgents,
+      continuation,
+      experimentalSubagentOrchestration,
+    }),
     model,
     mode: "primary",
   }

@@ -252,12 +252,21 @@ describe("E2E: Disabled agents", () => {
     })
 
     const tapestryPrompt = managers.agents["tapestry"]?.prompt ?? ""
+    const reviewSection = tapestryPrompt.slice(
+      tapestryPrompt.indexOf("<PostExecutionReview>"),
+      tapestryPrompt.indexOf("</PostExecutionReview>"),
+    )
+    const planSection = tapestryPrompt.slice(
+      tapestryPrompt.indexOf("<PlanExecution>"),
+      tapestryPrompt.indexOf("</PlanExecution>"),
+    )
 
-    // Tapestry prompt should not reference disabled agent
-    expect(tapestryPrompt).not.toContain("Weft")
+    // Tapestry prompt sections should not reference disabled agent
+    expect(reviewSection).not.toContain("Weft")
+    expect(planSection).not.toContain("Loom should invoke Weft")
 
     // But should still reference warp
-    expect(tapestryPrompt).toContain("Warp")
+    expect(reviewSection).toContain("Warp")
   })
 
   it("disabled custom agent excluded from config handler output", async () => {
@@ -478,7 +487,7 @@ describe("E2E: Prompt semantic equivalence", () => {
     expect(loomPrompt).toContain("Warp")
   })
 
-  it("Tapestry prompt with no options matches default prompt", () => {
+  it("Tapestry prompt with no options keeps execution-time delegation disabled", () => {
     const config = WeaveConfigSchema.parse({})
 
     const managers = createManagers({
@@ -492,6 +501,27 @@ describe("E2E: Prompt semantic equivalence", () => {
     expect(tapestryPrompt).toContain("Tapestry")
     expect(tapestryPrompt).toContain("Weft")
     expect(tapestryPrompt).toContain("Warp")
+    expect(tapestryPrompt).toContain("During task execution, you work directly — no subagent delegation.")
+    expect(tapestryPrompt).not.toContain("EXPERIMENTAL EXECUTION-TIME SUBAGENT ORCHESTRATION")
+  })
+
+  it("experimental config enables guarded Tapestry orchestration wording", () => {
+    const config = WeaveConfigSchema.parse({
+      experimental: { tapestry_subagent_orchestration: true },
+    })
+
+    const managers = createManagers({
+      ctx: makeMockCtx(process.cwd()),
+      pluginConfig: config,
+    })
+
+    const tapestryPrompt = managers.agents["tapestry"]?.prompt ?? ""
+
+    expect(tapestryPrompt).toContain("bounded helper subagents")
+    expect(tapestryPrompt).toContain("EXPERIMENTAL EXECUTION-TIME SUBAGENT ORCHESTRATION")
+    expect(tapestryPrompt).toContain("MUST NOT delegate to `tapestry`")
+    expect(tapestryPrompt).toContain("prompt-gated guidance only unless runtime enforcement is added later")
+    expect(tapestryPrompt).not.toContain("During task execution, you work directly — no subagent delegation.")
   })
 })
 

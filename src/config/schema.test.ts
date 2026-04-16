@@ -185,14 +185,35 @@ describe("WeaveConfigSchema", () => {
       experimental: {
         context_window_warning_threshold: 0.8,
         context_window_critical_threshold: 0.95,
+        tapestry_subagent_orchestration: true,
       },
     })
     expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.experimental?.tapestry_subagent_orchestration).toBe(true)
+    }
+  })
+
+  it("parses experimental tapestry_subagent_orchestration as false", () => {
+    const result = WeaveConfigSchema.safeParse({
+      experimental: { tapestry_subagent_orchestration: false },
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.experimental?.tapestry_subagent_orchestration).toBe(false)
+    }
   })
 
   it("rejects experimental threshold out of range", () => {
     const result = WeaveConfigSchema.safeParse({
       experimental: { context_window_warning_threshold: 1.5 },
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it("rejects invalid experimental tapestry_subagent_orchestration type", () => {
+    const result = WeaveConfigSchema.safeParse({
+      experimental: { tapestry_subagent_orchestration: "true" },
     })
     expect(result.success).toBe(false)
   })

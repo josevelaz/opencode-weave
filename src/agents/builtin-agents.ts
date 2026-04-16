@@ -36,6 +36,8 @@ export interface CreateBuiltinAgentsOptions {
   customAgentMetadata?: AvailableAgent[]
   /** Resolved continuation config for prompt-aware agents */
   continuation?: ResolvedContinuationConfig
+  /** Experimental Tapestry prompt branch for execution-time subagent orchestration */
+  tapestryExperimentalSubagentOrchestration?: boolean
 }
 
 const AGENT_FACTORIES: Record<WeaveAgentName, AgentFactory> = {
@@ -190,6 +192,7 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
     fingerprint,
     customAgentMetadata,
     continuation,
+    tapestryExperimentalSubagentOrchestration = false,
   } = options
 
   const disabledSet = new Set(disabledAgents)
@@ -223,7 +226,12 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
     if (name === "loom") {
       built = createLoomAgentWithOptions(resolvedModel, disabledSet, fingerprint, customAgentMetadata)
     } else if (name === "tapestry") {
-      built = createTapestryAgentWithOptions(resolvedModel, disabledSet, continuation)
+      built = createTapestryAgentWithOptions(
+        resolvedModel,
+        disabledSet,
+        continuation,
+        tapestryExperimentalSubagentOrchestration,
+      )
     } else {
       built = buildAgent(factory, resolvedModel, {
         categories,
