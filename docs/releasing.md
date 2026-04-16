@@ -62,7 +62,7 @@ The presence of a hyphen (`-`) in the version string is what determines whether 
 3. **Commit and push** the version bump and changelog update to `main`.
 
 4. **Create a GitHub Release**:
-   - Go to [Releases](https://github.com/pgermishuys/weave/releases/new)
+   - Go to [Releases](https://github.com/pgermishuys/opencode-weave/releases/new)
    - Tag: `v0.7.0` (must be `v`-prefixed)
    - Target: `main`
    - Title: `v0.7.0`
@@ -97,7 +97,7 @@ There are two ways to publish a preview release.
 
 ### Option B: Manual Workflow Dispatch
 
-1. Go to [Actions → Publish to npm](https://github.com/pgermishuys/weave/actions/workflows/publish.yml)
+1. Go to [Actions → Publish to npm](https://github.com/pgermishuys/opencode-weave/actions/workflows/publish.yml)
 2. Click "Run workflow"
 3. Enter the version (e.g., `0.7.0-beta.1`) — no `v` prefix needed
 4. Click "Run workflow"

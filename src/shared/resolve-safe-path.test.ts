@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { join, resolve, sep } from "path"
+import { join, resolve } from "path"
 import { resolveSafePath } from "./resolve-safe-path"
 
 describe("resolveSafePath", () => {
@@ -21,12 +21,13 @@ describe("resolveSafePath", () => {
   })
 
   it("rejects Windows absolute paths", () => {
-    // On Windows, isAbsolute recognizes C:\... paths
-    // On POSIX, these are just weird relative paths that stay inside the root
-    if (sep === "\\") {
-      expect(resolveSafePath("C:\\Windows\\System32", projectRoot)).toBeNull()
-      expect(resolveSafePath("D:\\other\\project", projectRoot)).toBeNull()
-    }
+    expect(resolveSafePath("C:\\Windows\\System32", projectRoot)).toBeNull()
+    expect(resolveSafePath("D:\\other\\project", projectRoot)).toBeNull()
+  })
+
+  it("rejects leading backslash and UNC-style paths", () => {
+    expect(resolveSafePath("\\foo", projectRoot)).toBeNull()
+    expect(resolveSafePath("\\\\server\\share", projectRoot)).toBeNull()
   })
 
   it("rejects paths that traverse above project root with ..", () => {
