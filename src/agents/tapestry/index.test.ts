@@ -26,7 +26,7 @@ describe("createTapestryAgent", () => {
     expect(config.tools?.["task"]).toBeUndefined()
   })
 
-  it("denies call_weave_agent tool", () => {
+  it("denies call_weave_agent tool by default", () => {
     const config = createTapestryAgent("claude-sonnet-4")
     expect(config.tools?.["call_weave_agent"]).toBe(false)
   })
@@ -119,7 +119,13 @@ describe("createTapestryAgent", () => {
   it("createTapestryAgentWithOptions adds guarded orchestration text when experimental mode is on", () => {
     const config = createTapestryAgentWithOptions("claude-sonnet-4", new Set(), undefined, true)
     expect(config.prompt).toContain("bounded helper subagents")
+    expect(config.prompt).toContain("Task tool or call_weave_agent")
     expect(config.prompt).toContain("MUST NOT delegate to `tapestry`")
+  })
+
+  it("createTapestryAgentWithOptions enables call_weave_agent when experimental mode is on", () => {
+    const config = createTapestryAgentWithOptions("claude-sonnet-4", new Set(), undefined, true)
+    expect(config.tools?.["call_weave_agent"]).toBe(true)
   })
 
   it("verification protocol does NOT mention security-sensitive flagging (removed)", () => {

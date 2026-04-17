@@ -55,7 +55,7 @@ graph TD
 | Weft | *(none)* | Read-only review, no delegation |
 | Warp | *(none)* | Read-only security audit, no delegation |
 
-> **Experimental note**: `experimental.tapestry_subagent_orchestration: true` enables a prompt-only Tapestry variant that can delegate narrowly scoped helper tasks during execution. It does **not** enable `call_weave_agent`, and it explicitly forbids self-delegation, recursive delegation, and handing off the remaining plan.
+> **Experimental note**: `experimental.tapestry_subagent_orchestration: true` enables a Tapestry variant that can delegate narrowly scoped helper tasks during execution. It also enables `call_weave_agent` for that bounded helper path, and it explicitly forbids self-delegation, recursive delegation, and handing off the remaining plan.
 
 ## Workflow A: Plan-Based Execution (Primary Flow)
 

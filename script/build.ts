@@ -1,4 +1,4 @@
-import { resolve } from "path"
+import { resolve } from "path";
 
 // Resolve jsonc-parser to its ESM entry so Bun's bundler inlines the proper
 // ES-module sources instead of the UMD build (which uses dynamic require() for
@@ -8,9 +8,9 @@ const jsoncParserEsm: import("bun").BunPlugin = {
   setup(build) {
     build.onResolve({ filter: /^jsonc-parser$/ }, () => ({
       path: resolve("node_modules/jsonc-parser/lib/esm/main.js"),
-    }))
+    }));
   },
-}
+};
 
 const result = await Bun.build({
   entrypoints: ["./src/index.ts"],
@@ -20,13 +20,16 @@ const result = await Bun.build({
   external: ["@opencode-ai/plugin", "@opencode-ai/sdk", "zod", "picocolors"],
   plugins: [jsoncParserEsm],
   minify: false,
-})
+});
 
 if (!result.success) {
   for (const log of result.logs) {
-    console.error(log)
+    console.error(log);
   }
-  process.exit(1)
+  process.exit(1);
 }
 
-console.log("Build succeeded:", result.outputs.map(o => o.path))
+console.log(
+  "Build succeeded:",
+  result.outputs.map((o) => o.path),
+);

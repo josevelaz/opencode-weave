@@ -265,6 +265,14 @@ describe("AGENT_METADATA", () => {
     expect(prompt).toContain("<Continuation>")
   })
 
+  it("enables call_weave_agent for tapestry when experimental orchestration is on", () => {
+    const agents = createBuiltinAgents({
+      tapestryExperimentalSubagentOrchestration: true,
+    })
+
+    expect(agents["tapestry"]?.tools?.["call_weave_agent"]).toBe(true)
+  })
+
   it("pattern prompt strips thread reference when thread disabled", () => {
     const agents = createBuiltinAgents({ disabledAgents: ["thread"] })
     const prompt = agents["pattern"]?.prompt ?? ""

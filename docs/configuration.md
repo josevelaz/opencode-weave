@@ -131,11 +131,11 @@ The generated JSON Schema above is the authoritative contract for editor tooling
 
 ### Experimental: Tapestry execution-time helper orchestration
 
-`experimental.tapestry_subagent_orchestration` is a boolean opt-in that changes **only Tapestry's prompt**.
+`experimental.tapestry_subagent_orchestration` is a boolean opt-in that changes Tapestry's execution contract.
 
 - **Default**: `false` / unset — Tapestry keeps the normal direct-execution contract (`no subagent delegation` during plan execution).
-- **Enabled**: `true` — Tapestry may use the Task tool for narrowly scoped helper subproblems while still owning todos, acceptance checks, checkbox updates, and user-facing progress.
-- **Safety model**: this rollout is **prompt-gated**, not runtime-enforced. `call_weave_agent` remains disabled.
+- **Enabled**: `true` — Tapestry may use the Task tool or `call_weave_agent` for narrowly scoped helper subproblems while still owning todos, acceptance checks, checkbox updates, and user-facing progress.
+- **Safety model**: this rollout is still primarily **prompt-gated**. Enabling the flag also enables `call_weave_agent` for Tapestry, but the behavioral guardrails remain prompt-driven rather than runtime-enforced.
 - **Hard guardrails**: the enabled prompt forbids delegating to `tapestry`, asking delegated helpers to orchestrate more subagents, or handing off the entire remaining plan.
 
 Example:

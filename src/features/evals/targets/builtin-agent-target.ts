@@ -1,6 +1,6 @@
 import { LOOM_DEFAULTS } from "../../../agents/loom/default"
 import { composeLoomPrompt } from "../../../agents/loom/prompt-composer"
-import { TAPESTRY_DEFAULTS } from "../../../agents/tapestry/default"
+import { buildTapestryToolPolicy, TAPESTRY_DEFAULTS } from "../../../agents/tapestry/default"
 import { composeTapestryPrompt } from "../../../agents/tapestry/prompt-composer"
 import { PATTERN_DEFAULTS } from "../../../agents/pattern/default"
 import { THREAD_DEFAULTS } from "../../../agents/thread/default"
@@ -46,7 +46,7 @@ export function resolveBuiltinAgentTarget(target: BuiltinAgentPromptTarget): Res
         artifacts: {
           renderedPrompt,
           promptLength: renderedPrompt.length,
-          toolPolicy: cloneTools(TAPESTRY_DEFAULTS.tools as Record<string, boolean> | undefined),
+          toolPolicy: buildTapestryToolPolicy(experimentalTapestrySubagentOrchestration),
           agentMetadata: {
             agent: "tapestry",
             description: TAPESTRY_DEFAULTS.description,

@@ -11,11 +11,11 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test"
 import { mkdirSync, writeFileSync, rmSync } from "fs"
 import { join } from "path"
 import type { PluginInput } from "@opencode-ai/plugin"
-import { createManagers } from "../../src/create-managers"
-import { WeaveConfigSchema } from "../../src/config/schema"
-import { getAgentDisplayName, AGENT_DISPLAY_NAMES } from "../../src/shared/agent-display-names"
-import { generateFingerprint } from "../../src/features/analytics/fingerprint"
-import { createSessionTracker } from "../../src/features/analytics/session-tracker"
+import { createManagers } from "./create-managers"
+import { WeaveConfigSchema } from "./config/schema"
+import { getAgentDisplayName, AGENT_DISPLAY_NAMES } from "./shared/agent-display-names"
+import { generateFingerprint } from "./features/analytics/fingerprint"
+import { createSessionTracker } from "./features/analytics/session-tracker"
 
 const TEST_DIR = join(process.cwd(), ".test-e2e-integration")
 
@@ -252,21 +252,12 @@ describe("E2E: Disabled agents", () => {
     })
 
     const tapestryPrompt = managers.agents["tapestry"]?.prompt ?? ""
-    const reviewSection = tapestryPrompt.slice(
-      tapestryPrompt.indexOf("<PostExecutionReview>"),
-      tapestryPrompt.indexOf("</PostExecutionReview>"),
-    )
-    const planSection = tapestryPrompt.slice(
-      tapestryPrompt.indexOf("<PlanExecution>"),
-      tapestryPrompt.indexOf("</PlanExecution>"),
-    )
 
-    // Tapestry prompt sections should not reference disabled agent
-    expect(reviewSection).not.toContain("Weft")
-    expect(planSection).not.toContain("Loom should invoke Weft")
+    // Tapestry prompt should not reference disabled agent
+    expect(tapestryPrompt).not.toContain("Weft")
 
     // But should still reference warp
-    expect(reviewSection).toContain("Warp")
+    expect(tapestryPrompt).toContain("Warp")
   })
 
   it("disabled custom agent excluded from config handler output", async () => {
@@ -487,7 +478,7 @@ describe("E2E: Prompt semantic equivalence", () => {
     expect(loomPrompt).toContain("Warp")
   })
 
-  it("Tapestry prompt with no options keeps execution-time delegation disabled", () => {
+  it("Tapestry prompt with no options matches default prompt", () => {
     const config = WeaveConfigSchema.parse({})
 
     const managers = createManagers({
@@ -496,37 +487,11 @@ describe("E2E: Prompt semantic equivalence", () => {
     })
 
     const tapestryPrompt = managers.agents["tapestry"]?.prompt ?? ""
-    const tapestryTools = managers.agents["tapestry"]?.tools
 
     // Should contain key Tapestry sections
     expect(tapestryPrompt).toContain("Tapestry")
     expect(tapestryPrompt).toContain("Weft")
     expect(tapestryPrompt).toContain("Warp")
-    expect(tapestryPrompt).toContain("During task execution, you work directly — no subagent delegation.")
-    expect(tapestryPrompt).not.toContain("EXPERIMENTAL EXECUTION-TIME SUBAGENT ORCHESTRATION")
-    expect(tapestryTools?.call_weave_agent).toBe(false)
-  })
-
-  it("experimental config enables guarded Tapestry orchestration wording", () => {
-    const config = WeaveConfigSchema.parse({
-      experimental: { tapestry_subagent_orchestration: true },
-    })
-
-    const managers = createManagers({
-      ctx: makeMockCtx(process.cwd()),
-      pluginConfig: config,
-    })
-
-    const tapestryPrompt = managers.agents["tapestry"]?.prompt ?? ""
-    const tapestryTools = managers.agents["tapestry"]?.tools
-
-    expect(tapestryPrompt).toContain("bounded helper subagents")
-    expect(tapestryPrompt).toContain("EXPERIMENTAL EXECUTION-TIME SUBAGENT ORCHESTRATION")
-    expect(tapestryPrompt).toContain("Task tool or call_weave_agent")
-    expect(tapestryPrompt).toContain("MUST NOT delegate to `tapestry`")
-    expect(tapestryPrompt).toContain("prompt-gated guidance only unless runtime enforcement is added later")
-    expect(tapestryPrompt).not.toContain("During task execution, you work directly — no subagent delegation.")
-    expect(tapestryTools?.call_weave_agent).toBe(true)
   })
 })
 

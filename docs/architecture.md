@@ -99,7 +99,7 @@ Weave defines **8 specialized agents**, each with a distinct role and set of con
 | Agent | Role | Mode | Cost | Tool Access |
 |-------|------|------|------|-------------|
 | **Loom** | Main orchestrator — plans tasks, delegates work | primary | expensive | Full |
-| **Tapestry** | Execution engine — works through plan checkboxes | primary | expensive | Full (`call_weave_agent: false`; default direct execution, optional experimental bounded Task-tool delegation) |
+| **Tapestry** | Execution engine — works through plan checkboxes | primary | expensive | Full (default `call_weave_agent: false`; experimental mode enables bounded helper delegation) |
 | **Shuttle** | Category specialist — domain-specific work | all | cheap | Full |
 | **Pattern** | Strategic planner — creates `.md` plan files | subagent | expensive | Guarded (`.weave/` only) |
 | **Thread** | Codebase explorer — fast search & analysis | subagent | free | Read-only |
@@ -126,7 +126,7 @@ Weave defines **8 specialized agents**, each with a distinct role and set of con
 ### Key Invariants
 
 - **Pattern** can only write `.md` files inside `.weave/` (enforced by hook)
-- **Tapestry** defaults to direct execution; when `experimental.tapestry_subagent_orchestration` is enabled it may only delegate bounded helper work via prompt guidance, with `call_weave_agent` still disabled
+- **Tapestry** defaults to direct execution; when `experimental.tapestry_subagent_orchestration` is enabled it may delegate bounded helper work and gains `call_weave_agent` for that path, while prompt guardrails still forbid self-delegation, recursive delegation, and full-plan handoff
 - **Tapestry** must not delegate to itself, recurse through delegated helpers, or hand off overall plan ownership
 - **Thread / Spindle / Weft / Warp** are read-only (write/edit tools disabled)
 - **Warp** has a skeptical security bias (rejects by default on security patterns)

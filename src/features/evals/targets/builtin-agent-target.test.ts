@@ -26,8 +26,10 @@ describe("resolveBuiltinAgentTarget", () => {
 
     expect(result.artifacts.agentMetadata?.sourceKind).toBe("composer")
     expect(result.artifacts.renderedPrompt).toContain("EXPERIMENTAL EXECUTION-TIME SUBAGENT ORCHESTRATION")
+    expect(result.artifacts.renderedPrompt).toContain("Task tool or call_weave_agent")
     expect(result.artifacts.renderedPrompt).toContain("MUST NOT delegate to `tapestry`")
     expect(result.artifacts.renderedPrompt).not.toContain("During task execution, you work directly — no subagent delegation.")
+    expect(result.artifacts.toolPolicy).toEqual({ call_weave_agent: true })
   })
 
   it("resolves default-agent prompts", () => {

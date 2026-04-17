@@ -21,6 +21,7 @@
       "section": "PlanExecution",
       "patterns": [
         "EXPERIMENTAL EXECUTION-TIME SUBAGENT ORCHESTRATION",
+        "Task tool or call_weave_agent",
         "MUST NOT delegate to `tapestry`",
         "MUST NOT ask a delegated subagent to spawn or orchestrate more subagents",
         "MUST NOT hand off the entire remaining plan or overall plan ownership",
@@ -28,6 +29,6 @@
       ]
     },
     { "kind": "excludes-all", "patterns": ["During task execution, you work directly — no subagent delegation."] },
-    { "kind": "tool-policy", "expectations": { "call_weave_agent": false } }
+    { "kind": "tool-policy", "expectations": { "call_weave_agent": true } }
   ]
 }

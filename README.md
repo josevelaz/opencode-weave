@@ -44,7 +44,7 @@ Tapestry still defaults to direct, sequential plan execution. If you explicitly 
 }
 ```
 
-Weave switches Tapestry onto an alternate prompt contract that allows **bounded helper subagent work during execution**. This first version is **prompt-gated only** — it does not add runtime interception or broaden tool permissions. `call_weave_agent` stays disabled, and the prompt explicitly forbids self-delegation, recursive delegation, and handing off the rest of the plan.
+Weave switches Tapestry onto an alternate prompt contract that allows **bounded helper subagent work during execution**. In this mode, `call_weave_agent` is enabled specifically for that bounded helper path, and the prompt explicitly forbids self-delegation, recursive delegation, and handing off the rest of the plan.
 
 ## Agents
 

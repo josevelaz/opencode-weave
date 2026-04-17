@@ -112,7 +112,7 @@ describe("individual tapestry section builders", () => {
 
   it("buildTapestryRoleSection enables bounded orchestration in experimental mode", () => {
     const section = buildTapestryRoleSection(true)
-    expect(section).toContain("bounded helper subagents")
+    expect(section).toContain("parallel specialized subagents")
     expect(section).not.toContain("no subagent delegation")
   })
 
@@ -157,7 +157,10 @@ describe("individual tapestry section builders", () => {
   it("buildTapestryPlanExecutionSection adds orchestration guardrails when enabled", () => {
     const section = buildTapestryPlanExecutionSection(new Set(), true)
     expect(section).toContain("EXPERIMENTAL EXECUTION-TIME SUBAGENT ORCHESTRATION")
-    expect(section).toContain("bounded helper subproblems")
+    expect(section).toContain("Task tool or call_weave_agent")
+    expect(section).toContain("Parallelize independent helper subproblems")
+    expect(section).toContain("Call specialized subagents directly")
+    expect(section).toContain('MUST NOT call a "general" subagent')
     expect(section).toContain("MUST NOT delegate to `tapestry`")
     expect(section).toContain("MUST NOT ask a delegated subagent to spawn or orchestrate more subagents")
     expect(section).toContain("MUST NOT hand off the entire remaining plan or overall plan ownership")
@@ -205,7 +208,10 @@ describe("individual tapestry section builders", () => {
 
   it("composeTapestryPrompt adds guarded orchestration instructions when experimental mode is on", () => {
     const prompt = composeTapestryPrompt({ experimentalSubagentOrchestration: true })
-    expect(prompt).toContain("bounded helper subagents")
+    expect(prompt).toContain("parallel specialized subagents")
+    expect(prompt).toContain("Task tool or call_weave_agent")
+    expect(prompt).toContain("Call specialized subagents directly")
+    expect(prompt).toContain('MUST NOT call a "general" subagent')
     expect(prompt).toContain("MUST NOT delegate to `tapestry`")
     expect(prompt).toContain("prompt-gated guidance only unless runtime enforcement is added later")
   })
