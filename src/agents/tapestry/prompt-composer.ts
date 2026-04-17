@@ -111,15 +111,10 @@ BEFORE FINISHING (MANDATORY):
 </SidebarTodos>`
 }
 
-export function buildTapestryDelegationSection(categoryNames?: string[]): string {
-  const hasCategories = categoryNames && categoryNames.length > 0
-  let subagentType: string
-  if (hasCategories) {
-    const examples = categoryNames!.slice(0, 2).map((c) => `"shuttle-${c}"`).join(", ")
-    subagentType = `subagent_type matching the task category (e.g., ${examples}, or "shuttle" for unmatched — see <CategoryRouting>)`
-  } else {
-    subagentType = `subagent_type="shuttle"`
-  }
+export function buildTapestryDelegationSection(hasCategories = false): string {
+  const subagentType = hasCategories
+    ? 'subagent_type="shuttle-{category}" (or "shuttle" for unmatched tasks)'
+    : 'subagent_type="shuttle"'
 
   return `<Delegation>
 For each plan task, delegate to a Shuttle agent via the Task tool. Use this contract:
@@ -145,7 +140,6 @@ RULES:
 </Delegation>`
 }
 
-
 export function buildTapestryParallelismSection(): string {
   return `<Parallelism>
 Analyse task dependencies before delegating. Group tasks into parallel batches where safe.
@@ -169,31 +163,25 @@ EXAMPLE — sequential:
 }
 
 export function buildTapestryCategoryRoutingSection(categories: CategoriesConfig): string | null {
-  const allEntries = Object.entries(categories)
-  if (allEntries.length === 0) return null
+  const categoriesWithPatterns = Object.entries(categories).filter(
+    ([, config]) => config.patterns && config.patterns.length > 0,
+  )
 
-  const withPatterns = allEntries.filter(([, cfg]) => cfg.patterns && cfg.patterns.length > 0)
-  const withoutPatterns = allEntries.filter(([, cfg]) => !cfg.patterns || cfg.patterns.length === 0)
-
-  const patternLines = withPatterns
-    .map(([name, config]) => `  - shuttle-${name}: patterns [${config.patterns!.join(", ")}]`)
-    .join("\n")
-  const noPatternLines = withoutPatterns
-    .map(([name]) => `  - shuttle-${name}: (no file patterns — use by task domain)`)
-    .join("\n")
-
-  let agentListing: string
-  if (withPatterns.length > 0 && withoutPatterns.length > 0) {
-    agentListing = patternLines + "\n" + noPatternLines
-  } else if (withPatterns.length > 0) {
-    agentListing = patternLines
-  } else {
-    agentListing = noPatternLines
+  if (categoriesWithPatterns.length === 0) {
+    return null
   }
 
-  const routingSection =
-    withPatterns.length > 0
-      ? `
+  const categoryLines = categoriesWithPatterns
+    .map(([name, config]) => `  - shuttle-${name}: patterns [${config.patterns!.join(", ")}]`)
+    .join("\n")
+
+  return `<CategoryRouting>
+Category-specific Shuttle agents are available. Route tasks to the correct agent:
+
+AVAILABLE CATEGORY AGENTS:
+${categoryLines}
+  - shuttle: fallback for tasks that match no category patterns
+
 ROUTING PRIORITY (apply in order):
 1. Explicit tag on task: \`[category: name]\` → use \`shuttle-{name}\`
 2. Match task's **Files** against category patterns → use first matching \`shuttle-{category}\`
@@ -202,19 +190,7 @@ ROUTING PRIORITY (apply in order):
 RULES:
 - Use the category agent's name as subagent_type (e.g., subagent_type="shuttle-frontend")
 - Tasks in different categories CAN run in parallel if their file sets are disjoint
-- Always fall back to generic \`shuttle\` if the named category agent is unavailable`
-      : `
-RULES:
-- Use the category agent's name as subagent_type (e.g., subagent_type="shuttle-backend")
-- Always fall back to generic \`shuttle\` if the named category agent is unavailable`
-
-  return `<CategoryRouting>
-Category-specific Shuttle agents are available. Route tasks to the correct agent:
-
-AVAILABLE CATEGORY AGENTS:
-${agentListing}
-  - shuttle: fallback for tasks that match no category patterns
-${routingSection}
+- Always fall back to generic \`shuttle\` if the named category agent is unavailable
 </CategoryRouting>`
 }
 
@@ -412,14 +388,14 @@ export function composeTapestryPrompt(options: TapestryPromptOptions = {}): stri
   const categoryRouting = options.categories
     ? buildTapestryCategoryRoutingSection(options.categories)
     : null
-  const categoryNames = options.categories ? Object.keys(options.categories) : []
+  const hasCategories = categoryRouting !== null
 
   const sections = [
     buildTapestryRoleSection(),
     buildTapestryInvariantSection(),
     buildTapestryDisciplineSection(),
     buildTapestrySidebarTodosSection(),
-    buildTapestryDelegationSection(categoryNames.length > 0 ? categoryNames : undefined),
+    buildTapestryDelegationSection(hasCategories),
     buildTapestryParallelismSection(),
     categoryRouting,
     buildTapestryPlanExecutionSection(disabled),
