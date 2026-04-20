@@ -251,6 +251,12 @@
               },
               "disable": {
                 "type": "boolean"
+              },
+              "patterns": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               }
             },
             "additionalProperties": false
