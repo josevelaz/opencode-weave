@@ -190,9 +190,10 @@ export function buildStyleSection(): string {
 }
 
 /**
- * Build a category routing section listing shuttle-{category} agents for
- * categories that have patterns defined. Returns empty string when no
- * categories with patterns exist or shuttle is disabled.
+ * Build a category routing section listing shuttle-{category} agents.
+ * Categories with patterns get file-pattern routing guidance.
+ * Categories without patterns are still listed as available specialists.
+ * Returns empty string when no categories exist or shuttle is disabled.
  */
 export function buildCategoryRoutingSection(
   categories: CategoriesConfig | undefined,
@@ -200,25 +201,45 @@ export function buildCategoryRoutingSection(
 ): string {
   if (!categories || !isAgentEnabled("shuttle", disabled)) return ""
 
-  const routingLines: string[] = []
+  const withPatterns: string[] = []
+  const withoutPatterns: string[] = []
   for (const [name, cfg] of Object.entries(categories)) {
-    if (!cfg.patterns?.length) continue
     const agentName = `shuttle-${name}`
     if (!isAgentEnabled(agentName, disabled)) continue
     const desc = cfg.description ? ` — ${cfg.description}` : ""
-    const patterns = cfg.patterns.join(", ")
-    routingLines.push(`- \`${agentName}\`${desc} (patterns: ${patterns})`)
+    if (cfg.patterns?.length) {
+      const patterns = cfg.patterns.join(", ")
+      withPatterns.push(`- \`${agentName}\`${desc} (patterns: ${patterns})`)
+    } else {
+      withoutPatterns.push(`- \`${agentName}\`${desc}`)
+    }
   }
 
-  if (routingLines.length === 0) return ""
+  if (withPatterns.length === 0 && withoutPatterns.length === 0) return ""
 
-  return `<CategoryRouting>
-Prefer category-specific shuttle agents when file patterns match the task:
+  const lines: string[] = []
 
-${routingLines.join("\n")}
+  if (withPatterns.length > 0) {
+    lines.push("Prefer category-specific shuttle agents when file patterns match the task:")
+    lines.push("")
+    lines.push(...withPatterns)
+    if (withoutPatterns.length > 0) {
+      lines.push("")
+      lines.push("Also available (no file-pattern routing — use when task domain is clear):")
+      lines.push("")
+      lines.push(...withoutPatterns)
+    }
+    lines.push("")
+    lines.push(
+      "Use `shuttle-{category}` instead of generic `shuttle` when the task matches a category's patterns.",
+    )
+  } else {
+    lines.push("Category-specific shuttle agents are available — use by task domain:")
+    lines.push("")
+    lines.push(...withoutPatterns)
+  }
 
-Use \`shuttle-{category}\` instead of generic \`shuttle\` when the task matches a category's patterns.
-</CategoryRouting>`
+  return `<CategoryRouting>\n${lines.join("\n")}\n</CategoryRouting>`
 }
 
 /**

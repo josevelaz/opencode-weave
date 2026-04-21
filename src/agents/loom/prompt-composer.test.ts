@@ -437,9 +437,11 @@ describe("buildCategoryRoutingSection", () => {
     expect(buildCategoryRoutingSection({}, new Set())).toBe("")
   })
 
-  it("returns empty string when no category has patterns", () => {
+  it("returns non-empty string when categories have no patterns", () => {
     const cats = { frontend: { description: "Frontend work" } }
-    expect(buildCategoryRoutingSection(cats, new Set())).toBe("")
+    const result = buildCategoryRoutingSection(cats, new Set())
+    expect(result).toContain("<CategoryRouting>")
+    expect(result).toContain("`shuttle-frontend`")
   })
 
   it("returns empty string when shuttle is disabled", () => {
@@ -479,14 +481,15 @@ describe("buildCategoryRoutingSection", () => {
     expect(buildCategoryRoutingSection(cats, new Set(["shuttle-frontend"]))).toBe("")
   })
 
-  it("skips categories without patterns even if other props present", () => {
+  it("lists categories without patterns in an 'Also available' subsection", () => {
     const cats = {
       frontend: { description: "UI", patterns: ["src/ui/**"] },
       docs: { description: "Docs only" },
     }
     const result = buildCategoryRoutingSection(cats, new Set())
     expect(result).toContain("`shuttle-frontend`")
-    expect(result).not.toContain("shuttle-docs")
+    expect(result).toContain("Also available")
+    expect(result).toContain("`shuttle-docs`")
   })
 })
 
@@ -496,9 +499,10 @@ describe("composeLoomPrompt with categories", () => {
     expect(prompt).not.toContain("<CategoryRouting>")
   })
 
-  it("does not include CategoryRouting when categories have no patterns", () => {
+  it("includes CategoryRouting even when categories have no patterns", () => {
     const prompt = composeLoomPrompt({ categories: { frontend: { description: "UI" } } })
-    expect(prompt).not.toContain("<CategoryRouting>")
+    expect(prompt).toContain("<CategoryRouting>")
+    expect(prompt).toContain("shuttle-frontend")
   })
 
   it("includes CategoryRouting when categories with patterns are configured", () => {
@@ -527,9 +531,9 @@ describe("composeLoomPrompt with categories", () => {
     expect(withUndefined).toBe(defaultPrompt)
   })
 
-  it("produces identical output to default when categories have no patterns", () => {
+  it("differs from default output when categories with no patterns are provided", () => {
     const defaultPrompt = composeLoomPrompt()
     const withNoPatterned = composeLoomPrompt({ categories: { frontend: {} } })
-    expect(withNoPatterned).toBe(defaultPrompt)
+    expect(withNoPatterned).not.toBe(defaultPrompt)
   })
 })

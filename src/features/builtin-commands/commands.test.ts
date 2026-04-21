@@ -78,7 +78,7 @@ describe("START_WORK_TEMPLATE — delegation semantics", () => {
   })
 
   it("explicitly forbids direct implementation", () => {
-    expect(START_WORK_TEMPLATE).toContain("do not implement work directly")
+    expect(START_WORK_TEMPLATE).toContain("do NOT implement work directly")
   })
 
   it("contains delegation prompt template with required fields", () => {

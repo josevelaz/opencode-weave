@@ -8,7 +8,6 @@ const BUILTIN_AGENT_NAMES = ["loom", "tapestry", "shuttle", "pattern", "thread",
  * Includes:
  * - Built-in agents that are not disabled
  * - Custom agents that are not disabled
-<<<<<<< HEAD
  * - `shuttle-{category}` agents for all defined categories (patterns only affect
  *   routing hints in Tapestry's prompt, not agent existence),
  *   as long as the base `shuttle` agent is not disabled and the specific
