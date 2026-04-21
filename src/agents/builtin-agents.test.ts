@@ -326,6 +326,18 @@ describe("AGENT_METADATA", () => {
     expect(agents["shuttle-backend"]).toBeDefined()
   })
 
+  it("category shuttle has category-specific description", () => {
+    const agents = createBuiltinAgents({
+      categories: {
+        frontend: { patterns: ["*.tsx"], model: "fast-model" },
+      },
+      availableModels: new Set(["fast-model"]),
+    })
+    const desc = agents["shuttle-frontend"]?.description ?? ""
+    expect(desc).toContain("frontend")
+    expect(desc).not.toBe(agents["shuttle"]?.description)
+  })
+
   it("base shuttle agent always registered even when categories have patterns", () => {
     const agents = createBuiltinAgents({
       categories: {

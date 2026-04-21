@@ -395,7 +395,7 @@ export function composeTapestryPrompt(options: TapestryPromptOptions = {}): stri
     : null
   const categoryNames = options.categories
     ? Object.entries(options.categories)
-      .filter(([, config]) => config.patterns && config.patterns.length > 0)
+      .filter(([, cfg]) => cfg.patterns && cfg.patterns.length > 0)
       .map(([name]) => name)
     : undefined
 
