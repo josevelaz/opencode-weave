@@ -288,6 +288,7 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
         ...baseShuttle,
         model: categoryModel,
         prompt: categoryPrompt,
+        mode: "subagent",
         ...(categoryConfig.temperature !== undefined && { temperature: categoryConfig.temperature }),
         // Categories always inherit Shuttle's base tool policy. When `tools` is present,
         // even as `{}`, treat it as "merge no overrides" rather than "clear all tools" so

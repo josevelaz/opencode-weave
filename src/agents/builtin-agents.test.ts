@@ -371,4 +371,25 @@ describe("AGENT_METADATA", () => {
     expect(agents["shuttle-frontend"]?.tools?.["call_weave_agent"]).toBe(false)
     expect(agents["shuttle-frontend"]?.tools?.["web_search"]).toBe(true)
   })
+
+  it("category shuttle agents have mode 'subagent'", () => {
+    const agents = createBuiltinAgents({
+      categories: {
+        frontend: { patterns: ["*.tsx"] },
+        backend: { patterns: ["*.go"], model: "claude-opus-4" },
+      },
+      availableModels: new Set(["claude-opus-4"]),
+    })
+    expect(agents["shuttle-frontend"]?.mode).toBe("subagent")
+    expect(agents["shuttle-backend"]?.mode).toBe("subagent")
+  })
+
+  it("base shuttle agent mode is unchanged ('all') when categories are registered", () => {
+    const agents = createBuiltinAgents({
+      categories: {
+        frontend: { patterns: ["*.tsx"] },
+      },
+    })
+    expect(agents["shuttle"]?.mode).toBe("all")
+  })
 })
