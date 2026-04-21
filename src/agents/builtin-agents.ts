@@ -260,8 +260,6 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
   if (categories && result["shuttle"]) {
     const baseShuttle = result["shuttle"]
     for (const [categoryName, categoryConfig] of Object.entries(categories)) {
-      if (!categoryConfig.patterns?.length) continue
-
       const categoryAgentName = `shuttle-${categoryName}`
       if (disabledSet.has(categoryAgentName)) {
         debug(`Category shuttle agent "${categoryAgentName}" is disabled — skipping`)

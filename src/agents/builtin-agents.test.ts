@@ -315,14 +315,15 @@ describe("AGENT_METADATA", () => {
     expect(agents["shuttle-frontend"]?.prompt).toContain("React expert")
   })
 
-  it("does not register shuttle-{category} agents for categories without patterns", () => {
+  it("registers shuttle-{category} agents for categories without patterns", () => {
     const agents = createBuiltinAgents({
       categories: {
         backend: { model: "claude-opus-4", temperature: 0.3 },
       },
+      availableModels: new Set(["claude-opus-4"]),
     })
     expect(agents["shuttle"]).toBeDefined()
-    expect(agents["shuttle-backend"]).toBeUndefined()
+    expect(agents["shuttle-backend"]).toBeDefined()
   })
 
   it("base shuttle agent always registered even when categories have patterns", () => {

@@ -217,19 +217,27 @@ describe("individual tapestry section builders", () => {
 })
 
 describe("buildTapestryCategoryRoutingSection", () => {
-  it("returns null when no categories have patterns", () => {
+  it("returns null when no categories are configured", () => {
     expect(buildTapestryCategoryRoutingSection({})).toBeNull()
-    expect(buildTapestryCategoryRoutingSection({ backend: { model: "claude-opus-4" } })).toBeNull()
   })
 
-  it("returns null when all categories lack patterns", () => {
-    expect(
-      buildTapestryCategoryRoutingSection({
-        frontend: { model: "claude-sonnet-4" },
-        backend: { patterns: [] },
-        docs: {},
-      }),
-    ).toBeNull()
+  it("includes categories even when they lack patterns", () => {
+    const section = buildTapestryCategoryRoutingSection({ backend: { model: "claude-opus-4" } })
+    expect(section).not.toBeNull()
+    expect(section).toContain("shuttle-backend")
+    expect(section).toContain("no file patterns")
+  })
+
+  it("includes all categories even when all lack patterns", () => {
+    const section = buildTapestryCategoryRoutingSection({
+      frontend: { model: "claude-sonnet-4" },
+      backend: { patterns: [] },
+      docs: {},
+    })
+    expect(section).not.toBeNull()
+    expect(section).toContain("shuttle-frontend")
+    expect(section).toContain("shuttle-backend")
+    expect(section).toContain("shuttle-docs")
   })
 
   it("returns a section when at least one category has patterns", () => {
@@ -293,19 +301,21 @@ describe("composeTapestryPrompt with categories", () => {
     expect(prompt).not.toContain("<CategoryRouting>")
   })
 
-  it("omits CategoryRouting section when categories have no patterns", () => {
+  it("includes CategoryRouting section when categories have no patterns", () => {
     const prompt = composeTapestryPrompt({
       categories: { backend: { model: "claude-opus-4" } },
     })
-    expect(prompt).not.toContain("<CategoryRouting>")
+    expect(prompt).toContain("<CategoryRouting>")
+    expect(prompt).toContain("shuttle-backend")
   })
 
-  it("delegation section uses shuttle-{category} when categories present", () => {
+  it("delegation section uses concrete category agent names when categories present", () => {
     const prompt = composeTapestryPrompt({
       categories: { frontend: { patterns: ["*.tsx"] } },
     })
     const delegationSection = prompt.slice(prompt.indexOf("<Delegation>"), prompt.indexOf("</Delegation>"))
-    expect(delegationSection).toContain("shuttle-{category}")
+    expect(delegationSection).toContain("shuttle-frontend")
+    expect(delegationSection).not.toContain("shuttle-{category}")
   })
 
   it("delegation section uses plain shuttle when no categories", () => {
