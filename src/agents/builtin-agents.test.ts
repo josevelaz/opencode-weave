@@ -393,4 +393,16 @@ describe("AGENT_METADATA", () => {
     })
     expect(agents["shuttle"]?.mode).toBe("all")
   })
+
+  it("creates category shuttle agent with category-specific description", () => {
+    const agents = createBuiltinAgents({
+      categories: {
+        frontend: {
+          patterns: ["*.tsx"],
+        },
+      },
+    })
+    expect(agents["shuttle-frontend"]?.description).toContain("frontend")
+    expect(agents["shuttle-frontend"]?.description).not.toBe(agents["shuttle"]?.description)
+  })
 })

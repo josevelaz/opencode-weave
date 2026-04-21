@@ -111,10 +111,15 @@ BEFORE FINISHING (MANDATORY):
 </SidebarTodos>`
 }
 
-export function buildTapestryDelegationSection(hasCategories = false): string {
-  const subagentType = hasCategories
-    ? 'subagent_type="shuttle-{category}" (or "shuttle" for unmatched tasks)'
-    : 'subagent_type="shuttle"'
+export function buildTapestryDelegationSection(categoryNames?: string[]): string {
+  const hasCategories = categoryNames && categoryNames.length > 0
+  let subagentType: string
+  if (hasCategories) {
+    const examples = categoryNames!.slice(0, 2).map((c) => `"shuttle-${c}"`).join(", ")
+    subagentType = `subagent_type matching the task category (e.g., ${examples}, or "shuttle" for unmatched — see <CategoryRouting>)`
+  } else {
+    subagentType = 'subagent_type="shuttle"'
+  }
 
   return `<Delegation>
 For each plan task, delegate to a Shuttle agent via the Task tool. Use this contract:
@@ -388,14 +393,18 @@ export function composeTapestryPrompt(options: TapestryPromptOptions = {}): stri
   const categoryRouting = options.categories
     ? buildTapestryCategoryRoutingSection(options.categories)
     : null
-  const hasCategories = categoryRouting !== null
+  const categoryNames = options.categories
+    ? Object.entries(options.categories)
+      .filter(([, config]) => config.patterns && config.patterns.length > 0)
+      .map(([name]) => name)
+    : undefined
 
   const sections = [
     buildTapestryRoleSection(),
     buildTapestryInvariantSection(),
     buildTapestryDisciplineSection(),
     buildTapestrySidebarTodosSection(),
-    buildTapestryDelegationSection(hasCategories),
+    buildTapestryDelegationSection(categoryNames),
     buildTapestryParallelismSection(),
     categoryRouting,
     buildTapestryPlanExecutionSection(disabled),

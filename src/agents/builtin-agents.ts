@@ -221,7 +221,7 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
     // so their prompts conditionally omit references to disabled agents
     let built: AgentConfigWithOptions
     if (name === "loom") {
-      built = createLoomAgentWithOptions(resolvedModel, disabledSet, fingerprint, customAgentMetadata)
+      built = createLoomAgentWithOptions(resolvedModel, disabledSet, fingerprint, customAgentMetadata, categories)
     } else if (name === "tapestry") {
       built = createTapestryAgentWithOptions(resolvedModel, disabledSet, continuation, categories)
     } else {
@@ -284,6 +284,7 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
       const categoryToolOverrides = categoryConfig.tools
       const categoryShuttle: AgentConfig = {
         ...baseShuttle,
+        description: `Shuttle (${categoryName} specialist) — handles ${categoryName} domain tasks dispatched by Tapestry`,
         model: categoryModel,
         prompt: categoryPrompt,
         mode: "subagent",

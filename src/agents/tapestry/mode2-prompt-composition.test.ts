@@ -81,15 +81,17 @@ describe("Mode 2 prompt composition — full composed prompt", () => {
     expect(categoryRoutingSection).toContain("*.tsx")
     expect(categoryRoutingSection).not.toContain("shuttle-backend")
     expect(delegationSection).not.toBeNull()
-    expect(delegationSection).toContain("shuttle-{category}")
+    expect(delegationSection).toContain("shuttle-frontend")
+    expect(delegationSection).not.toContain("shuttle-{category}")
   })
 
-  it("composed prompt with categories uses shuttle-{category} in delegation section", () => {
+  it("composed prompt with categories uses concrete agent names in delegation section", () => {
     const prompt = composeTapestryPrompt({
       categories: { frontend: { patterns: ["*.tsx"] } },
     })
     const delegationSection = prompt.slice(prompt.indexOf("<Delegation>"), prompt.indexOf("</Delegation>"))
-    expect(delegationSection).toContain("shuttle-{category}")
+    expect(delegationSection).toContain("shuttle-frontend")
+    expect(delegationSection).not.toContain("shuttle-{category}")
   })
 
   it("omits CategoryRouting and keeps plain shuttle delegation when no categories are provided", () => {

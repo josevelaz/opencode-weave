@@ -429,15 +429,17 @@ describe("composeLoomPrompt with custom agents", () => {
 })
 
 describe("buildCategoryRoutingSection", () => {
-  it("returns empty string when no categories", () => {
+  it("returns empty string when categories is undefined", () => {
+    expect(buildCategoryRoutingSection(undefined, new Set())).toBe("")
+  })
+
+  it("returns empty string when categories is empty", () => {
     expect(buildCategoryRoutingSection({}, new Set())).toBe("")
   })
 
-  it("returns non-empty string when categories have no patterns", () => {
+  it("returns empty string when no category has patterns", () => {
     const cats = { frontend: { description: "Frontend work" } }
-    const result = buildCategoryRoutingSection(cats, new Set())
-    expect(result).toContain("<CategoryRouting>")
-    expect(result).toContain("`shuttle-frontend`")
+    expect(buildCategoryRoutingSection(cats, new Set())).toBe("")
   })
 
   it("returns empty string when shuttle is disabled", () => {
@@ -477,15 +479,14 @@ describe("buildCategoryRoutingSection", () => {
     expect(buildCategoryRoutingSection(cats, new Set(["shuttle-frontend"]))).toBe("")
   })
 
-  it("lists categories without patterns in an 'Also available' subsection", () => {
+  it("skips categories without patterns even if other props present", () => {
     const cats = {
       frontend: { description: "UI", patterns: ["src/ui/**"] },
       docs: { description: "Docs only" },
     }
     const result = buildCategoryRoutingSection(cats, new Set())
     expect(result).toContain("`shuttle-frontend`")
-    expect(result).toContain("Also available")
-    expect(result).toContain("`shuttle-docs`")
+    expect(result).not.toContain("shuttle-docs")
   })
 })
 
@@ -495,10 +496,9 @@ describe("composeLoomPrompt with categories", () => {
     expect(prompt).not.toContain("<CategoryRouting>")
   })
 
-  it("includes CategoryRouting even when categories have no patterns", () => {
+  it("does not include CategoryRouting when categories have no patterns", () => {
     const prompt = composeLoomPrompt({ categories: { frontend: { description: "UI" } } })
-    expect(prompt).toContain("<CategoryRouting>")
-    expect(prompt).toContain("shuttle-frontend")
+    expect(prompt).not.toContain("<CategoryRouting>")
   })
 
   it("includes CategoryRouting when categories with patterns are configured", () => {
@@ -527,9 +527,9 @@ describe("composeLoomPrompt with categories", () => {
     expect(withUndefined).toBe(defaultPrompt)
   })
 
-  it("differs from default output when categories with no patterns are provided", () => {
+  it("produces identical output to default when categories have no patterns", () => {
     const defaultPrompt = composeLoomPrompt()
     const withNoPatterned = composeLoomPrompt({ categories: { frontend: {} } })
-    expect(withNoPatterned).not.toBe(defaultPrompt)
+    expect(withNoPatterned).toBe(defaultPrompt)
   })
 })

@@ -290,12 +290,13 @@ describe("composeTapestryPrompt with categories", () => {
     expect(prompt).not.toContain("<CategoryRouting>")
   })
 
-  it("delegation section uses shuttle-{category} when categories present", () => {
+  it("delegation section uses concrete category agent names when categories present", () => {
     const prompt = composeTapestryPrompt({
       categories: { frontend: { patterns: ["*.tsx"] } },
     })
     const delegationSection = prompt.slice(prompt.indexOf("<Delegation>"), prompt.indexOf("</Delegation>"))
-    expect(delegationSection).toContain("shuttle-{category}")
+    expect(delegationSection).toContain("shuttle-frontend")
+    expect(delegationSection).not.toContain("shuttle-{category}")
   })
 
   it("delegation section uses plain shuttle when no categories", () => {
